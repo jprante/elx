@@ -1,0 +1,117 @@
+
+plugins {
+    id "org.sonarqube" version "2.2"
+    id "org.ajoberstar.github-pages" version "1.6.0-rc.1"
+    id "org.xbib.gradle.plugin.jbake" version "1.1.0"
+}
+
+group = 'org.xbib'
+version = '2.2.1.0'
+
+printf "Host: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGroovy: %s\nGradle: %s\n" +
+        "Build: group: ${project.group} name: ${project.name} version: ${project.version}\n",
+        InetAddress.getLocalHost(),
+        System.getProperty("os.name"),
+        System.getProperty("os.arch"),
+        System.getProperty("os.version"),
+        System.getProperty("java.version"),
+        System.getProperty("java.vm.version"),
+        System.getProperty("java.vm.vendor"),
+        System.getProperty("java.vm.name"),
+        GroovySystem.getVersion(),
+        gradle.gradleVersion
+
+apply plugin: 'java'
+apply plugin: 'maven'
+apply plugin: 'signing'
+apply plugin: 'findbugs'
+apply plugin: 'pmd'
+apply plugin: 'checkstyle'
+apply plugin: "jacoco"
+apply plugin: 'org.ajoberstar.github-pages'
+
+apply from: 'gradle/ext.gradle'
+
+sourceSets {
+    integrationTest {
+        java {
+            srcDir file('src/integration-test/java')
+            compileClasspath += main.output
+            compileClasspath += test.output
+        }
+        resources {
+            srcDir file('src/integration-test/resources')
+        }
+    }
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+configurations {
+    wagon
+    integrationTestCompile.extendsFrom testCompile
+    integrationTestRuntime.extendsFrom testRuntime
+}
+
+dependencies {
+    compile "org.xbib:metrics:1.0.0"
+    compile "org.elasticsearch:elasticsearch:2.2.1"
+    testCompile "net.java.dev.jna:jna:4.1.0"
+    testCompile "junit:junit:4.12"
+    testCompile "org.apache.logging.log4j:log4j-core:2.7"
+    testCompile "org.apache.logging.log4j:log4j-slf4j-impl:2.7"
+    wagon 'org.apache.maven.wagon:wagon-ssh-external:2.10'
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs << "-Xlint:all" << "-profile" << "compact3"
+}
+
+task integrationTest(type: Test) {
+    include '**/MiscTestSuite.class'
+    include '**/BulkNodeTestSuite.class'
+    include '**/BulkTransportTestSuite.class'
+    testClassesDir = sourceSets.integrationTest.output.classesDir
+    classpath = configurations.integrationTestCompile
+    classpath += configurations.integrationTestRuntime
+    classpath += sourceSets.main.output
+    classpath += sourceSets.test.output
+    classpath += sourceSets.integrationTest.output
+    outputs.upToDateWhen { false }
+    systemProperty 'path.home', projectDir.absolutePath
+    testLogging.showStandardStreams = true
+}
+
+integrationTest.mustRunAfter test
+check.dependsOn integrationTest
+
+clean {
+    delete "plugins"
+    delete "logs"
+}
+
+task javadocJar(type: Jar, dependsOn: classes) {
+    from javadoc
+    into "build/tmp"
+    classifier 'javadoc'
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    from sourceSets.main.allSource
+    into "build/tmp"
+    classifier 'sources'
+}
+
+artifacts {
+    archives javadocJar, sourcesJar
+}
+
+if (project.hasProperty('signing.keyId')) {
+    signing {
+        sign configurations.archives
+    }
+}
+
+apply from: 'gradle/publish.gradle'
+apply from: 'gradle/sonarqube.gradle'
