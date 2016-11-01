@@ -28,7 +28,10 @@ task sonaTypeUpload(type: Upload) {
                     authentication(userName: ossrhUsername, password: ossrhPassword)
                 }
                 pom.project {
-                    name name
+                    groupId project.group
+                    artifactId project.name
+                    version project.version
+                    name project.name
                     description description
                     packaging 'jar'
                     inceptionYear '2012'
