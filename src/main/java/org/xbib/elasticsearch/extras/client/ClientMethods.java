@@ -355,13 +355,14 @@ public interface ClientMethods extends Parameters {
     void performRetentionPolicy(String index, String concreteIndex, int timestampdiff, int mintokeep);
 
     /**
-     * Log the timestamp of the most recently indexed document in the index.
+     * Find the timestamp of the most recently indexed document in the index.
      *
      * @param index the index name
+     * @param timestampfieldname the timestamp field name
      * @return millis UTC millis of the most recent document
      * @throws IOException if most rcent document can not be found
      */
-    Long mostRecentDocument(String index) throws IOException;
+    Long mostRecentDocument(String index, String timestampfieldname) throws IOException;
 
     /**
      * Get metric.

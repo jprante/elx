@@ -197,11 +197,10 @@ public class BulkProcessor implements Closeable {
     }
 
     private void execute() {
-        final BulkRequest bulkRequest = this.bulkRequest;
+        final BulkRequest myBulkRequest = this.bulkRequest;
         final long executionId = executionIdGen.incrementAndGet();
-
         this.bulkRequest = new BulkRequest();
-        this.bulkRequestHandler.execute(bulkRequest, executionId);
+        this.bulkRequestHandler.execute(myBulkRequest, executionId);
     }
 
     private boolean isOverTheLimit() {
@@ -372,15 +371,15 @@ public class BulkProcessor implements Closeable {
     /**
      * Abstracts the low-level details of bulk request handling.
      */
-    abstract class BulkRequestHandler {
+    interface BulkRequestHandler {
 
-        public abstract void execute(BulkRequest bulkRequest, long executionId);
+        void execute(BulkRequest bulkRequest, long executionId);
 
-        public abstract boolean awaitClose(long timeout, TimeUnit unit) throws InterruptedException;
+        boolean awaitClose(long timeout, TimeUnit unit) throws InterruptedException;
 
     }
 
-    private class SyncBulkRequestHandler extends BulkRequestHandler {
+    private class SyncBulkRequestHandler implements BulkRequestHandler {
         private final Client client;
         private final BulkProcessor.Listener listener;
 
@@ -389,6 +388,7 @@ public class BulkProcessor implements Closeable {
             this.listener = listener;
         }
 
+        @Override
         public void execute(BulkRequest bulkRequest, long executionId) {
             boolean afterCalled = false;
             try {
@@ -396,19 +396,20 @@ public class BulkProcessor implements Closeable {
                 BulkResponse bulkResponse = client.execute(BulkAction.INSTANCE, bulkRequest).actionGet();
                 afterCalled = true;
                 listener.afterBulk(executionId, bulkRequest, bulkResponse);
-            } catch (Throwable t) {
+            } catch (Exception e) {
                 if (!afterCalled) {
-                    listener.afterBulk(executionId, bulkRequest, t);
+                    listener.afterBulk(executionId, bulkRequest, e);
                 }
             }
         }
 
+        @Override
         public boolean awaitClose(long timeout, TimeUnit unit) throws InterruptedException {
             return true;
         }
     }
 
-    private class AsyncBulkRequestHandler extends BulkRequestHandler {
+    private class AsyncBulkRequestHandler implements BulkRequestHandler {
         private final Client client;
         private final BulkProcessor.Listener listener;
         private final Semaphore semaphore;
@@ -452,8 +453,8 @@ public class BulkProcessor implements Closeable {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 listener.afterBulk(executionId, bulkRequest, e);
-            } catch (Throwable t) {
-                listener.afterBulk(executionId, bulkRequest, t);
+            } catch (Exception e) {
+                listener.afterBulk(executionId, bulkRequest, e);
             } finally {
                 if (!bulkRequestSetupSuccessful && acquired) {  // if we fail on client.bulk() release the semaphore
                     semaphore.release();

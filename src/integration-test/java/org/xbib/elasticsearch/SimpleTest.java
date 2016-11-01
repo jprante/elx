@@ -1,16 +1,16 @@
 package org.xbib.elasticsearch;
 
+import static org.elasticsearch.common.settings.Settings.settingsBuilder;
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.elasticsearch.index.query.QueryBuilders.matchQuery;
+import static org.junit.Assert.assertEquals;
+
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexAction;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequestBuilder;
 import org.elasticsearch.action.index.IndexAction;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.common.settings.Settings;
 import org.junit.Test;
-
-import static org.elasticsearch.common.settings.Settings.settingsBuilder;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.elasticsearch.index.query.QueryBuilders.matchQuery;
-import static org.junit.Assert.assertEquals;
 
 /**
  *

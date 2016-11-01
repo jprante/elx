@@ -1,16 +1,16 @@
 package org.xbib.elasticsearch;
 
+import static org.elasticsearch.client.Requests.indexRequest;
+import static org.elasticsearch.common.settings.Settings.settingsBuilder;
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.elasticsearch.index.query.QueryBuilders.queryStringQuery;
+
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.junit.Test;
 
 import java.io.IOException;
-
-import static org.elasticsearch.client.Requests.indexRequest;
-import static org.elasticsearch.common.settings.Settings.settingsBuilder;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.elasticsearch.index.query.QueryBuilders.queryStringQuery;
 
 /**
  *
@@ -66,5 +66,4 @@ public class WildcardTest extends NodeTestUtils {
             throw new RuntimeException("actualHits=" + actualHits + ", expectedHits=" + expectedHits);
         }
     }
-
 }

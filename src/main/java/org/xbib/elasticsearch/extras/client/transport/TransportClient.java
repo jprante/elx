@@ -4,7 +4,6 @@ import static org.elasticsearch.common.settings.Settings.settingsBuilder;
 import static org.elasticsearch.common.unit.TimeValue.timeValueSeconds;
 
 import com.google.common.collect.ImmutableMap;
-import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.Action;
 import org.elasticsearch.action.ActionListener;
@@ -32,9 +31,6 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Injector;
 import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.common.inject.ModulesBuilder;
-import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.network.NetworkModule;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.settings.SettingsModule;
@@ -49,7 +45,6 @@ import org.elasticsearch.plugins.PluginsService;
 import org.elasticsearch.search.SearchModule;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.threadpool.ThreadPoolModule;
-import org.elasticsearch.transport.ConnectTransportException;
 import org.elasticsearch.transport.FutureTransportResponseHandler;
 import org.elasticsearch.transport.TransportModule;
 import org.elasticsearch.transport.TransportRequestOptions;
@@ -67,9 +62,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Stripped-down transport client without node sampling.
+ * Stripped-down transport client without node sampling and without retrying.
+ *
  * Merged together: original TransportClient, TransportClientNodesServce, TransportClientProxy
- * Configurable ping interval setting added
+
+ * Configurable connect ping interval setting added.
  */
 public class TransportClient extends AbstractClient {
 
@@ -260,7 +257,7 @@ public class TransportClient extends AbstractClient {
         try {
             injector.getInstance(MonitorService.class).close();
         } catch (Exception e) {
-            // ignore, might not be bounded
+            logger.debug(e.getMessage(), e);
         }
         for (Class<? extends LifecycleComponent> plugin : injector.getInstance(PluginsService.class).nodeServices()) {
             injector.getInstance(plugin).close();
@@ -268,7 +265,7 @@ public class TransportClient extends AbstractClient {
         try {
             ThreadPool.terminate(injector.getInstance(ThreadPool.class), 10, TimeUnit.SECONDS);
         } catch (Exception e) {
-            // ignore
+            logger.debug(e.getMessage(), e);
         }
         injector.getInstance(PageCacheRecycler.class).close();
     }
@@ -281,7 +278,7 @@ public class TransportClient extends AbstractClient {
                 try {
                     logger.trace("connecting to listed node (light) [{}]", listedNode);
                     transportService.connectToNodeLight(listedNode);
-                } catch (Throwable e) {
+                } catch (Exception e) {
                     logger.debug("failed to connect to node [{}], removed from nodes list", e, listedNode);
                     continue;
                 }
@@ -310,7 +307,7 @@ public class TransportClient extends AbstractClient {
                             listedNode);
                     newNodes.add(listedNode);
                 }
-            } catch (Throwable e) {
+            } catch (Exception e) {
                 logger.info("failed to get node info for {}, disconnecting...", e, listedNode);
                 transportService.disconnectFromNode(listedNode);
             }
@@ -321,7 +318,7 @@ public class TransportClient extends AbstractClient {
                 try {
                     logger.trace("connecting to node [{}]", node);
                     transportService.connectToNode(node);
-                } catch (Throwable e) {
+                } catch (Exception e) {
                     it.remove();
                     logger.debug("failed to connect to discovered node [" + node + "]", e);
                 }
@@ -333,22 +330,14 @@ public class TransportClient extends AbstractClient {
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    protected <Request extends ActionRequest, Response extends ActionResponse,
-            RequestBuilder extends ActionRequestBuilder<Request, Response, RequestBuilder>>
-    void doExecute(Action<Request, Response, RequestBuilder> action, final Request request,
-                   ActionListener<Response> listener) {
-        final TransportActionNodeProxy<Request, Response> proxyAction = proxyActionMap.getProxies().get(action);
+    protected <R extends ActionRequest, S extends ActionResponse, T extends ActionRequestBuilder<R, S, T>>
+    void doExecute(Action<R, S, T> action, final R request, final ActionListener<S> listener) {
+        final TransportActionNodeProxy<R, S> proxyAction = proxyActionMap.getProxies().get(action);
         if (proxyAction == null) {
             throw new IllegalStateException("undefined action " + action);
         }
-        NodeListenerCallback<Response> callback = new NodeListenerCallback<Response>() {
-            @Override
-            public void doWithNode(DiscoveryNode node, ActionListener<Response> listener) {
-                proxyAction.execute(node, request, listener);
-            }
-        };
-        List<DiscoveryNode> nodes = this.nodes;
-        if (nodes.isEmpty()) {
+        List<DiscoveryNode> nodeList = this.nodes;
+        if (nodeList.isEmpty()) {
             throw new NoNodeAvailableException("none of the configured nodes are available: " + this.listedNodes);
         }
         int index = nodeCounter.incrementAndGet();
@@ -356,22 +345,12 @@ public class TransportClient extends AbstractClient {
             index = 0;
             nodeCounter.set(0);
         }
-        RetryListener<Response> retryListener = new RetryListener<>(callback, listener, nodes, index);
-        DiscoveryNode node = nodes.get((index) % nodes.size());
+        // try once and never more
         try {
-            callback.doWithNode(node, retryListener);
-        } catch (Throwable t) {
-            listener.onFailure(t);
+            proxyAction.execute(nodeList.get(index % nodeList.size()), request, listener);
+        } catch (Exception e) {
+            listener.onFailure(e);
         }
-    }
-
-    /**
-     *
-     * @param <Response>
-     */
-    interface NodeListenerCallback<Response> {
-
-        void doWithNode(DiscoveryNode node, ActionListener<Response> listener);
     }
 
     /**
@@ -397,19 +376,17 @@ public class TransportClient extends AbstractClient {
         }
 
         public TransportClient build() {
-            Settings settings = InternalSettingsPreparer.prepareSettings(this.settings);
-            settings = settingsBuilder()
+            Settings transportClientSettings = settingsBuilder()
                     .put("transport.ping.schedule", this.settings.get("ping.interval", "30s"))
-                    .put(settings)
+                    .put(InternalSettingsPreparer.prepareSettings(this.settings))
                     .put("network.server", false)
                     .put("node.client", true)
                     .put(CLIENT_TYPE_SETTING, CLIENT_TYPE)
                     .build();
-            PluginsService pluginsService = new PluginsService(settings, null, null, pluginClasses);
+            PluginsService pluginsService = new PluginsService(transportClientSettings, null, null, pluginClasses);
             this.settings = pluginsService.updatedSettings();
             Version version = Version.CURRENT;
-            final ThreadPool threadPool = new ThreadPool(settings);
-
+            final ThreadPool threadPool = new ThreadPool(transportClientSettings);
             boolean success = false;
             try {
                 ModulesBuilder modules = new ModulesBuilder();
@@ -443,49 +420,6 @@ public class TransportClient extends AbstractClient {
                 if (!success) {
                     ThreadPool.terminate(threadPool, 10, TimeUnit.SECONDS);
                 }
-            }
-        }
-    }
-
-    private static class RetryListener<Response> implements ActionListener<Response> {
-        private final ESLogger logger = ESLoggerFactory.getLogger(RetryListener.class.getName());
-        private final NodeListenerCallback<Response> callback;
-        private final ActionListener<Response> listener;
-        private final List<DiscoveryNode> nodes;
-        private final int index;
-
-        private volatile int n;
-
-        RetryListener(NodeListenerCallback<Response> callback, ActionListener<Response> listener,
-                      List<DiscoveryNode> nodes, int index) {
-            this.callback = callback;
-            this.listener = listener;
-            this.nodes = nodes;
-            this.index = index;
-        }
-
-        @Override
-        public void onResponse(Response response) {
-            listener.onResponse(response);
-        }
-
-        @Override
-        public void onFailure(Throwable e) {
-            if (ExceptionsHelper.unwrapCause(e) instanceof ConnectTransportException) {
-                int n = ++this.n;
-                if (n >= nodes.size()) {
-                    listener.onFailure(new NoNodeAvailableException("none of the configured nodes were available: "
-                            + nodes, e));
-                } else {
-                    try {
-                        logger.warn("retrying on another node (n={}, nodes={})", n, nodes.size());
-                        callback.doWithNode(nodes.get((index + n) % nodes.size()), this);
-                    } catch (final Throwable t) {
-                        listener.onFailure(t);
-                    }
-                }
-            } else {
-                listener.onFailure(e);
             }
         }
     }

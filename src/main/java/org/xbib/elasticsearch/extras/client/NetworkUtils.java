@@ -1,5 +1,8 @@
 package org.xbib.elasticsearch.extras.client;
 
+import org.elasticsearch.common.logging.ESLogger;
+import org.elasticsearch.common.logging.ESLoggerFactory;
+
 import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -8,7 +11,6 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
@@ -18,27 +20,30 @@ import java.util.Locale;
  */
 public class NetworkUtils {
 
-    private static final String IPv4_SETTING = "java.net.preferIPv4Stack";
+    private static final ESLogger logger = ESLoggerFactory.getLogger(NetworkUtils.class.getName());
 
-    private static final String IPv6_SETTING = "java.net.preferIPv6Addresses";
+    private static final String IPV4_SETTING = "java.net.preferIPv4Stack";
 
-    private static final InetAddress localAddress;
+    private static final String IPV6_SETTING = "java.net.preferIPv6Addresses";
+
+    private static final InetAddress LOCAL_ADDRESS;
 
     static {
         InetAddress address;
         try {
             address = InetAddress.getLocalHost();
-        } catch (Throwable e) {
+        } catch (Exception e) {
+            logger.warn(e.getMessage(), e);
             address = InetAddress.getLoopbackAddress();
         }
-        localAddress = address;
+        LOCAL_ADDRESS = address;
     }
 
     private NetworkUtils() {
     }
 
     public static InetAddress getLocalAddress() {
-        return localAddress;
+        return LOCAL_ADDRESS;
     }
 
     public static InetAddress getFirstNonLoopbackAddress(ProtocolVersion ipversion) throws SocketException {
@@ -49,6 +54,7 @@ public class NetworkUtils {
                     continue;
                 }
             } catch (Exception e) {
+                logger.warn(e.getMessage(), e);
                 continue;
             }
             address = getFirstNonLoopbackAddress(networkInterface, ipversion);
@@ -66,11 +72,9 @@ public class NetworkUtils {
         }
         for (Enumeration<InetAddress> addresses = networkInterface.getInetAddresses(); addresses.hasMoreElements(); ) {
             InetAddress address = addresses.nextElement();
-            if (!address.isLoopbackAddress()) {
-                if ((address instanceof Inet4Address && ipVersion == ProtocolVersion.IPv4) ||
-                        (address instanceof Inet6Address && ipVersion == ProtocolVersion.IPv6)) {
-                    return address;
-                }
+            if (!address.isLoopbackAddress() && (address instanceof Inet4Address && ipVersion == ProtocolVersion.IPV4) ||
+                        (address instanceof Inet6Address && ipVersion == ProtocolVersion.IPV6)) {
+                return address;
             }
         }
         return null;
@@ -83,8 +87,8 @@ public class NetworkUtils {
         }
         for (Enumeration<InetAddress> addresses = networkInterface.getInetAddresses(); addresses.hasMoreElements(); ) {
             InetAddress address = addresses.nextElement();
-            if ((address instanceof Inet4Address && ipVersion == ProtocolVersion.IPv4) ||
-                    (address instanceof Inet6Address && ipVersion == ProtocolVersion.IPv6)) {
+            if ((address instanceof Inet4Address && ipVersion == ProtocolVersion.IPV4) ||
+                    (address instanceof Inet6Address && ipVersion == ProtocolVersion.IPV6)) {
                 return address;
             }
         }
@@ -122,18 +126,20 @@ public class NetworkUtils {
 
     public static ProtocolVersion getProtocolVersion() throws SocketException {
         switch (findAvailableProtocols()) {
-            case IPv4:
-                return ProtocolVersion.IPv4;
-            case IPv6:
-                return ProtocolVersion.IPv6;
-            case IPv46:
-                if (Boolean.getBoolean(System.getProperty(IPv4_SETTING))) {
-                    return ProtocolVersion.IPv4;
+            case IPV4:
+                return ProtocolVersion.IPV4;
+            case IPV6:
+                return ProtocolVersion.IPV6;
+            case IPV46:
+                if (Boolean.getBoolean(System.getProperty(IPV4_SETTING))) {
+                    return ProtocolVersion.IPV4;
                 }
-                if (Boolean.getBoolean(System.getProperty(IPv6_SETTING))) {
-                    return ProtocolVersion.IPv6;
+                if (Boolean.getBoolean(System.getProperty(IPV6_SETTING))) {
+                    return ProtocolVersion.IPV6;
                 }
-                return ProtocolVersion.IPv6;
+                return ProtocolVersion.IPV6;
+            default:
+                break;
         }
         return ProtocolVersion.NONE;
     }
@@ -150,18 +156,19 @@ public class NetworkUtils {
             }
         }
         if (hasIPv4 && hasIPv6) {
-            return ProtocolVersion.IPv46;
+            return ProtocolVersion.IPV46;
         }
         if (hasIPv4) {
-            return ProtocolVersion.IPv4;
+            return ProtocolVersion.IPV4;
         }
         if (hasIPv6) {
-            return ProtocolVersion.IPv6;
+            return ProtocolVersion.IPV6;
         }
         return ProtocolVersion.NONE;
     }
 
-    public static InetAddress resolveInetAddress(String host, String defaultValue) throws IOException {
+    public static InetAddress resolveInetAddress(String hostname, String defaultValue) throws IOException {
+        String host = hostname;
         if (host == null) {
             host = defaultValue;
         }
@@ -172,23 +179,23 @@ public class NetworkUtils {
         }
         if ((host.startsWith("#") && host.endsWith("#")) || (host.startsWith("_") && host.endsWith("_"))) {
             host = host.substring(1, host.length() - 1);
-            if (host.equals("local")) {
+            if ("local".equals(host)) {
                 return getLocalAddress();
             } else if (host.startsWith("non_loopback")) {
                 if (host.toLowerCase(Locale.ROOT).endsWith(":ipv4")) {
-                    return getFirstNonLoopbackAddress(ProtocolVersion.IPv4);
+                    return getFirstNonLoopbackAddress(ProtocolVersion.IPV4);
                 } else if (host.toLowerCase(Locale.ROOT).endsWith(":ipv6")) {
-                    return getFirstNonLoopbackAddress(ProtocolVersion.IPv6);
+                    return getFirstNonLoopbackAddress(ProtocolVersion.IPV6);
                 } else {
                     return getFirstNonLoopbackAddress(getProtocolVersion());
                 }
             } else {
                 ProtocolVersion protocolVersion = getProtocolVersion();
                 if (host.toLowerCase(Locale.ROOT).endsWith(":ipv4")) {
-                    protocolVersion = ProtocolVersion.IPv4;
+                    protocolVersion = ProtocolVersion.IPV4;
                     host = host.substring(0, host.length() - 5);
                 } else if (host.toLowerCase(Locale.ROOT).endsWith(":ipv6")) {
-                    protocolVersion = ProtocolVersion.IPv6;
+                    protocolVersion = ProtocolVersion.IPV6;
                     host = host.substring(0, host.length() - 5);
                 }
                 for (NetworkInterface ni : getAllAvailableInterfaces()) {
@@ -227,27 +234,17 @@ public class NetworkUtils {
     }
 
     private static void sortInterfaces(List<NetworkInterface> interfaces) {
-        Collections.sort(interfaces, new Comparator<NetworkInterface>() {
-            @Override
-            public int compare(NetworkInterface o1, NetworkInterface o2) {
-                return Integer.compare(o1.getIndex(), o2.getIndex());
-            }
-        });
+        Collections.sort(interfaces, (o1, o2) -> Integer.compare(o1.getIndex(), o2.getIndex()));
     }
 
     private static void sortAddresses(List<InetAddress> addressList) {
-        Collections.sort(addressList, new Comparator<InetAddress>() {
-            @Override
-            public int compare(InetAddress o1, InetAddress o2) {
-                return compareBytes(o1.getAddress(), o2.getAddress());
-            }
-        });
+        Collections.sort(addressList, (o1, o2) -> compareBytes(o1.getAddress(), o2.getAddress()));
     }
 
     private static int compareBytes(byte[] left, byte[] right) {
         for (int i = 0, j = 0; i < left.length && j < right.length; i++, j++) {
-            int a = (left[i] & 0xff);
-            int b = (right[j] & 0xff);
+            int a = left[i] & 0xff;
+            int b = right[j] & 0xff;
             if (a != b) {
                 return a - b;
             }
@@ -259,6 +256,6 @@ public class NetworkUtils {
      *
      */
     public enum ProtocolVersion {
-        IPv4, IPv6, IPv46, NONE
+        IPV4, IPV6, IPV46, NONE
     }
 }

@@ -65,7 +65,7 @@ public class SimpleBulkMetric implements BulkMetric {
     @Override
     public void start() {
         this.started = System.nanoTime();
-        this.totalIngest.spawn(5L);
+        totalIngest.spawn(5L);
     }
 
     @Override

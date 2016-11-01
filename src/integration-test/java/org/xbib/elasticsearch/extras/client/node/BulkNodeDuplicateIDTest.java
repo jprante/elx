@@ -15,13 +15,16 @@ import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
 import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
 import static org.junit.Assert.*;
 
+/**
+ *
+ */
 public class BulkNodeDuplicateIDTest extends NodeTestUtils {
 
-    private final static ESLogger logger = ESLoggerFactory.getLogger(BulkNodeDuplicateIDTest.class.getSimpleName());
+    private static final ESLogger logger = ESLoggerFactory.getLogger(BulkNodeDuplicateIDTest.class.getSimpleName());
 
-    private final static Long MAX_ACTIONS = 1000L;
+    private static final Long MAX_ACTIONS = 1000L;
 
-    private final static Long NUM_ACTIONS = 12345L;
+    private static final Long NUM_ACTIONS = 12345L;
 
     @Test
     public void testDuplicateDocIDs() throws Exception {

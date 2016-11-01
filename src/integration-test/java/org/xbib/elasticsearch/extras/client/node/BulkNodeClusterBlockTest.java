@@ -3,6 +3,8 @@ package org.xbib.elasticsearch.extras.client.node;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.cluster.block.ClusterBlockException;
+import org.elasticsearch.common.logging.ESLogger;
+import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.junit.Before;
@@ -15,6 +17,8 @@ import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
  *
  */
 public class BulkNodeClusterBlockTest extends NodeTestUtils {
+
+    private static final ESLogger logger = ESLoggerFactory.getLogger("test");
 
     @Before
     public void startNodes() {

@@ -87,7 +87,7 @@ public abstract class AbstractClient {
     }
 
     public void resetSettings() {
-        settingsBuilder = Settings.settingsBuilder();
+        this.settingsBuilder = Settings.settingsBuilder();
         settings = null;
         mappings = new HashMap<>();
     }
@@ -166,10 +166,10 @@ public abstract class AbstractClient {
         if (value == null) {
             throw new IOException("no value given");
         }
-        Settings.Builder settingsBuilder = Settings.settingsBuilder();
-        settingsBuilder.put(key, value.toString());
+        Settings.Builder updateSettingsBuilder = Settings.settingsBuilder();
+        updateSettingsBuilder.put(key, value.toString());
         UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(index)
-                .settings(settingsBuilder);
+                .settings(updateSettingsBuilder);
         client().execute(UpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
     }
 
@@ -194,8 +194,7 @@ public abstract class AbstractClient {
         return shards;
     }
 
-    public void waitForCluster(String statusString, TimeValue timeout)
-            throws IOException, ElasticsearchTimeoutException {
+    public void waitForCluster(String statusString, TimeValue timeout) throws IOException {
         if (client() == null) {
             return;
         }
@@ -222,11 +221,14 @@ public abstract class AbstractClient {
             int nodeCount = clusterStateResponse.getState().getNodes().size();
             return name + " (" + nodeCount + " nodes connected)";
         } catch (ElasticsearchTimeoutException e) {
+            logger.warn(e.getMessage(), e);
             return "TIMEOUT";
         } catch (NoNodeAvailableException e) {
+            logger.warn(e.getMessage(), e);
             return "DISCONNECTED";
-        } catch (Throwable t) {
-            return "[" + t.getMessage() + "]";
+        } catch (Exception e) {
+            logger.warn(e.getMessage(), e);
+            return "[" + e.getMessage() + "]";
         }
     }
 
@@ -241,11 +243,14 @@ public abstract class AbstractClient {
             ClusterHealthStatus status = healthResponse.getStatus();
             return status.name();
         } catch (ElasticsearchTimeoutException e) {
+            logger.warn(e.getMessage(), e);
             return "TIMEOUT";
         } catch (NoNodeAvailableException e) {
+            logger.warn(e.getMessage(), e);
             return "DISCONNECTED";
-        } catch (Throwable t) {
-            return "[" + t.getMessage() + "]";
+        } catch (Exception e) {
+            logger.warn(e.getMessage(), e);
+            return "[" + e.getMessage() + "]";
         }
     }
 
@@ -310,10 +315,8 @@ public abstract class AbstractClient {
         Set<String> indices = new TreeSet<>(Collections.reverseOrder());
         for (ObjectCursor<String> indexName : getAliasesResponse.getAliases().keys()) {
             Matcher m = pattern.matcher(indexName.value);
-            if (m.matches()) {
-                if (alias.equals(m.group(1))) {
-                    indices.add(indexName.value);
-                }
+            if (m.matches() && alias.equals(m.group(1))) {
+                indices.add(indexName.value);
             }
         }
         return indices.isEmpty() ? alias : indices.iterator().next();
@@ -424,10 +427,8 @@ public abstract class AbstractClient {
         logger.info("{} indices", getIndexResponse.getIndices().length);
         for (String s : getIndexResponse.getIndices()) {
             Matcher m = pattern.matcher(s);
-            if (m.matches()) {
-                if (index.equals(m.group(1)) && !s.equals(concreteIndex)) {
-                    indices.add(s);
-                }
+            if (m.matches() && index.equals(m.group(1)) && !s.equals(concreteIndex)) {
+                indices.add(s);
             }
         }
         if (indices.isEmpty()) {
@@ -470,21 +471,21 @@ public abstract class AbstractClient {
         }
     }
 
-    public Long mostRecentDocument(String index) {
+    public Long mostRecentDocument(String index, String timestampfieldname) {
         if (client() == null) {
             return null;
         }
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client(), SearchAction.INSTANCE);
-        SortBuilder sort = SortBuilders.fieldSort("_timestamp").order(SortOrder.DESC);
+        SortBuilder sort = SortBuilders.fieldSort(timestampfieldname).order(SortOrder.DESC);
         SearchResponse searchResponse = searchRequestBuilder.setIndices(index)
-                .addField("_timestamp")
+                .addField(timestampfieldname)
                 .setSize(1)
                 .addSort(sort)
                 .execute().actionGet();
         if (searchResponse.getHits().getHits().length == 1) {
             SearchHit hit = searchResponse.getHits().getHits()[0];
-            if (hit.getFields().get("_timestamp") != null) {
-                return hit.getFields().get("_timestamp").getValue();
+            if (hit.getFields().get(timestampfieldname) != null) {
+                return hit.getFields().get(timestampfieldname).getValue();
             } else {
                 return 0L;
             }

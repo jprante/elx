@@ -1,5 +1,7 @@
 package org.xbib.elasticsearch;
 
+import static org.elasticsearch.common.settings.Settings.settingsBuilder;
+
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
@@ -27,21 +29,27 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.elasticsearch.common.settings.Settings.settingsBuilder;
-
 /**
  *
  */
 public class NodeTestUtils {
 
-    protected static final ESLogger logger = ESLoggerFactory.getLogger("test");
+    private static final ESLogger logger = ESLoggerFactory.getLogger("test");
+
     private static Random random = new Random();
+
     private static char[] numbersAndLetters = ("0123456789abcdefghijklmnopqrstuvwxyz").toCharArray();
+
     private Map<String, Node> nodes = new HashMap<>();
+
     private Map<String, AbstractClient> clients = new HashMap<>();
+
     private AtomicInteger counter = new AtomicInteger();
+
     private String cluster;
+
     private String host;
+
     private int port;
 
     private static void deleteFiles() throws IOException {
@@ -72,13 +80,14 @@ public class NodeTestUtils {
             findNodeAddress();
             try {
                 ClusterHealthResponse healthResponse = client("1").execute(ClusterHealthAction.INSTANCE,
-                        new ClusterHealthRequest().waitForStatus(ClusterHealthStatus.GREEN).timeout(TimeValue.timeValueSeconds(30))).actionGet();
+                        new ClusterHealthRequest().waitForStatus(ClusterHealthStatus.GREEN)
+                                .timeout(TimeValue.timeValueSeconds(30))).actionGet();
                 if (healthResponse != null && healthResponse.isTimedOut()) {
                     throw new IOException("cluster state is " + healthResponse.getStatus().name()
                             + ", from here on, everything will fail!");
                 }
             } catch (ElasticsearchTimeoutException e) {
-                throw new IOException("timeout, cluster does not respond to health request, cowardly refusing to continue with operations");
+                throw new IOException("cluster does not respond to health request, cowardly refusing to continue");
             }
         } catch (Throwable t) {
             logger.error("startNodes failed", t);
@@ -95,7 +104,7 @@ public class NodeTestUtils {
             try {
                 deleteFiles();
                 logger.info("data files wiped");
-                Thread.sleep(2000L);
+                Thread.sleep(2000L); // let OS commit changes
             } catch (IOException e) {
                 logger.error(e.getMessage(), e);
             } catch (InterruptedException e) {

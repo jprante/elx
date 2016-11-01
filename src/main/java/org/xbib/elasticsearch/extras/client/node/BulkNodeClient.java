@@ -54,6 +54,8 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
 
     private TimeValue flushInterval = DEFAULT_FLUSH_INTERVAL;
 
+    private Node node;
+
     private ElasticsearchClient client;
 
     private BulkProcessor bulkProcessor;
@@ -65,9 +67,6 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
     private Throwable throwable;
 
     private boolean closed;
-
-    public BulkNodeClient() {
-    }
 
     @Override
     public BulkNodeClient maxActionsPerRequest(int maxActionsPerRequest) {
@@ -196,12 +195,12 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
     }
 
     @Override
-    protected void createClient(Settings settings) throws IOException {
+    protected synchronized void createClient(Settings settings) throws IOException {
         if (client != null) {
             logger.warn("client is open, closing...");
             client.threadPool().shutdown();
-            logger.warn("client is closed");
             client = null;
+            node.close();
         }
         if (settings != null) {
             String version = System.getProperty("os.name")
@@ -216,7 +215,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
             logger.info("creating node client on {} with effective settings {}",
                     version, effectiveSettings.getAsMap());
             Collection<Class<? extends Plugin>> plugins = Collections.emptyList();
-            Node node = new BulkNode(new Environment(effectiveSettings), plugins);
+            this.node = new BulkNode(new Environment(effectiveSettings), plugins);
             node.start();
             this.client = node.client();
         }
@@ -230,7 +229,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
     @Override
     public BulkNodeClient index(String index, String type, String id, String source) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         try {
             if (metric != null) {
@@ -248,7 +247,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
     @Override
     public BulkNodeClient bulkIndex(IndexRequest indexRequest) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         try {
             if (metric != null) {
@@ -266,7 +265,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
     @Override
     public BulkNodeClient delete(String index, String type, String id) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         try {
             if (metric != null) {
@@ -284,7 +283,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
     @Override
     public BulkNodeClient bulkDelete(DeleteRequest deleteRequest) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         try {
             if (metric != null) {
@@ -302,7 +301,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
     @Override
     public BulkNodeClient update(String index, String type, String id, String source) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         try {
             if (metric != null) {
@@ -320,7 +319,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
     @Override
     public BulkNodeClient bulkUpdate(UpdateRequest updateRequest) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         try {
             if (metric != null) {
@@ -338,7 +337,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
     @Override
     public BulkNodeClient flushIngest() {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         logger.debug("flushing bulk processor");
         bulkProcessor.flush();
@@ -348,7 +347,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
     @Override
     public BulkNodeClient waitForResponses(TimeValue maxWaitTime) throws InterruptedException, ExecutionException {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         while (!bulkProcessor.awaitClose(maxWaitTime.getMillis(), TimeUnit.MILLISECONDS)) {
             logger.warn("still waiting for responses");
@@ -395,6 +394,10 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
                 }
                 metric.stop();
             }
+            if (node != null) {
+                logger.debug("closing node...");
+                node.close();
+            }
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
         }
@@ -416,7 +419,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
     @Override
     public BulkNodeClient newIndex(String index, Settings settings, Map<String, String> mappings) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         if (client == null) {
             logger.warn("no client for create index");
@@ -433,9 +436,11 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
             createIndexRequestBuilder.setSettings(settings);
         }
         if (mappings != null) {
-            for (String type : mappings.keySet()) {
+            for (Map.Entry<String, String> entry : mappings.entrySet()) {
+                String type = entry.getKey();
+                String mapping = entry.getValue();
                 logger.info("found mapping for {}", type);
-                createIndexRequestBuilder.addMapping(type, mappings.get(type));
+                createIndexRequestBuilder.addMapping(type, mapping);
             }
         }
         createIndexRequestBuilder.execute().actionGet();
@@ -458,7 +463,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
     @Override
     public BulkNodeClient deleteIndex(String index) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         if (client == null) {
             logger.warn("no client");
@@ -488,8 +493,13 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
         return settings();
     }
 
+    @Override
     public Settings.Builder getSettingsBuilder() {
         return settingsBuilder();
+    }
+
+    private static void throwClose() {
+        throw new ElasticsearchException("client is closed");
     }
 
     private class BulkNode extends Node {

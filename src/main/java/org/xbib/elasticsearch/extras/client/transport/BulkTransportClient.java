@@ -28,9 +28,9 @@ import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.xbib.elasticsearch.extras.client.AbstractClient;
-import org.xbib.elasticsearch.extras.client.BulkProcessor;
-import org.xbib.elasticsearch.extras.client.BulkMetric;
 import org.xbib.elasticsearch.extras.client.BulkControl;
+import org.xbib.elasticsearch.extras.client.BulkMetric;
+import org.xbib.elasticsearch.extras.client.BulkProcessor;
 import org.xbib.elasticsearch.extras.client.ClientMethods;
 import org.xbib.elasticsearch.extras.client.NetworkUtils;
 
@@ -74,9 +74,6 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     private boolean ignoreBulkErrors;
 
     private boolean isShutdown;
-
-    public BulkTransportClient() {
-    }
 
     @Override
     public BulkTransportClient init(ElasticsearchClient client, BulkMetric metric, BulkControl control) throws IOException {
@@ -198,7 +195,6 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
             logger.warn("client is open, closing...");
             client.close();
             client.threadPool().shutdown();
-            logger.warn("client is closed");
             client = null;
         }
         if (settings != null) {
@@ -257,7 +253,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     @Override
     public ClientMethods newIndex(String index) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         return newIndex(index, null, null);
     }
@@ -273,11 +269,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     @Override
     public ClientMethods newIndex(String index, Settings settings, Map<String, String> mappings) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
-        }
-        if (client == null) {
-            logger.warn("no client for create index");
-            return this;
+            throwClose();
         }
         if (index == null) {
             logger.warn("no index name given to create index");
@@ -290,9 +282,11 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
             createIndexRequestBuilder.setSettings(settings);
         }
         if (mappings != null) {
-            for (String type : mappings.keySet()) {
+            for (Map.Entry<String, String> entry : mappings.entrySet()) {
+                String type = entry.getKey();
+                String mapping = entry.getValue();
                 logger.info("found mapping for {}", type);
-                createIndexRequestBuilder.addMapping(type, mappings.get(type));
+                createIndexRequestBuilder.addMapping(type, mapping);
             }
         }
         createIndexRequestBuilder.execute().actionGet();
@@ -303,11 +297,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     @Override
     public ClientMethods deleteIndex(String index) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
-        }
-        if (client == null) {
-            logger.warn("no client for delete index");
-            return this;
+            throwClose();
         }
         if (index == null) {
             logger.warn("no index name given to delete index");
@@ -345,7 +335,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     @Override
     public BulkTransportClient index(String index, String type, String id, String source) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         try {
             metric.getCurrentIngest().inc(index, type, id);
@@ -361,7 +351,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     @Override
     public BulkTransportClient bulkIndex(IndexRequest indexRequest) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         try {
             metric.getCurrentIngest().inc(indexRequest.index(), indexRequest.type(), indexRequest.id());
@@ -377,7 +367,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     @Override
     public BulkTransportClient delete(String index, String type, String id) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         try {
             metric.getCurrentIngest().inc(index, type, id);
@@ -393,7 +383,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     @Override
     public BulkTransportClient bulkDelete(DeleteRequest deleteRequest) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         try {
             metric.getCurrentIngest().inc(deleteRequest.index(), deleteRequest.type(), deleteRequest.id());
@@ -409,7 +399,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     @Override
     public BulkTransportClient update(String index, String type, String id, String source) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         try {
             metric.getCurrentIngest().inc(index, type, id);
@@ -425,7 +415,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     @Override
     public BulkTransportClient bulkUpdate(UpdateRequest updateRequest) {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
+            throwClose();
         }
         try {
             metric.getCurrentIngest().inc(updateRequest.index(), updateRequest.type(), updateRequest.id());
@@ -441,11 +431,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     @Override
     public synchronized BulkTransportClient flushIngest() {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
-        }
-        if (client == null) {
-            logger.warn("no client");
-            return this;
+            throwClose();
         }
         logger.debug("flushing bulk processor");
         bulkProcessor.flush();
@@ -456,11 +442,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     public synchronized BulkTransportClient waitForResponses(TimeValue maxWaitTime)
             throws InterruptedException, ExecutionException {
         if (closed) {
-            throw new ElasticsearchException("client is closed");
-        }
-        if (client == null) {
-            logger.warn("no client");
-            return this;
+            throwClose();
         }
         bulkProcessor.awaitClose(maxWaitTime.getMillis(), TimeUnit.MILLISECONDS);
         return this;
@@ -470,11 +452,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     public synchronized void shutdown() {
         if (closed) {
             shutdownClient();
-            throw new ElasticsearchException("client is closed");
-        }
-        if (client == null) {
-            logger.warn("no client");
-            return;
+            throwClose();
         }
         try {
             if (bulkProcessor != null) {
@@ -532,7 +510,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
                 try {
                     port = Integer.parseInt(splitHost[1]);
                 } catch (Exception e) {
-                    // ignore
+                    logger.warn(e.getMessage(), e);
                 }
                 addresses.add(new InetSocketTransportAddress(inetAddress, port));
             }
@@ -543,6 +521,10 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
             }
         }
         return addresses;
+    }
+
+    private static void throwClose() {
+        throw new ElasticsearchException("client is closed");
     }
 
     private void shutdownClient() {

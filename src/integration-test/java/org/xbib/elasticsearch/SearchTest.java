@@ -1,23 +1,27 @@
 package org.xbib.elasticsearch;
 
+import static org.elasticsearch.client.Requests.indexRequest;
+import static org.elasticsearch.client.Requests.refreshRequest;
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+
 import org.elasticsearch.action.bulk.BulkAction;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.common.logging.ESLogger;
+import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.junit.Test;
 
-import static org.elasticsearch.client.Requests.indexRequest;
-import static org.elasticsearch.client.Requests.refreshRequest;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-
 /**
  *
  */
 public class SearchTest extends NodeTestUtils {
+
+    private static final ESLogger logger = ESLoggerFactory.getLogger("test");
 
     @Test
     public void testSearch() throws Exception {

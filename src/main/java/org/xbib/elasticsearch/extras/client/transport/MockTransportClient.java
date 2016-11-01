@@ -19,9 +19,6 @@ import java.util.Map;
  */
 public class MockTransportClient extends BulkTransportClient {
 
-    public MockTransportClient() {
-    }
-
     @Override
     public ElasticsearchClient client() {
         return null;
@@ -124,18 +121,22 @@ public class MockTransportClient extends BulkTransportClient {
 
     @Override
     public void putMapping(String index) {
+        // mockup method
     }
 
     @Override
     public void refreshIndex(String index) {
+        // mockup method
     }
 
     @Override
     public void flushIndex(String index) {
+        // mockup method
     }
 
     @Override
     public void waitForCluster(String healthColor, TimeValue timeValue) throws IOException {
+        // mockup method
     }
 
     @Override
@@ -150,7 +151,7 @@ public class MockTransportClient extends BulkTransportClient {
 
     @Override
     public void shutdown() {
-        // do nothing
+        // mockup method
     }
 
 }
