@@ -2,11 +2,11 @@
 plugins {
     id "org.sonarqube" version "2.2"
     id "org.ajoberstar.github-pages" version "1.6.0-rc.1"
-    id "org.xbib.gradle.plugin.jbake" version "1.1.0"
+    id "org.xbib.gradle.plugin.jbake" version "1.2.1"
 }
 
 group = 'org.xbib'
-version = '2.2.1.0'
+version = '2.2.1.1'
 
 printf "Host: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGroovy: %s\nGradle: %s\n" +
         "Build: group: ${project.group} name: ${project.name} version: ${project.version}\n",
@@ -45,8 +45,8 @@ sourceSets {
     }
 }
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = JavaVersion.VERSION_1_8
+targetCompatibility = JavaVersion.VERSION_1_8
 
 configurations {
     wagon
@@ -64,6 +64,7 @@ dependencies {
     wagon 'org.apache.maven.wagon:wagon-ssh-external:2.10'
 }
 
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 tasks.withType(JavaCompile) {
     options.compilerArgs << "-Xlint:all" << "-profile" << "compact3"
 }

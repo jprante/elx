@@ -37,7 +37,6 @@ import org.elasticsearch.common.settings.SettingsModule;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.indices.breaker.CircuitBreakerModule;
-import org.elasticsearch.monitor.MonitorService;
 import org.elasticsearch.node.internal.InternalSettingsPreparer;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.plugins.PluginsModule;
@@ -254,11 +253,6 @@ public class TransportClient extends AbstractClient {
             nodes = Collections.emptyList();
         }
         injector.getInstance(TransportService.class).close();
-        try {
-            injector.getInstance(MonitorService.class).close();
-        } catch (Exception e) {
-            logger.debug(e.getMessage(), e);
-        }
         for (Class<? extends LifecycleComponent> plugin : injector.getInstance(PluginsService.class).nodeServices()) {
             injector.getInstance(plugin).close();
         }
