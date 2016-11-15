@@ -98,7 +98,7 @@ You will need Java 8, although Elasticsearch 2.x requires Java 7. Java 7 is not 
 
 ## Dependencies
 
-This project depends only on https://github/com/xbib/metrics which is a slim version of Coda Hale's metrics library,
+This project depends only on https://github.com/xbib/metrics which is a slim version of Coda Hale's metrics library,
 and Elasticsearch.
 
 ## How to decode the Elasticsearch version
