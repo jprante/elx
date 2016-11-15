@@ -13,14 +13,14 @@ The Elasticsearch node client and transport client APIs are unified in a `Client
 bulk services and index management under the hood, like index creation, alias managent, and retention policies.
 
 Two classes `BulkNodeClient` and `BulkTransportClient` combine the client methods with the `BulkProcessor`,
-and still offer the `Client` interface of Elasticsearch by using the `client()` method.
+provide some logging convenience, and still offer the `Client` interface of Elasticsearch by using the `client()` method.
 
 A `MockTransportClient` implements the `BulkTransportClient` API but does not need a running Elasticsearch node
 to connect to. This is useful for unit testing.
 
 The client classes are enriched by metrics that can measure document count, size, and speed.
 
-A `ClientBuilder` helps to build client instances. For exmaple
+A `ClientBuilder` helps to build client instances. For example
 
 [source,java]
 ----
@@ -34,6 +34,8 @@ A `ClientBuilder` helps to build client instances. For exmaple
                 .setControl(new SimpleBulkControl());
        BulkTransportClient client = clientBuilder.toBulkTransportClient();
 ----
+
+For more examples, consult the integration etsts at `src/integration-test/java`.
 
 A re-implemented `BulkProcessor` allows flushing of documents before closing.
 
@@ -50,7 +52,7 @@ Also, a light-weight re-implementation of the `TransportClient` class is provide
 #### Some interesting methods
 
 Here are some methods from the `ClientMethods` API, these are not all methods, but maybe
-some of which can demonstrate the convencience.
+some of which can demonstrate the convenience.
 
 Create new index, use settings and mappings from input streams.
 ----
