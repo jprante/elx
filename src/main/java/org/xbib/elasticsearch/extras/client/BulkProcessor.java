@@ -9,7 +9,6 @@ import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.Nullable;
-import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
@@ -51,7 +50,7 @@ public class BulkProcessor implements Closeable {
     private BulkProcessor(Client client, Listener listener, @Nullable String name, int concurrentRequests,
                           int bulkActions, ByteSizeValue bulkSize, @Nullable TimeValue flushInterval) {
         this.bulkActions = bulkActions;
-        this.bulkSize = bulkSize.bytes();
+        this.bulkSize = bulkSize.getBytes();
 
         this.bulkRequest = new BulkRequest();
         this.bulkRequestHandler = concurrentRequests == 0 ?
@@ -174,18 +173,6 @@ public class BulkProcessor implements Closeable {
         ensureOpen();
         bulkRequest.add(request, payload);
         executeIfNeeded();
-    }
-
-    public BulkProcessor add(BytesReference data, @Nullable String defaultIndex, @Nullable String defaultType)
-            throws Exception {
-        return add(data, defaultIndex, defaultType, null);
-    }
-
-    public synchronized BulkProcessor add(BytesReference data, @Nullable String defaultIndex,
-                                          @Nullable String defaultType, @Nullable Object payload) throws Exception {
-        bulkRequest.add(data, defaultIndex, defaultType, null, null, payload, true);
-        executeIfNeeded();
-        return this;
     }
 
     private void executeIfNeeded() {
@@ -441,7 +428,7 @@ public class BulkProcessor implements Closeable {
                     }
 
                     @Override
-                    public void onFailure(Throwable e) {
+                    public void onFailure(Exception e) {
                         try {
                             listener.afterBulk(executionId, bulkRequest, e);
                         } finally {

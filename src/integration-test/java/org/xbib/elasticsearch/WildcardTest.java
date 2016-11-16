@@ -1,10 +1,10 @@
 package org.xbib.elasticsearch;
 
 import static org.elasticsearch.client.Requests.indexRequest;
-import static org.elasticsearch.common.settings.Settings.settingsBuilder;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.index.query.QueryBuilders.queryStringQuery;
 
+import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -15,17 +15,16 @@ import java.io.IOException;
 /**
  *
  */
-public class WildcardTest extends NodeTestUtils {
+public class WildcardTest extends NodeTestBase {
 
     protected Settings getNodeSettings() {
-        return settingsBuilder()
+        return Settings.builder()
                 .put("cluster.name", getClusterName())
-                .put("cluster.routing.allocation.disk.threshold_enabled", false)
-                .put("discovery.zen.multicast.enabled", false)
+                .put("discovery.type", "local")
+                .put("transport.type", "local")
                 .put("http.enabled", false)
-                .put("path.home", System.getProperty("path.home"))
-                .put("index.number_of_shards", 1)
-                .put("index.number_of_replicas", 0)
+                .put("path.home", getHome())
+                .put("node.max_local_storage_nodes", 5)
                 .build();
     }
 
@@ -51,7 +50,8 @@ public class WildcardTest extends NodeTestUtils {
         client.index(indexRequest()
                 .index("index").type("type").id(id)
                 .source(jsonBuilder().startObject().field("field", fieldValue).endObject())
-                .refresh(true)).actionGet();
+                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE))
+                .actionGet();
     }
 
     private long count(Client client, QueryBuilder queryBuilder) {

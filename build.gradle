@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'org.xbib'
-version = '2.2.1.1'
+version = '5.0.1.0'
 
 printf "Host: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGroovy: %s\nGradle: %s\n" +
         "Build: group: ${project.group} name: ${project.name} version: ${project.version}\n",
@@ -56,11 +56,10 @@ configurations {
 
 dependencies {
     compile "org.xbib:metrics:1.0.0"
-    compile "org.elasticsearch:elasticsearch:2.2.1"
-    testCompile "net.java.dev.jna:jna:4.1.0"
+    compile "org.elasticsearch.client:transport:5.0.1"
+    compile "org.apache.logging.log4j:log4j-api:2.7"
     testCompile "junit:junit:4.12"
     testCompile "org.apache.logging.log4j:log4j-core:2.7"
-    testCompile "org.apache.logging.log4j:log4j-slf4j-impl:2.7"
     wagon 'org.apache.maven.wagon:wagon-ssh-external:2.10'
 }
 
@@ -69,7 +68,7 @@ tasks.withType(JavaCompile) {
     options.compilerArgs << "-Xlint:all" << "-profile" << "compact3"
 }
 
-task integrationTest(type: Test) {
+task integrationTest(type: Test, group: 'verification') {
     include '**/MiscTestSuite.class'
     include '**/BulkNodeTestSuite.class'
     include '**/BulkTransportTestSuite.class'
@@ -81,7 +80,7 @@ task integrationTest(type: Test) {
     classpath += sourceSets.integrationTest.output
     outputs.upToDateWhen { false }
     systemProperty 'path.home', projectDir.absolutePath
-    testLogging.showStandardStreams = true
+    testLogging.showStandardStreams = false
 }
 
 integrationTest.mustRunAfter test

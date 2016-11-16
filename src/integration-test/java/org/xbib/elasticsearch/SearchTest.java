@@ -4,13 +4,13 @@ import static org.elasticsearch.client.Requests.indexRequest;
 import static org.elasticsearch.client.Requests.refreshRequest;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.bulk.BulkAction;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.SortOrder;
@@ -19,9 +19,9 @@ import org.junit.Test;
 /**
  *
  */
-public class SearchTest extends NodeTestUtils {
+public class SearchTest extends NodeTestBase {
 
-    private static final ESLogger logger = ESLoggerFactory.getLogger("test");
+    private static final Logger logger = LogManager.getLogger(SearchTest.class.getName());
 
     @Test
     public void testSearch() throws Exception {
@@ -43,7 +43,8 @@ public class SearchTest extends NodeTestUtils {
                             .field("user8", "kimchy")
                             .field("user9", "kimchy")
                             .field("rowcount", i)
-                            .field("rs", 1234)));
+                            .field("rs", 1234)
+                            .endObject()));
         }
         client.bulk(builder.request()).actionGet();
 

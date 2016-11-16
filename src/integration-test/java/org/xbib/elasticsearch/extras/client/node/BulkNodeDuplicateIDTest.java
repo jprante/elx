@@ -1,13 +1,13 @@
 package org.xbib.elasticsearch.extras.client.node;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.unit.TimeValue;
 import org.junit.Test;
-import org.xbib.elasticsearch.NodeTestUtils;
+import org.xbib.elasticsearch.NodeTestBase;
 import org.xbib.elasticsearch.extras.client.ClientBuilder;
 import org.xbib.elasticsearch.extras.client.SimpleBulkControl;
 import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
@@ -18,9 +18,9 @@ import static org.junit.Assert.*;
 /**
  *
  */
-public class BulkNodeDuplicateIDTest extends NodeTestUtils {
+public class BulkNodeDuplicateIDTest extends NodeTestBase {
 
-    private static final ESLogger logger = ESLoggerFactory.getLogger(BulkNodeDuplicateIDTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(BulkNodeDuplicateIDTest.class.getName());
 
     private static final Long MAX_ACTIONS = 1000L;
 

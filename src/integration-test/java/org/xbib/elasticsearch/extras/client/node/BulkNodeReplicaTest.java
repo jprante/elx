@@ -1,16 +1,21 @@
 package org.xbib.elasticsearch.extras.client.node;
 
-import org.elasticsearch.action.admin.indices.stats.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.admin.indices.stats.CommonStats;
+import org.elasticsearch.action.admin.indices.stats.IndexShardStats;
+import org.elasticsearch.action.admin.indices.stats.IndexStats;
+import org.elasticsearch.action.admin.indices.stats.IndicesStatsAction;
+import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequestBuilder;
+import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.index.indexing.IndexingStats;
+import org.elasticsearch.index.shard.IndexingStats;
 import org.junit.Test;
-import org.xbib.elasticsearch.NodeTestUtils;
+import org.xbib.elasticsearch.NodeTestBase;
 import org.xbib.elasticsearch.extras.client.ClientBuilder;
 import org.xbib.elasticsearch.extras.client.SimpleBulkControl;
 import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
@@ -21,9 +26,12 @@ import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
-public class BulkNodeReplicaTest extends NodeTestUtils {
+/**
+ *
+ */
+public class BulkNodeReplicaTest extends NodeTestBase {
 
-    private final static ESLogger logger = ESLoggerFactory.getLogger(BulkNodeReplicaTest.class.getSimpleName());
+    private final static Logger logger = LogManager.getLogger(BulkNodeReplicaTest.class.getName());
 
     @Test
     public void testReplicaLevel() throws Exception {
@@ -33,12 +41,12 @@ public class BulkNodeReplicaTest extends NodeTestUtils {
         startNode("3");
         startNode("4");
 
-        Settings settingsTest1 = Settings.settingsBuilder()
+        Settings settingsTest1 = Settings.builder()
                 .put("index.number_of_shards", 2)
                 .put("index.number_of_replicas", 3)
                 .build();
 
-        Settings settingsTest2 = Settings.settingsBuilder()
+        Settings settingsTest2 = Settings.builder()
                 .put("index.number_of_shards", 2)
                 .put("index.number_of_replicas", 1)
                 .build();

@@ -4,16 +4,15 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.carrotsearch.hppc.cursors.ObjectCursor;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesAction;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequestBuilder;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
-import org.elasticsearch.cluster.metadata.AliasAction;
 import org.elasticsearch.common.Strings;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -27,9 +26,9 @@ import java.util.regex.Pattern;
 /**
  *
  */
-public class AliasTest extends NodeTestUtils {
+public class AliasTest extends NodeTestBase {
 
-    private static final ESLogger logger = ESLoggerFactory.getLogger(AliasTest.class.getName());
+    private static final Logger logger = LogManager.getLogger(AliasTest.class.getName());
 
     @Test
     public void testAlias() throws IOException {
@@ -37,11 +36,9 @@ public class AliasTest extends NodeTestUtils {
         client("1").admin().indices().create(indexRequest).actionGet();
         // put alias
         IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
-        String[] indices = new String[]{"test"};
-        String[] aliases = new String[]{"test_alias"};
-        IndicesAliasesRequest.AliasActions aliasAction =
-                new IndicesAliasesRequest.AliasActions(AliasAction.Type.ADD, indices, aliases);
-        indicesAliasesRequest.addAliasAction(aliasAction);
+        indicesAliasesRequest.addAliasAction(IndicesAliasesRequest.AliasActions.add()
+                .index("test").alias("test_alias")
+        );
         client("1").admin().indices().aliases(indicesAliasesRequest).actionGet();
         // get alias
         GetAliasesRequest getAliasesRequest = new GetAliasesRequest(Strings.EMPTY_ARRAY);
@@ -62,11 +59,10 @@ public class AliasTest extends NodeTestUtils {
         indexRequest = new CreateIndexRequest("test20160103");
         client("1").admin().indices().create(indexRequest).actionGet();
         IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
-        String[] indices = new String[]{"test20160101", "test20160102", "test20160103"};
-        String[] aliases = new String[]{alias};
-        IndicesAliasesRequest.AliasActions aliasAction =
-                new IndicesAliasesRequest.AliasActions(AliasAction.Type.ADD, indices, aliases);
-        indicesAliasesRequest.addAliasAction(aliasAction);
+        indicesAliasesRequest.addAliasAction(IndicesAliasesRequest.AliasActions.add()
+                .indices("test20160101", "test20160102", "test20160103")
+                .alias(alias)
+        );
         client("1").admin().indices().aliases(indicesAliasesRequest).actionGet();
 
         GetAliasesRequestBuilder getAliasesRequestBuilder = new GetAliasesRequestBuilder(client("1"),

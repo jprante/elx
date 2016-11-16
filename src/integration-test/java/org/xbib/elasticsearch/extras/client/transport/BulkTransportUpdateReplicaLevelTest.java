@@ -1,12 +1,12 @@
 package org.xbib.elasticsearch.extras.client.transport;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.junit.Test;
-import org.xbib.elasticsearch.NodeTestUtils;
+import org.xbib.elasticsearch.NodeTestBase;
 import org.xbib.elasticsearch.extras.client.ClientBuilder;
 import org.xbib.elasticsearch.extras.client.SimpleBulkControl;
 import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
@@ -17,10 +17,9 @@ import static org.junit.Assert.assertFalse;
 /**
  *
  */
-public class BulkTransportUpdateReplicaLevelTest extends NodeTestUtils {
+public class BulkTransportUpdateReplicaLevelTest extends NodeTestBase {
 
-    private static final ESLogger logger =
-            ESLoggerFactory.getLogger(BulkTransportUpdateReplicaLevelTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(BulkTransportUpdateReplicaLevelTest.class.getName());
 
     @Test
     public void testUpdateReplicaLevel() throws Exception {
@@ -34,13 +33,13 @@ public class BulkTransportUpdateReplicaLevelTest extends NodeTestUtils {
 
         int shardsAfterReplica;
 
-        Settings settings = Settings.settingsBuilder()
+        Settings settings = Settings.builder()
                 .put("index.number_of_shards", numberOfShards)
                 .put("index.number_of_replicas", 0)
                 .build();
 
         final BulkTransportClient client = ClientBuilder.builder()
-                .put(getSettings())
+                .put(getClientSettings())
                 .setMetric(new SimpleBulkMetric())
                 .setControl(new SimpleBulkControl())
                 .toBulkTransportClient();

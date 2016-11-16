@@ -4,13 +4,11 @@ import org.elasticsearch.action.admin.indices.stats.*;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.index.indexing.IndexingStats;
+import org.elasticsearch.index.shard.IndexingStats;
 import org.junit.Test;
-import org.xbib.elasticsearch.NodeTestUtils;
+import org.xbib.elasticsearch.NodeTestBase;
 import org.xbib.elasticsearch.extras.client.ClientBuilder;
 import org.xbib.elasticsearch.extras.client.SimpleBulkControl;
 import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
@@ -24,9 +22,7 @@ import static org.junit.Assert.assertFalse;
 /**
  *
  */
-public class BulkTransportReplicaTest extends NodeTestUtils {
-
-    private static final ESLogger logger = ESLoggerFactory.getLogger(BulkTransportReplicaTest.class.getSimpleName());
+public class BulkTransportReplicaTest extends NodeTestBase {
 
     @Test
     public void testReplicaLevel() throws Exception {
@@ -36,18 +32,18 @@ public class BulkTransportReplicaTest extends NodeTestUtils {
         startNode("3");
         startNode("4");
 
-        Settings settingsTest1 = Settings.settingsBuilder()
+        Settings settingsTest1 = Settings.builder()
                 .put("index.number_of_shards", 2)
                 .put("index.number_of_replicas", 3)
                 .build();
 
-        Settings settingsTest2 = Settings.settingsBuilder()
+        Settings settingsTest2 = Settings.builder()
                 .put("index.number_of_shards", 2)
                 .put("index.number_of_replicas", 1)
                 .build();
 
         final BulkTransportClient client = ClientBuilder.builder()
-                .put(getSettings())
+                .put(getClientSettings())
                 .setMetric(new SimpleBulkMetric())
                 .setControl(new SimpleBulkControl())
                 .toBulkTransportClient();

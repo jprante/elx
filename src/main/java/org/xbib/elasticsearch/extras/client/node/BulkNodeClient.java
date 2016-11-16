@@ -1,8 +1,8 @@
 package org.xbib.elasticsearch.extras.client.node;
 
-import com.google.common.collect.ImmutableSet;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.Version;
 import org.elasticsearch.action.admin.indices.create.CreateIndexAction;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexAction;
@@ -18,13 +18,12 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.ElasticsearchClient;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.node.Node;
+import org.elasticsearch.node.NodeValidationException;
 import org.elasticsearch.plugins.Plugin;
 import org.xbib.elasticsearch.extras.client.AbstractClient;
 import org.xbib.elasticsearch.extras.client.BulkControl;
@@ -44,7 +43,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class BulkNodeClient extends AbstractClient implements ClientMethods {
 
-    private static final ESLogger logger = ESLoggerFactory.getLogger(BulkNodeClient.class.getName());
+    private static final Logger logger = LogManager.getLogger(BulkNodeClient.class.getName());
 
     private int maxActionsPerRequest = DEFAULT_MAX_ACTIONS_PER_REQUEST;
 
@@ -216,7 +215,11 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
                     version, effectiveSettings.getAsMap());
             Collection<Class<? extends Plugin>> plugins = Collections.emptyList();
             this.node = new BulkNode(new Environment(effectiveSettings), plugins);
-            node.start();
+            try {
+                node.start();
+            } catch (NodeValidationException e) {
+                throw new IOException(e);
+            }
             this.client = node.client();
         }
     }
@@ -389,7 +392,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
             }
             if (control != null && control.indices() != null && !control.indices().isEmpty()) {
                 logger.debug("stopping bulk mode for indices {}...", control.indices());
-                for (String index : ImmutableSet.copyOf(control.indices())) {
+                for (String index : control.indices()) {
                     stopBulk(index);
                 }
                 metric.stop();
@@ -505,7 +508,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
     private class BulkNode extends Node {
 
         BulkNode(Environment env, Collection<Class<? extends Plugin>> classpathPlugins) {
-            super(env, Version.CURRENT, classpathPlugins);
+            super(env, classpathPlugins);
         }
     }
 

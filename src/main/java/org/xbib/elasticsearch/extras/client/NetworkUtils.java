@@ -1,7 +1,7 @@
 package org.xbib.elasticsearch.extras.client;
 
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.ESLoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.net.Inet4Address;
@@ -20,7 +20,7 @@ import java.util.Locale;
  */
 public class NetworkUtils {
 
-    private static final ESLogger logger = ESLoggerFactory.getLogger(NetworkUtils.class.getName());
+    private static final Logger logger = LogManager.getLogger(NetworkUtils.class.getName());
 
     private static final String IPV4_SETTING = "java.net.preferIPv4Stack";
 

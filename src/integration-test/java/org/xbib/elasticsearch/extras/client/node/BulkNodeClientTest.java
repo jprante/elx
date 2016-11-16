@@ -4,36 +4,39 @@ import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.util.ExecutorServices;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsAction;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.ESLoggerFactory;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.Before;
 import org.junit.Test;
-import org.xbib.elasticsearch.NodeTestUtils;
+import org.xbib.elasticsearch.NodeTestBase;
 import org.xbib.elasticsearch.extras.client.ClientBuilder;
 import org.xbib.elasticsearch.extras.client.SimpleBulkControl;
 import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
  *
  */
-public class BulkNodeClientTest extends NodeTestUtils {
+public class BulkNodeClientTest extends NodeTestBase {
 
-    private static final ESLogger logger = ESLoggerFactory.getLogger(BulkNodeClientTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(BulkNodeClientTest.class.getName());
 
     private static final Long MAX_ACTIONS = 1000L;
 
@@ -165,18 +168,15 @@ public class BulkNodeClientTest extends NodeTestUtils {
                 .toBulkNodeClient(client("1"));
         try {
             client.newIndex("test")
-                    .startBulk("test", -1, 1000);
-            ThreadPoolExecutor pool = EsExecutors.newFixed("bulk-nodeclient-test", maxthreads, 30,
-                    EsExecutors.daemonThreadFactory("bulk-nodeclient-test"));
+                    .startBulk("test", 30 * 1000, 1000);
+            ExecutorService executorService = Executors.newFixedThreadPool(maxthreads);
             final CountDownLatch latch = new CountDownLatch(maxthreads);
             for (int i = 0; i < maxthreads; i++) {
-                pool.execute(new Runnable() {
-                    public void run() {
-                        for (int i = 0; i < maxloop; i++) {
-                            client.index("test", "test", null, "{ \"name\" : \"" + randomString(32) + "\"}");
-                        }
-                        latch.countDown();
+                executorService.execute(() -> {
+                    for (int i1 = 0; i1 < maxloop; i1++) {
+                        client.index("test", "test", null, "{ \"name\" : \"" + randomString(32) + "\"}");
                     }
+                    latch.countDown();
                 });
             }
             logger.info("waiting for max 30 seconds...");
@@ -184,8 +184,8 @@ public class BulkNodeClientTest extends NodeTestUtils {
             logger.info("flush...");
             client.flushIngest();
             client.waitForResponses(TimeValue.timeValueSeconds(30));
-            logger.info("got all responses, thread pool shutdown...");
-            pool.shutdown();
+            logger.info("got all responses, executor service shutdown...");
+            executorService.shutdown();
             logger.info("pool is shut down");
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");

@@ -1,6 +1,7 @@
 package org.xbib.elasticsearch.extras.client.transport;
 
-import com.google.common.collect.ImmutableSet;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequestBuilder;
@@ -21,12 +22,13 @@ import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.ESLoggerFactory;
+import org.elasticsearch.common.network.NetworkModule;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.env.Environment;
+import org.elasticsearch.transport.Netty4Plugin;
 import org.xbib.elasticsearch.extras.client.AbstractClient;
 import org.xbib.elasticsearch.extras.client.BulkControl;
 import org.xbib.elasticsearch.extras.client.BulkMetric;
@@ -39,6 +41,7 @@ import java.io.InputStream;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -49,7 +52,9 @@ import java.util.concurrent.TimeUnit;
  */
 public class BulkTransportClient extends AbstractClient implements ClientMethods {
 
-    private static final ESLogger logger = ESLoggerFactory.getLogger(BulkTransportClient.class.getName());
+    private static final Logger logger = LogManager.getLogger(BulkTransportClient.class.getName());
+
+    private static final Settings DEFAULT_SETTINGS = Settings.builder().put("transport.type.default", "local").build();
 
     private int maxActionsPerRequest = DEFAULT_MAX_ACTIONS_PER_REQUEST;
 
@@ -165,6 +170,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
             builder.setBulkSize(maxVolumePerRequest);
         }
         this.bulkProcessor = builder.build();
+        // aut-connect here
         try {
             Collection<InetSocketTransportAddress> addrs = findAddresses(settings);
             if (!connect(addrs, settings.getAsBoolean("autodiscover", false))) {
@@ -205,9 +211,10 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
                     + " " + System.getProperty("java.vm.version");
             logger.info("creating transport client on {} with effective settings {}",
                     version, settings.getAsMap());
-            this.client = TransportClient.builder()
-                    .settings(settings)
-                    .build();
+            this.client = new TransportClient(Settings.builder()
+                    .put("cluster.name", settings.get("cluster.name"))
+                    .put(NetworkModule.TRANSPORT_TYPE_KEY, Netty4Plugin.NETTY_TRANSPORT_NAME)
+                    .build(), Collections.singletonList(Netty4Plugin.class));
             this.ignoreBulkErrors = settings.getAsBoolean("ignoreBulkErrors", true);
         }
     }
@@ -313,7 +320,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
         if (control == null) {
             return this;
         }
-        if (!control.isBulk(index)) {
+        if (!control.isBulk(index) && startRefreshIntervalSeconds > 0L && stopRefreshIntervalSeconds > 0L) {
             control.startBulk(index, startRefreshIntervalSeconds, stopRefreshIntervalSeconds);
             updateIndexSetting(index, "refresh_interval", startRefreshIntervalSeconds + "s");
         }
@@ -326,7 +333,10 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
             return this;
         }
         if (control.isBulk(index)) {
-            updateIndexSetting(index, "refresh_interval", control.getStopBulkRefreshIntervals().get(index) + "s");
+            long secs = control.getStopBulkRefreshIntervals().get(index);
+            if (secs > 0L) {
+                updateIndexSetting(index, "refresh_interval", secs + "s");
+            }
             control.finishBulk(index);
         }
         return this;
@@ -461,7 +471,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
             }
             if (control != null && control.indices() != null && !control.indices().isEmpty()) {
                 logger.debug("stopping bulk mode for indices {}...", control.indices());
-                for (String index : ImmutableSet.copyOf(control.indices())) {
+                for (String index : control.indices()) {
                     stopBulk(index);
                 }
                 metric.stop();
@@ -485,7 +495,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     }
 
     private Settings findSettings() {
-        Settings.Builder settingsBuilder = Settings.settingsBuilder();
+        Settings.Builder settingsBuilder = Settings.builder();
         settingsBuilder.put("host", "localhost");
         try {
             String hostname = NetworkUtils.getLocalAddress().getHostName();

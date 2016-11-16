@@ -1,24 +1,24 @@
 package org.xbib.elasticsearch.extras.client.node;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.cluster.block.ClusterBlockException;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.junit.Before;
 import org.junit.Test;
-import org.xbib.elasticsearch.NodeTestUtils;
+import org.xbib.elasticsearch.NodeTestBase;
 
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
 /**
  *
  */
-public class BulkNodeClusterBlockTest extends NodeTestUtils {
+public class BulkNodeClusterBlockTest extends NodeTestBase {
 
-    private static final ESLogger logger = ESLoggerFactory.getLogger("test");
+    private static final Logger logger = LogManager.getLogger(BulkNodeClusterBlockTest.class.getName());
 
     @Before
     public void startNodes() {
@@ -34,7 +34,7 @@ public class BulkNodeClusterBlockTest extends NodeTestUtils {
     }
 
     protected Settings getNodeSettings() {
-        return Settings.settingsBuilder()
+        return Settings.builder()
                 .put(super.getNodeSettings())
                 .put("discovery.zen.minimum_master_nodes", 2) // block until we have two nodes
                 .build();

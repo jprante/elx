@@ -1,5 +1,7 @@
 package org.xbib.elasticsearch.extras.client;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import org.elasticsearch.ElasticsearchTimeoutException;
@@ -39,8 +41,6 @@ import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.cluster.metadata.AliasMetaData;
 import org.elasticsearch.common.io.Streams;
-import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.search.SearchHit;
@@ -68,7 +68,7 @@ import java.util.regex.Pattern;
  */
 public abstract class AbstractClient {
 
-    private static final ESLogger logger = ESLoggerFactory.getLogger(AbstractClient.class.getName());
+    private static final Logger logger = LogManager.getLogger(AbstractClient.class.getName());
 
     private Settings.Builder settingsBuilder;
 
@@ -87,7 +87,7 @@ public abstract class AbstractClient {
     }
 
     public void resetSettings() {
-        this.settingsBuilder = Settings.settingsBuilder();
+        this.settingsBuilder = Settings.builder();
         settings = null;
         mappings = new HashMap<>();
     }
@@ -98,31 +98,31 @@ public abstract class AbstractClient {
 
     public void setting(String key, String value) {
         if (settingsBuilder == null) {
-            settingsBuilder = Settings.settingsBuilder();
+            settingsBuilder = Settings.builder();
         }
         settingsBuilder.put(key, value);
     }
 
     public void setting(String key, Boolean value) {
         if (settingsBuilder == null) {
-            settingsBuilder = Settings.settingsBuilder();
+            settingsBuilder = Settings.builder();
         }
         settingsBuilder.put(key, value);
     }
 
     public void setting(String key, Integer value) {
         if (settingsBuilder == null) {
-            settingsBuilder = Settings.settingsBuilder();
+            settingsBuilder = Settings.builder();
         }
         settingsBuilder.put(key, value);
     }
 
     public void setting(InputStream in) throws IOException {
-        settingsBuilder = Settings.settingsBuilder().loadFromStream(".json", in);
+        settingsBuilder = Settings.builder().loadFromStream(".json", in);
     }
 
     public Settings.Builder settingsBuilder() {
-        return settingsBuilder != null ? settingsBuilder : Settings.settingsBuilder();
+        return settingsBuilder != null ? settingsBuilder : Settings.builder();
     }
 
     public Settings settings() {
@@ -130,7 +130,7 @@ public abstract class AbstractClient {
             return settings;
         }
         if (settingsBuilder == null) {
-            settingsBuilder = Settings.settingsBuilder();
+            settingsBuilder = Settings.builder();
         }
         return settingsBuilder.build();
     }
@@ -166,7 +166,7 @@ public abstract class AbstractClient {
         if (value == null) {
             throw new IOException("no value given");
         }
-        Settings.Builder updateSettingsBuilder = Settings.settingsBuilder();
+        Settings.Builder updateSettingsBuilder = Settings.builder();
         updateSettingsBuilder.put(key, value.toString());
         UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(index)
                 .settings(updateSettingsBuilder);
@@ -218,7 +218,7 @@ public abstract class AbstractClient {
                     new ClusterStateRequestBuilder(client(), ClusterStateAction.INSTANCE).all();
             ClusterStateResponse clusterStateResponse = clusterStateRequestBuilder.execute().actionGet();
             String name = clusterStateResponse.getClusterName().value();
-            int nodeCount = clusterStateResponse.getState().getNodes().size();
+            int nodeCount = clusterStateResponse.getState().getNodes().getSize();
             return name + " (" + nodeCount + " nodes connected)";
         } catch (ElasticsearchTimeoutException e) {
             logger.warn(e.getMessage(), e);
@@ -476,9 +476,9 @@ public abstract class AbstractClient {
             return null;
         }
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client(), SearchAction.INSTANCE);
-        SortBuilder sort = SortBuilders.fieldSort(timestampfieldname).order(SortOrder.DESC);
+        SortBuilder<?> sort = SortBuilders.fieldSort(timestampfieldname).order(SortOrder.DESC);
         SearchResponse searchResponse = searchRequestBuilder.setIndices(index)
-                .addField(timestampfieldname)
+                .addStoredField(timestampfieldname)
                 .setSize(1)
                 .addSort(sort)
                 .execute().actionGet();
