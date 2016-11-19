@@ -1,10 +1,20 @@
 package org.xbib.elasticsearch.extras.client.transport;
 
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsAction;
+import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
+import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.Before;
 import org.junit.Test;
@@ -12,6 +22,7 @@ import org.xbib.elasticsearch.NodeTestBase;
 import org.xbib.elasticsearch.extras.client.ClientBuilder;
 import org.xbib.elasticsearch.extras.client.SimpleBulkControl;
 import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
+import org.xbib.elasticsearch.extras.client.node.BulkNodeClient;
 
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
@@ -20,13 +31,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-
 /**
  *
  */
 public class BulkTransportClientTest extends NodeTestBase {
+
+    private static final Logger logger = LogManager.getLogger(BulkTransportClientTest.class.getName());
 
     private static final Long MAX_ACTIONS = 1000L;
 
@@ -43,7 +53,7 @@ public class BulkTransportClientTest extends NodeTestBase {
     }
 
     @Test
-    public void testBulkClientIndexCreation() throws IOException {
+    public void testBulkTransportClientNewIndex() throws IOException {
         logger.info("firing up BulkTransportClient");
         final BulkTransportClient client = ClientBuilder.builder()
                 .put(getClientSettings())
@@ -75,7 +85,38 @@ public class BulkTransportClientTest extends NodeTestBase {
     }
 
     @Test
-    public void testSingleDocBulkClient() throws IOException {
+    public void testBulkTransportClientMapping() throws Exception {
+        final BulkTransportClient client = ClientBuilder.builder()
+                .put(getClientSettings())
+                .put(ClientBuilder.FLUSH_INTERVAL, TimeValue.timeValueSeconds(5))
+                .setMetric(new SimpleBulkMetric())
+                .setControl(new SimpleBulkControl())
+                .toBulkTransportClient();
+        XContentBuilder builder = jsonBuilder()
+                .startObject()
+                .startObject("test")
+                .startObject("properties")
+                .startObject("location")
+                .field("type", "geo_point")
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+        client.mapping("test", builder.string());
+        client.newIndex("test");
+        GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices("test");
+        GetMappingsResponse getMappingsResponse =
+                client.client().execute(GetMappingsAction.INSTANCE, getMappingsRequest).actionGet();
+        logger.info("mappings={}", getMappingsResponse.getMappings());
+        if (client.hasThrowable()) {
+            logger.error("error", client.getThrowable());
+        }
+        assertFalse(client.hasThrowable());
+        client.shutdown();
+    }
+
+    @Test
+    public void testBulkTransportClientSingleDoc() throws IOException {
         logger.info("firing up BulkTransportClient");
         final BulkTransportClient client = ClientBuilder.builder()
                 .put(getClientSettings())
@@ -111,7 +152,7 @@ public class BulkTransportClientTest extends NodeTestBase {
     }
 
     @Test
-    public void testRandomDocsBulkClient() {
+    public void testBulkTransportClientRandomDocs() {
         long numactions = NUM_ACTIONS;
         final BulkTransportClient client = ClientBuilder.builder()
                 .put(getClientSettings())
@@ -147,7 +188,7 @@ public class BulkTransportClientTest extends NodeTestBase {
     }
 
     @Test
-    public void testThreadedRandomDocsBulkClient() {
+    public void testBulkTransportClientThreadedRandomDocs() {
         int maxthreads = Runtime.getRuntime().availableProcessors();
         long maxactions = MAX_ACTIONS;
         final long maxloop = NUM_ACTIONS;

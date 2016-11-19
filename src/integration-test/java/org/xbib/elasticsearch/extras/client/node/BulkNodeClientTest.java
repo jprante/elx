@@ -6,14 +6,12 @@ import static org.junit.Assert.assertFalse;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.util.ExecutorServices;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsAction;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -28,7 +26,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -68,7 +65,7 @@ public class BulkNodeClientTest extends NodeTestBase {
     }
 
     @Test
-    public void testMappingNodeClient() throws Exception {
+    public void testBulkNodeClientMapping() throws Exception {
         final BulkNodeClient client = ClientBuilder.builder()
                 .put(ClientBuilder.FLUSH_INTERVAL, TimeValue.timeValueSeconds(5))
                 .setMetric(new SimpleBulkMetric())
@@ -98,7 +95,7 @@ public class BulkNodeClientTest extends NodeTestBase {
     }
 
     @Test
-    public void testSingleDocNodeClient() {
+    public void testBulkNodeClientSingleDoc() {
         final BulkNodeClient client = ClientBuilder.builder()
                 .put(ClientBuilder.MAX_ACTIONS_PER_REQUEST, MAX_ACTIONS)
                 .put(ClientBuilder.FLUSH_INTERVAL, TimeValue.timeValueSeconds(30))
@@ -127,7 +124,7 @@ public class BulkNodeClientTest extends NodeTestBase {
     }
 
     @Test
-    public void testRandomDocsNodeClient() throws Exception {
+    public void testBulkNodeClientRandomDocs() throws Exception {
         long numactions = NUM_ACTIONS;
         final BulkNodeClient client = ClientBuilder.builder()
                 .put(ClientBuilder.MAX_ACTIONS_PER_REQUEST, MAX_ACTIONS)
@@ -155,7 +152,7 @@ public class BulkNodeClientTest extends NodeTestBase {
     }
 
     @Test
-    public void testThreadedRandomDocsNodeClient() throws Exception {
+    public void testBulkNodeClientThreadedRandomDocs() throws Exception {
         int maxthreads = Runtime.getRuntime().availableProcessors();
         Long maxactions = MAX_ACTIONS;
         final Long maxloop = NUM_ACTIONS;

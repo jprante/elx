@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'org.xbib'
-version = '5.0.1.0'
+version = '5.0.1.1'
 
 printf "Host: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGroovy: %s\nGradle: %s\n" +
         "Build: group: ${project.group} name: ${project.name} version: ${project.version}\n",
@@ -56,7 +56,13 @@ configurations {
 
 dependencies {
     compile "org.xbib:metrics:1.0.0"
-    compile "org.elasticsearch.client:transport:5.0.1"
+    compile("org.elasticsearch.client:transport:5.0.1") {
+        exclude group: 'org.elasticsearch', module: 'securesm'
+        exclude group: 'org.elasticsearch.plugin', module: 'transport-netty3-client'
+        exclude group: 'org.elasticsearch.plugin', module: 'reindex-client'
+        exclude group: 'org.elasticsearch.plugin', module: 'percolator-client'
+        exclude group: 'org.elasticsearch.plugin', module: 'lang-mustache-client'
+    }
     compile "org.apache.logging.log4j:log4j-api:2.7"
     testCompile "junit:junit:4.12"
     testCompile "org.apache.logging.log4j:log4j-core:2.7"

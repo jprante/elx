@@ -1,5 +1,10 @@
 package org.xbib.elasticsearch.extras.client.node;
 
+import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchAction;
@@ -11,9 +16,6 @@ import org.xbib.elasticsearch.NodeTestBase;
 import org.xbib.elasticsearch.extras.client.ClientBuilder;
 import org.xbib.elasticsearch.extras.client.SimpleBulkControl;
 import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
-
-import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
-import static org.junit.Assert.*;
 
 /**
  *

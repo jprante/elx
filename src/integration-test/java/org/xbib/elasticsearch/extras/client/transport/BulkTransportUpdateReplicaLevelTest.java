@@ -1,5 +1,8 @@
 package org.xbib.elasticsearch.extras.client.transport;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
@@ -10,9 +13,6 @@ import org.xbib.elasticsearch.NodeTestBase;
 import org.xbib.elasticsearch.extras.client.ClientBuilder;
 import org.xbib.elasticsearch.extras.client.SimpleBulkControl;
 import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 
 /**
  *

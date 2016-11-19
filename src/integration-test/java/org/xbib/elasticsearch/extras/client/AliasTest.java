@@ -1,4 +1,4 @@
-package org.xbib.elasticsearch;
+package org.xbib.elasticsearch.extras.client;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -14,6 +14,7 @@ import org.elasticsearch.action.admin.indices.alias.get.GetAliasesResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.common.Strings;
 import org.junit.Test;
+import org.xbib.elasticsearch.NodeTestBase;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -72,10 +73,8 @@ public class AliasTest extends NodeTestBase {
         Set<String> result = new TreeSet<>(Collections.reverseOrder());
         for (ObjectCursor<String> indexName : getAliasesResponse.getAliases().keys()) {
             Matcher m = pattern.matcher(indexName.value);
-            if (m.matches()) {
-                if (alias.equals(m.group(1))) {
-                    result.add(indexName.value);
-                }
+            if (m.matches() && alias.equals(m.group(1))) {
+                result.add(indexName.value);
             }
         }
         Iterator<String> it = result.iterator();

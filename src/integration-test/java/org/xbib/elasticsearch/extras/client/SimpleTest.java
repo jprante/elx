@@ -1,4 +1,4 @@
-package org.xbib.elasticsearch;
+package org.xbib.elasticsearch.extras.client;
 
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.index.query.QueryBuilders.matchQuery;
@@ -13,6 +13,7 @@ import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.common.settings.Settings;
 import org.junit.Test;
+import org.xbib.elasticsearch.NodeTestBase;
 
 /**
  *
@@ -39,7 +40,8 @@ public class SimpleTest extends NodeTestBase {
         } catch (Exception e) {
             // ignore
         }
-        CreateIndexRequestBuilder createIndexRequestBuilder = new CreateIndexRequestBuilder(client("1"), CreateIndexAction.INSTANCE)
+        CreateIndexRequestBuilder createIndexRequestBuilder = new CreateIndexRequestBuilder(client("1"),
+                CreateIndexAction.INSTANCE)
                 .setIndex("test")
                 .setSettings(Settings.builder()
                         .put("index.analysis.analyzer.default.filter.0", "lowercase")

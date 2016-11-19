@@ -27,7 +27,6 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.env.Environment;
 import org.elasticsearch.transport.Netty4Plugin;
 import org.xbib.elasticsearch.extras.client.AbstractClient;
 import org.xbib.elasticsearch.extras.client.BulkControl;
@@ -53,8 +52,6 @@ import java.util.concurrent.TimeUnit;
 public class BulkTransportClient extends AbstractClient implements ClientMethods {
 
     private static final Logger logger = LogManager.getLogger(BulkTransportClient.class.getName());
-
-    private static final Settings DEFAULT_SETTINGS = Settings.builder().put("transport.type.default", "local").build();
 
     private int maxActionsPerRequest = DEFAULT_MAX_ACTIONS_PER_REQUEST;
 
@@ -95,6 +92,9 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
         }
         resetSettings();
         BulkProcessor.Listener listener = new BulkProcessor.Listener() {
+
+            private final Logger logger = LogManager.getLogger(BulkTransportClient.class.getName() + ".Listener");
+
             @Override
             public void beforeBulk(long executionId, BulkRequest request) {
                 long l = -1L;
@@ -170,7 +170,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
             builder.setBulkSize(maxVolumePerRequest);
         }
         this.bulkProcessor = builder.build();
-        // aut-connect here
+        // auto-connect here
         try {
             Collection<InetSocketTransportAddress> addrs = findAddresses(settings);
             if (!connect(addrs, settings.getAsBoolean("autodiscover", false))) {

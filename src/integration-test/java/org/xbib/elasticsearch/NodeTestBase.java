@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class NodeTestBase {
 
-    protected static final Logger logger = LogManager.getLogger("test");
+    private static final Logger logger = LogManager.getLogger("test");
 
     private static final Random random = new Random();
 

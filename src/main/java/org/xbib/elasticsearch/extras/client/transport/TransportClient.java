@@ -91,14 +91,13 @@ public class TransportClient extends AbstractClient {
 
     private final Object mutex = new Object();
 
-    private volatile List<DiscoveryNode> listedNodes = Collections.emptyList();
-
     private volatile List<DiscoveryNode> nodes = Collections.emptyList();
+
+    private volatile List<DiscoveryNode> listedNodes = Collections.emptyList();
 
     private volatile List<DiscoveryNode> filteredNodes = Collections.emptyList();
 
     private volatile boolean closed;
-
 
     /**
      * Creates a new TransportClient with the given settings and plugins.
@@ -197,37 +196,44 @@ public class TransportClient extends AbstractClient {
         return this;
     }
 
+    /**
+     * Adds a list of transport addresses that will be used to connect to.
+     * The Node this transport address represents will be used if its possible to connect to it.
+     * If it is unavailable, it will be automatically connected to once it is up.
+     * In order to get the list of all the current connected nodes, please see {@link #connectedNodes()}.
+     *
+     * @param transportAddresses transport addressses
+     * @return this transport client
+     */
     public TransportClient addTransportAddresses(Collection<InetSocketTransportAddress> transportAddresses) {
         synchronized (mutex) {
             if (closed) {
                 throw new IllegalStateException("transport client is closed, can't add addresses");
             }
-            List<TransportAddress> filtered = new ArrayList<>(transportAddresses.size());
-            for (TransportAddress transportAddress : transportAddresses) {
+            Set<DiscoveryNode> discoveryNodeList = new HashSet<>();
+            discoveryNodeList.addAll(listedNodes);
+            logger.debug("before adding: nodes={} listednodes={} transportAddresses={}",
+                    nodes, listedNodes, transportAddresses);
+            for (TransportAddress newTransportAddress : transportAddresses) {
                 boolean found = false;
-                for (DiscoveryNode otherNode : listedNodes) {
-                    if (otherNode.getAddress().equals(transportAddress)) {
+                for (DiscoveryNode discoveryNode : discoveryNodeList) {
+                    logger.debug("checking existing address [{}] against new [{}]",
+                            discoveryNode.getAddress(), newTransportAddress);
+                    if (discoveryNode.getAddress().sameHost(newTransportAddress)) {
                         found = true;
-                        logger.debug("address [{}] already exists with [{}], ignoring...", transportAddress, otherNode);
+                        logger.debug("address [{}] already connected, ignoring", newTransportAddress, discoveryNode);
                         break;
                     }
                 }
                 if (!found) {
-                    filtered.add(transportAddress);
+                    DiscoveryNode node = new DiscoveryNode("#transport#-" + tempNodeId.incrementAndGet(),
+                            newTransportAddress,
+                            Version.CURRENT.minimumCompatibilityVersion());
+                    logger.debug("adding address [{}]", node);
+                    discoveryNodeList.add(node);
                 }
             }
-            if (filtered.isEmpty()) {
-                return this;
-            }
-            List<DiscoveryNode> discoveryNodeList = new ArrayList<>();
-            discoveryNodeList.addAll(listedNodes());
-            for (TransportAddress transportAddress : filtered) {
-                DiscoveryNode node = new DiscoveryNode("#transport#-" + tempNodeId.incrementAndGet(), transportAddress,
-                        Version.CURRENT.minimumCompatibilityVersion());
-                logger.debug("adding address [{}]", node);
-                discoveryNodeList.add(node);
-            }
-            listedNodes = Collections.unmodifiableList(discoveryNodeList);
+            listedNodes = Collections.unmodifiableList(new ArrayList<>(discoveryNodeList));
             connect();
         }
         return this;
@@ -265,13 +271,16 @@ public class TransportClient extends AbstractClient {
                 return;
             }
             closed = true;
+            logger.debug("disconnecting from nodes {}", nodes);
             for (DiscoveryNode node : nodes) {
                 transportService.disconnectFromNode(node);
             }
+            nodes = Collections.emptyList();
+            logger.debug("disconnecting from listed nodes {}", listedNodes);
             for (DiscoveryNode listedNode : listedNodes) {
                 transportService.disconnectFromNode(listedNode);
             }
-            nodes = Collections.emptyList();
+            listedNodes = Collections.emptyList();
         }
         injector.getInstance(TransportService.class).close();
         for (Class<? extends LifecycleComponent> plugin : injector.getInstance(PluginsService.class).getGuiceServiceClasses()) {
@@ -290,7 +299,7 @@ public class TransportClient extends AbstractClient {
         for (DiscoveryNode listedNode : listedNodes) {
             if (!transportService.nodeConnected(listedNode)) {
                 try {
-                    logger.trace("connecting to listed node (light) [{}]", listedNode);
+                    logger.debug("connecting to listed node (light) [{}]", listedNode);
                     transportService.connectToNodeLight(listedNode);
                 } catch (Exception e) {
                     logger.debug("failed to connect to node [{}], removed from nodes list", e, listedNode);
@@ -309,7 +318,7 @@ public class TransportClient extends AbstractClient {
                             }
                         }).txGet();
                 if (!clusterName.equals(livenessResponse.getClusterName())) {
-                    logger.warn("node {} not part of the cluster {}, ignoring...", listedNode, clusterName);
+                    logger.warn("node {} not part of the cluster {}, ignoring", listedNode, clusterName);
                     newFilteredNodes.add(listedNode);
                 } else if (livenessResponse.getDiscoveryNode() != null) {
                     DiscoveryNode nodeWithInfo = livenessResponse.getDiscoveryNode();
@@ -323,7 +332,7 @@ public class TransportClient extends AbstractClient {
                     newNodes.add(listedNode);
                 }
             } catch (Exception e) {
-                logger.info("failed to get node info for {}, disconnecting...", e, listedNode);
+                logger.info("failed to get node info for {}, disconnecting", e, listedNode);
                 transportService.disconnectFromNode(listedNode);
             }
         }
@@ -331,7 +340,7 @@ public class TransportClient extends AbstractClient {
             DiscoveryNode node = it.next();
             if (!transportService.nodeConnected(node)) {
                 try {
-                    logger.trace("connecting to node [{}]", node);
+                    logger.debug("connecting to new node [{}]", node);
                     transportService.connectToNode(node);
                 } catch (Exception e) {
                     it.remove();
@@ -340,6 +349,7 @@ public class TransportClient extends AbstractClient {
             }
         }
         this.nodes = Collections.unmodifiableList(new ArrayList<>(newNodes));
+        logger.debug("connected to {} nodes", nodes.size());
         this.filteredNodes = Collections.unmodifiableList(new ArrayList<>(newFilteredNodes));
     }
 
@@ -392,10 +402,13 @@ public class TransportClient extends AbstractClient {
     }
 
 
-    private static ClientTemplate buildTemplate(Settings providedSettings, Settings defaultSettings,
+    private static ClientTemplate buildTemplate(Settings givenSettings, Settings defaultSettings,
                                                 Collection<Class<? extends Plugin>> plugins) {
+        Settings providedSettings = givenSettings;
         if (!Node.NODE_NAME_SETTING.exists(providedSettings)) {
-            providedSettings = Settings.builder().put(providedSettings).put(Node.NODE_NAME_SETTING.getKey(), "_client_").build();
+            providedSettings = Settings.builder().put(providedSettings)
+                    .put(Node.NODE_NAME_SETTING.getKey(), "_client_")
+                    .build();
         }
         final PluginsService pluginsService = newPluginService(providedSettings, plugins);
         final Settings settings = Settings.builder().put(defaultSettings).put(pluginsService.updatedSettings()).build();
@@ -423,7 +436,7 @@ public class TransportClient extends AbstractClient {
             NamedWriteableRegistry namedWriteableRegistry = new NamedWriteableRegistry(entries);
 
             ModulesBuilder modules = new ModulesBuilder();
-            // plugin modules must be added here, before others or we can get crazy injection errors...
+            // plugin modules must be added here, before others or we can get crazy injection errors
             for (Module pluginModule : pluginsService.createGuiceModules()) {
                 modules.add(pluginModule);
             }
@@ -457,8 +470,7 @@ public class TransportClient extends AbstractClient {
             resourcesToClose.addAll(pluginLifecycleComponents);
             transportService.start();
             transportService.acceptIncomingRequests();
-            ClientTemplate transportClient = new ClientTemplate(injector, pluginLifecycleComponents,
-                    proxy, namedWriteableRegistry);
+            ClientTemplate transportClient = new ClientTemplate(injector, proxy);
             resourcesToClose.clear();
             return transportClient;
         } finally {
@@ -482,16 +494,12 @@ public class TransportClient extends AbstractClient {
 
     private static final class ClientTemplate {
         final Injector injector;
-        private final List<LifecycleComponent> pluginLifecycleComponents;
         private final ProxyActionMap proxy;
-        private final NamedWriteableRegistry namedWriteableRegistry;
 
-        private ClientTemplate(Injector injector, List<LifecycleComponent> pluginLifecycleComponents,
-                               ProxyActionMap proxy, NamedWriteableRegistry namedWriteableRegistry) {
+        private ClientTemplate(Injector injector,
+                               ProxyActionMap proxy) {
             this.injector = injector;
-            this.pluginLifecycleComponents = pluginLifecycleComponents;
             this.proxy = proxy;
-            this.namedWriteableRegistry = namedWriteableRegistry;
         }
 
         Settings getSettings() {

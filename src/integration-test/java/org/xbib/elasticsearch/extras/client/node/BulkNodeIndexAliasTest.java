@@ -1,5 +1,7 @@
 package org.xbib.elasticsearch.extras.client.node;
 
+import static org.junit.Assert.assertFalse;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequestBuilder;
@@ -16,8 +18,6 @@ import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.Assert.assertFalse;
 
 /**
  *

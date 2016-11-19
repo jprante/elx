@@ -101,6 +101,9 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
             metric.start();
         }
         BulkProcessor.Listener listener = new BulkProcessor.Listener() {
+
+            private final Logger logger = LogManager.getLogger(BulkNodeClient.class.getName() + ".Listener");
+
             @Override
             public void beforeBulk(long executionId, BulkRequest request) {
                 long l = -1;

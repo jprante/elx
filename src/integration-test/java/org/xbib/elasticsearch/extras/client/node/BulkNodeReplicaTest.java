@@ -1,5 +1,9 @@
 package org.xbib.elasticsearch.extras.client.node;
 
+import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.indices.stats.CommonStats;
@@ -22,16 +26,12 @@ import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
 
 import java.util.Map;
 
-import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-
 /**
  *
  */
 public class BulkNodeReplicaTest extends NodeTestBase {
 
-    private final static Logger logger = LogManager.getLogger(BulkNodeReplicaTest.class.getName());
+    private static final Logger logger = LogManager.getLogger(BulkNodeReplicaTest.class.getName());
 
     @Test
     public void testReplicaLevel() throws Exception {
@@ -80,7 +80,8 @@ public class BulkNodeReplicaTest extends NodeTestBase {
             long hits = searchRequestBuilder.execute().actionGet().getHits().getTotalHits();
             logger.info("query total hits={}", hits);
             assertEquals(2468, hits);
-            IndicesStatsRequestBuilder indicesStatsRequestBuilder = new IndicesStatsRequestBuilder(client.client(), IndicesStatsAction.INSTANCE)
+            IndicesStatsRequestBuilder indicesStatsRequestBuilder = new IndicesStatsRequestBuilder(client.client(),
+                    IndicesStatsAction.INSTANCE)
                     .all();
             IndicesStatsResponse response = indicesStatsRequestBuilder.execute().actionGet();
             for (Map.Entry<String, IndexStats> m : response.getIndices().entrySet()) {

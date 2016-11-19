@@ -1,5 +1,12 @@
 package org.xbib.elasticsearch.extras.client.transport;
 
+import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
@@ -10,17 +17,16 @@ import org.xbib.elasticsearch.extras.client.ClientBuilder;
 import org.xbib.elasticsearch.extras.client.SimpleBulkControl;
 import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
 
-import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
-import static org.junit.Assert.*;
-
 /**
  *
  */
 public class BulkTransportDuplicateIDTest extends NodeTestBase {
 
-    private final static Long MAX_ACTIONS = 1000L;
+    private static final Logger logger = LogManager.getLogger(BulkTransportDuplicateIDTest.class.getName());
 
-    private final static Long NUM_ACTIONS = 12345L;
+    private static final Long MAX_ACTIONS = 1000L;
+
+    private static final Long NUM_ACTIONS = 12345L;
 
     @Test
     public void testDuplicateDocIDs() throws Exception {

@@ -2,10 +2,10 @@ package suites;
 
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
-import org.xbib.elasticsearch.AliasTest;
-import org.xbib.elasticsearch.SearchTest;
-import org.xbib.elasticsearch.SimpleTest;
-import org.xbib.elasticsearch.WildcardTest;
+import org.xbib.elasticsearch.extras.client.AliasTest;
+import org.xbib.elasticsearch.extras.client.SearchTest;
+import org.xbib.elasticsearch.extras.client.SimpleTest;
+import org.xbib.elasticsearch.extras.client.WildcardTest;
 
 /**
  *

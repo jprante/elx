@@ -1,4 +1,4 @@
-package org.xbib.elasticsearch;
+package org.xbib.elasticsearch.extras.client;
 
 import static org.elasticsearch.client.Requests.indexRequest;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
@@ -9,6 +9,7 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.junit.Test;
+import org.xbib.elasticsearch.NodeTestBase;
 
 import java.io.IOException;
 

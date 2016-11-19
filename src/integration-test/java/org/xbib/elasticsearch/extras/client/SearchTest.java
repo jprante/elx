@@ -1,4 +1,4 @@
-package org.xbib.elasticsearch;
+package org.xbib.elasticsearch.extras.client;
 
 import static org.elasticsearch.client.Requests.indexRequest;
 import static org.elasticsearch.client.Requests.refreshRequest;
@@ -15,6 +15,7 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.junit.Test;
+import org.xbib.elasticsearch.NodeTestBase;
 
 /**
  *

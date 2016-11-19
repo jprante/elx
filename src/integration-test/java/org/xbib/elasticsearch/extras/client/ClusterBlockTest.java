@@ -1,4 +1,6 @@
-package org.xbib.elasticsearch.extras.client.node;
+package org.xbib.elasticsearch.extras.client;
+
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -11,14 +13,12 @@ import org.junit.Before;
 import org.junit.Test;
 import org.xbib.elasticsearch.NodeTestBase;
 
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-
 /**
  *
  */
-public class BulkNodeClusterBlockTest extends NodeTestBase {
+public class ClusterBlockTest extends NodeTestBase {
 
-    private static final Logger logger = LogManager.getLogger(BulkNodeClusterBlockTest.class.getName());
+    private static final Logger logger = LogManager.getLogger(ClusterBlockTest.class.getName());
 
     @Before
     public void startNodes() {

@@ -1,6 +1,17 @@
 package org.xbib.elasticsearch.extras.client.transport;
 
-import org.elasticsearch.action.admin.indices.stats.*;
+import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.admin.indices.stats.CommonStats;
+import org.elasticsearch.action.admin.indices.stats.IndexShardStats;
+import org.elasticsearch.action.admin.indices.stats.IndexStats;
+import org.elasticsearch.action.admin.indices.stats.IndicesStatsAction;
+import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequestBuilder;
+import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
@@ -15,14 +26,12 @@ import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
 
 import java.util.Map;
 
-import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-
 /**
  *
  */
 public class BulkTransportReplicaTest extends NodeTestBase {
+
+    private static final Logger logger = LogManager.getLogger(BulkTransportClientTest.class.getName());
 
     @Test
     public void testReplicaLevel() throws Exception {
