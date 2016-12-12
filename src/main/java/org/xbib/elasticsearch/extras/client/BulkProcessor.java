@@ -147,7 +147,7 @@ public class BulkProcessor implements Closeable {
      * @param request request
      * @return his bulk processor
      */
-    public BulkProcessor add(ActionRequest<?> request) {
+    public BulkProcessor add(ActionRequest request) {
         return add(request, null);
     }
 
@@ -158,7 +158,7 @@ public class BulkProcessor implements Closeable {
      * @param payload payload
      * @return his bulk processor
      */
-    public BulkProcessor add(ActionRequest<?> request, @Nullable Object payload) {
+    public BulkProcessor add(ActionRequest request, @Nullable Object payload) {
         internalAdd(request, payload);
         return this;
     }
@@ -169,7 +169,7 @@ public class BulkProcessor implements Closeable {
         }
     }
 
-    private synchronized void internalAdd(ActionRequest<?> request, @Nullable Object payload) {
+    private synchronized void internalAdd(ActionRequest request, @Nullable Object payload) {
         ensureOpen();
         bulkRequest.add(request, payload);
         executeIfNeeded();

@@ -11,6 +11,7 @@ import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequestBuilder;
 import org.elasticsearch.action.index.IndexAction;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.junit.Test;
 import org.xbib.elasticsearch.NodeTestBase;
@@ -20,27 +21,17 @@ import org.xbib.elasticsearch.NodeTestBase;
  */
 public class SimpleTest extends NodeTestBase {
 
-    protected Settings getNodeSettings() {
-        return Settings.builder()
-                .put("cluster.name", getClusterName())
-                .put("discovery.type", "local")
-                .put("transport.type", "local")
-                .put("http.enabled", false)
-                .put("path.home", getHome())
-                .put("node.max_local_storage_nodes", 5)
-                .build();
-    }
-
     @Test
     public void test() throws Exception {
+        Client client = client("1");
         try {
             DeleteIndexRequestBuilder deleteIndexRequestBuilder =
-                    new DeleteIndexRequestBuilder(client("1"), DeleteIndexAction.INSTANCE, "test");
+                    new DeleteIndexRequestBuilder(client, DeleteIndexAction.INSTANCE, "test");
             deleteIndexRequestBuilder.execute().actionGet();
         } catch (Exception e) {
             // ignore
         }
-        CreateIndexRequestBuilder createIndexRequestBuilder = new CreateIndexRequestBuilder(client("1"),
+        CreateIndexRequestBuilder createIndexRequestBuilder = new CreateIndexRequestBuilder(client,
                 CreateIndexAction.INSTANCE)
                 .setIndex("test")
                 .setSettings(Settings.builder()
@@ -50,7 +41,7 @@ public class SimpleTest extends NodeTestBase {
                         .build());
         createIndexRequestBuilder.execute().actionGet();
 
-        IndexRequestBuilder indexRequestBuilder = new IndexRequestBuilder(client("1"), IndexAction.INSTANCE);
+        IndexRequestBuilder indexRequestBuilder = new IndexRequestBuilder(client, IndexAction.INSTANCE);
         indexRequestBuilder
                 .setIndex("test")
                 .setType("test")
@@ -60,7 +51,7 @@ public class SimpleTest extends NodeTestBase {
                 .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
                 .execute()
                 .actionGet();
-        String doc = client("1").prepareSearch("test")
+        String doc = client.prepareSearch("test")
                 .setTypes("test")
                 .setQuery(matchQuery("field",
                         "1%2fPJJP3JV2C24iDfEu9XpHBaYxXh%2fdHTbmchB35SDznXO2g8Vz4D7GTIvY54iMiX_149c95f02a8"))
