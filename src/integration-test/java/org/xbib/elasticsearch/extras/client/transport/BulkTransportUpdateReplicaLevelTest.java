@@ -4,10 +4,9 @@ import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
 import org.junit.Test;
 import org.xbib.elasticsearch.NodeTestUtils;
-import org.xbib.elasticsearch.extras.client.ClientBuilder;
+import org.xbib.elasticsearch.extras.client.Clients;
 import org.xbib.elasticsearch.extras.client.SimpleBulkControl;
 import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
 
@@ -39,7 +38,7 @@ public class BulkTransportUpdateReplicaLevelTest extends NodeTestUtils {
                 .put("index.number_of_replicas", 0)
                 .build();
 
-        final BulkTransportClient client = ClientBuilder.builder()
+        final BulkTransportClient client = Clients.builder()
                 .put(getSettings())
                 .setMetric(new SimpleBulkMetric())
                 .setControl(new SimpleBulkControl())
@@ -47,12 +46,12 @@ public class BulkTransportUpdateReplicaLevelTest extends NodeTestUtils {
 
         try {
             client.newIndex("replicatest", settings, null);
-            client.waitForCluster("GREEN", TimeValue.timeValueSeconds(30));
+            client.waitForCluster("GREEN", "30s");
             for (int i = 0; i < 12345; i++) {
                 client.index("replicatest", "replicatest", null, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             client.flushIngest();
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
             shardsAfterReplica = client.updateReplicaLevel("replicatest", replicaLevel);
             assertEquals(shardsAfterReplica, numberOfShards * (replicaLevel + 1));
         } catch (NoNodeAvailableException e) {

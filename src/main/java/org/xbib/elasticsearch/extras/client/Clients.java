@@ -11,7 +11,7 @@ import org.xbib.elasticsearch.extras.client.transport.MockTransportClient;
 /**
  *
  */
-public final class ClientBuilder implements Parameters {
+public final class Clients implements Parameters {
 
     private final Settings.Builder settingsBuilder;
 
@@ -19,55 +19,55 @@ public final class ClientBuilder implements Parameters {
 
     private BulkControl control;
 
-    public ClientBuilder() {
+    public Clients() {
         settingsBuilder = Settings.builder();
     }
 
-    public static ClientBuilder builder() {
-        return new ClientBuilder();
+    public static Clients builder() {
+        return new Clients();
     }
 
-    public ClientBuilder put(String key, String value) {
+    public Clients put(String key, String value) {
         settingsBuilder.put(key, value);
         return this;
     }
 
-    public ClientBuilder put(String key, Integer value) {
+    public Clients put(String key, Integer value) {
         settingsBuilder.put(key, value);
         return this;
     }
 
-    public ClientBuilder put(String key, Long value) {
+    public Clients put(String key, Long value) {
         settingsBuilder.put(key, value);
         return this;
     }
 
-    public ClientBuilder put(String key, Double value) {
+    public Clients put(String key, Double value) {
         settingsBuilder.put(key, value);
         return this;
     }
 
-    public ClientBuilder put(String key, ByteSizeValue value) {
+    public Clients put(String key, ByteSizeValue value) {
         settingsBuilder.put(key, value);
         return this;
     }
 
-    public ClientBuilder put(String key, TimeValue value) {
+    public Clients put(String key, TimeValue value) {
         settingsBuilder.put(key, value);
         return this;
     }
 
-    public ClientBuilder put(Settings settings) {
+    public Clients put(Settings settings) {
         settingsBuilder.put(settings);
         return this;
     }
 
-    public ClientBuilder setMetric(BulkMetric metric) {
+    public Clients setMetric(BulkMetric metric) {
         this.metric = metric;
         return this;
     }
 
-    public ClientBuilder setControl(BulkControl control) {
+    public Clients setControl(BulkControl control) {
         this.control = control;
         return this;
     }
@@ -77,8 +77,8 @@ public final class ClientBuilder implements Parameters {
         return new BulkNodeClient()
                 .maxActionsPerRequest(settings.getAsInt(MAX_ACTIONS_PER_REQUEST, DEFAULT_MAX_ACTIONS_PER_REQUEST))
                 .maxConcurrentRequests(settings.getAsInt(MAX_CONCURRENT_REQUESTS, DEFAULT_MAX_CONCURRENT_REQUESTS))
-                .maxVolumePerRequest(settings.getAsBytesSize(MAX_VOLUME_PER_REQUEST, DEFAULT_MAX_VOLUME_PER_REQUEST))
-                .flushIngestInterval(settings.getAsTime(FLUSH_INTERVAL, DEFAULT_FLUSH_INTERVAL))
+                .maxVolumePerRequest(settings.get(MAX_VOLUME_PER_REQUEST, DEFAULT_MAX_VOLUME_PER_REQUEST))
+                .flushIngestInterval(settings.get(FLUSH_INTERVAL, DEFAULT_FLUSH_INTERVAL))
                 .init(client, metric, control);
     }
 
@@ -87,8 +87,8 @@ public final class ClientBuilder implements Parameters {
         return new BulkTransportClient()
                 .maxActionsPerRequest(settings.getAsInt(MAX_ACTIONS_PER_REQUEST, DEFAULT_MAX_ACTIONS_PER_REQUEST))
                 .maxConcurrentRequests(settings.getAsInt(MAX_CONCURRENT_REQUESTS, DEFAULT_MAX_CONCURRENT_REQUESTS))
-                .maxVolumePerRequest(settings.getAsBytesSize(MAX_VOLUME_PER_REQUEST, DEFAULT_MAX_VOLUME_PER_REQUEST))
-                .flushIngestInterval(settings.getAsTime(FLUSH_INTERVAL, DEFAULT_FLUSH_INTERVAL))
+                .maxVolumePerRequest(settings.get(MAX_VOLUME_PER_REQUEST, DEFAULT_MAX_VOLUME_PER_REQUEST))
+                .flushIngestInterval(settings.get(FLUSH_INTERVAL, DEFAULT_FLUSH_INTERVAL))
                 .init(settings, metric, control);
     }
 
@@ -97,8 +97,8 @@ public final class ClientBuilder implements Parameters {
         return new MockTransportClient()
                 .maxActionsPerRequest(settings.getAsInt(MAX_ACTIONS_PER_REQUEST, DEFAULT_MAX_ACTIONS_PER_REQUEST))
                 .maxConcurrentRequests(settings.getAsInt(MAX_CONCURRENT_REQUESTS, DEFAULT_MAX_CONCURRENT_REQUESTS))
-                .maxVolumePerRequest(settings.getAsBytesSize(MAX_VOLUME_PER_REQUEST, DEFAULT_MAX_VOLUME_PER_REQUEST))
-                .flushIngestInterval(settings.getAsTime(FLUSH_INTERVAL, DEFAULT_FLUSH_INTERVAL))
+                .maxVolumePerRequest(settings.get(MAX_VOLUME_PER_REQUEST, DEFAULT_MAX_VOLUME_PER_REQUEST))
+                .flushIngestInterval(settings.get(FLUSH_INTERVAL, DEFAULT_FLUSH_INTERVAL))
                 .init(settings, metric, control);
     }
 

@@ -194,7 +194,7 @@ public abstract class AbstractClient {
         return shards;
     }
 
-    public void waitForCluster(String statusString, TimeValue timeout) throws IOException {
+    public void waitForCluster(String statusString, String timeout) throws IOException {
         if (client() == null) {
             return;
         }
@@ -255,7 +255,7 @@ public abstract class AbstractClient {
     }
 
     public int updateReplicaLevel(String index, int level) throws IOException {
-        waitForCluster("YELLOW", TimeValue.timeValueSeconds(30));
+        waitForCluster("YELLOW", "30s");
         updateIndexSetting(index, "number_of_replicas", level);
         return waitForRecovery(index);
     }

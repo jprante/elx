@@ -8,8 +8,6 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.common.Nullable;
-import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
@@ -48,8 +46,8 @@ public class BulkProcessor implements Closeable {
 
     private volatile boolean closed = false;
 
-    private BulkProcessor(Client client, Listener listener, @Nullable String name, int concurrentRequests,
-                          int bulkActions, ByteSizeValue bulkSize, @Nullable TimeValue flushInterval) {
+    private BulkProcessor(Client client, Listener listener, String name, int concurrentRequests,
+                          int bulkActions, ByteSizeValue bulkSize, TimeValue flushInterval) {
         this.bulkActions = bulkActions;
         this.bulkSize = bulkSize.bytes();
 
@@ -159,33 +157,21 @@ public class BulkProcessor implements Closeable {
      * @param payload payload
      * @return his bulk processor
      */
-    public BulkProcessor add(ActionRequest<?> request, @Nullable Object payload) {
+    public BulkProcessor add(ActionRequest<?> request, Object payload) {
         internalAdd(request, payload);
         return this;
     }
 
-    protected void ensureOpen() {
+    private void ensureOpen() {
         if (closed) {
             throw new IllegalStateException("bulk process already closed");
         }
     }
 
-    private synchronized void internalAdd(ActionRequest<?> request, @Nullable Object payload) {
+    private synchronized void internalAdd(ActionRequest<?> request, Object payload) {
         ensureOpen();
         bulkRequest.add(request, payload);
         executeIfNeeded();
-    }
-
-    public BulkProcessor add(BytesReference data, @Nullable String defaultIndex, @Nullable String defaultType)
-            throws Exception {
-        return add(data, defaultIndex, defaultType, null);
-    }
-
-    public synchronized BulkProcessor add(BytesReference data, @Nullable String defaultIndex,
-                                          @Nullable String defaultType, @Nullable Object payload) throws Exception {
-        bulkRequest.add(data, defaultIndex, defaultType, null, null, payload, true);
-        executeIfNeeded();
-        return this;
     }
 
     private void executeIfNeeded() {

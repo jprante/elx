@@ -12,7 +12,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.Before;
 import org.junit.Test;
 import org.xbib.elasticsearch.NodeTestUtils;
-import org.xbib.elasticsearch.extras.client.ClientBuilder;
+import org.xbib.elasticsearch.extras.client.Clients;
 import org.xbib.elasticsearch.extras.client.SimpleBulkControl;
 import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
 
@@ -48,9 +48,9 @@ public class BulkTransportClientTest extends NodeTestUtils {
 
     @Test
     public void testBulkClient() throws IOException {
-        final BulkTransportClient client = ClientBuilder.builder()
+        final BulkTransportClient client = Clients.builder()
                 .put(getSettings())
-                .put(ClientBuilder.FLUSH_INTERVAL, TimeValue.timeValueSeconds(60))
+                .put(Clients.FLUSH_INTERVAL, TimeValue.timeValueSeconds(60))
                 .setMetric(new SimpleBulkMetric())
                 .setControl(new SimpleBulkControl())
                 .toBulkTransportClient();
@@ -76,10 +76,10 @@ public class BulkTransportClientTest extends NodeTestUtils {
 
     @Test
     public void testSingleDocBulkClient() throws IOException {
-        final BulkTransportClient client = ClientBuilder.builder()
+        final BulkTransportClient client = Clients.builder()
                 .put(getSettings())
-                .put(ClientBuilder.MAX_ACTIONS_PER_REQUEST, MAX_ACTIONS)
-                .put(ClientBuilder.FLUSH_INTERVAL, TimeValue.timeValueSeconds(60))
+                .put(Clients.MAX_ACTIONS_PER_REQUEST, MAX_ACTIONS)
+                .put(Clients.FLUSH_INTERVAL, TimeValue.timeValueSeconds(60))
                 .setMetric(new SimpleBulkMetric())
                 .setControl(new SimpleBulkControl())
                 .toBulkTransportClient();
@@ -87,7 +87,7 @@ public class BulkTransportClientTest extends NodeTestUtils {
             client.newIndex("test");
             client.index("test", "test", "1", "{ \"name\" : \"Hello World\"}"); // single doc ingest
             client.flushIngest();
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
         } catch (InterruptedException e) {
             // ignore
         } catch (ExecutionException e) {
@@ -107,10 +107,10 @@ public class BulkTransportClientTest extends NodeTestUtils {
     @Test
     public void testRandomDocsBulkClient() throws IOException {
         long numactions = NUM_ACTIONS;
-        final BulkTransportClient client = ClientBuilder.builder()
+        final BulkTransportClient client = Clients.builder()
                 .put(getSettings())
-                .put(ClientBuilder.MAX_ACTIONS_PER_REQUEST, MAX_ACTIONS)
-                .put(ClientBuilder.FLUSH_INTERVAL, TimeValue.timeValueSeconds(60))
+                .put(Clients.MAX_ACTIONS_PER_REQUEST, MAX_ACTIONS)
+                .put(Clients.FLUSH_INTERVAL, TimeValue.timeValueSeconds(60))
                 .setMetric(new SimpleBulkMetric())
                 .setControl(new SimpleBulkControl())
                 .toBulkTransportClient();
@@ -120,7 +120,7 @@ public class BulkTransportClientTest extends NodeTestUtils {
                 client.index("test", "test", null, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             client.flushIngest();
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
         } catch (InterruptedException e) {
             // ignore
         } catch (ExecutionException e) {
@@ -148,10 +148,10 @@ public class BulkTransportClientTest extends NodeTestUtils {
                 .put("index.number_of_replicas", 1)
                 .build();
 
-        final BulkTransportClient client = ClientBuilder.builder()
+        final BulkTransportClient client = Clients.builder()
                 .put(getSettings())
-                .put(ClientBuilder.MAX_ACTIONS_PER_REQUEST, maxactions)
-                .put(ClientBuilder.FLUSH_INTERVAL, TimeValue.timeValueSeconds(60)) // = disable autoflush for this test
+                .put(Clients.MAX_ACTIONS_PER_REQUEST, maxactions)
+                .put(Clients.FLUSH_INTERVAL, TimeValue.timeValueSeconds(60)) // = disable autoflush for this test
                 .setMetric(new SimpleBulkMetric())
                 .setControl(new SimpleBulkControl())
                 .toBulkTransportClient();
@@ -173,7 +173,7 @@ public class BulkTransportClientTest extends NodeTestUtils {
             latch.await(30, TimeUnit.SECONDS);
             logger.info("client flush ...");
             client.flushIngest();
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
             logger.info("thread pool to be shut down ...");
             pool.shutdown();
             logger.info("poot shut down");

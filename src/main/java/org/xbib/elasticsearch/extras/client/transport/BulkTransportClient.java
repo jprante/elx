@@ -55,9 +55,9 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
 
     private int maxConcurrentRequests = DEFAULT_MAX_CONCURRENT_REQUESTS;
 
-    private ByteSizeValue maxVolumePerRequest = DEFAULT_MAX_VOLUME_PER_REQUEST;
+    private ByteSizeValue maxVolumePerRequest;
 
-    private TimeValue flushInterval = DEFAULT_FLUSH_INTERVAL;
+    private TimeValue flushInterval;
 
     private BulkProcessor bulkProcessor;
 
@@ -229,14 +229,14 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     }
 
     @Override
-    public BulkTransportClient maxVolumePerRequest(ByteSizeValue maxVolumePerRequest) {
-        this.maxVolumePerRequest = maxVolumePerRequest;
+    public BulkTransportClient maxVolumePerRequest(String maxVolumePerRequest) {
+        this.maxVolumePerRequest = ByteSizeValue.parseBytesSizeValue(maxVolumePerRequest, "maxVolumePerRequest");
         return this;
     }
 
     @Override
-    public BulkTransportClient flushIngestInterval(TimeValue flushInterval) {
-        this.flushInterval = flushInterval;
+    public BulkTransportClient flushIngestInterval(String flushInterval) {
+        this.flushInterval = TimeValue.parseTimeValue(flushInterval, TimeValue.timeValueSeconds(5), "flushIngestInterval");
         return this;
     }
 
@@ -439,12 +439,13 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     }
 
     @Override
-    public synchronized BulkTransportClient waitForResponses(TimeValue maxWaitTime)
+    public synchronized BulkTransportClient waitForResponses(String maxWaitTime)
             throws InterruptedException, ExecutionException {
         if (closed) {
             throwClose();
         }
-        bulkProcessor.awaitClose(maxWaitTime.getMillis(), TimeUnit.MILLISECONDS);
+        bulkProcessor.awaitClose(TimeValue.parseTimeValue(maxWaitTime,
+                TimeValue.timeValueSeconds(30), "maxWaitTime").getMillis(), TimeUnit.MILLISECONDS);
         return this;
     }
 

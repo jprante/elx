@@ -19,7 +19,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.Before;
 import org.junit.Test;
 import org.xbib.elasticsearch.NodeTestUtils;
-import org.xbib.elasticsearch.extras.client.ClientBuilder;
+import org.xbib.elasticsearch.extras.client.Clients;
 import org.xbib.elasticsearch.extras.client.SimpleBulkControl;
 import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
 
@@ -51,8 +51,8 @@ public class BulkNodeClientTest extends NodeTestUtils {
 
     @Test
     public void testNewIndexNodeClient() throws Exception {
-        final BulkNodeClient client = ClientBuilder.builder()
-                .put(ClientBuilder.FLUSH_INTERVAL, TimeValue.timeValueSeconds(5))
+        final BulkNodeClient client = Clients.builder()
+                .put(Clients.FLUSH_INTERVAL, TimeValue.timeValueSeconds(5))
                 .setMetric(new SimpleBulkMetric())
                 .setControl(new SimpleBulkControl())
                 .toBulkNodeClient(client("1"));
@@ -66,8 +66,8 @@ public class BulkNodeClientTest extends NodeTestUtils {
 
     @Test
     public void testMappingNodeClient() throws Exception {
-        final BulkNodeClient client = ClientBuilder.builder()
-                .put(ClientBuilder.FLUSH_INTERVAL, TimeValue.timeValueSeconds(5))
+        final BulkNodeClient client = Clients.builder()
+                .put(Clients.FLUSH_INTERVAL, TimeValue.timeValueSeconds(5))
                 .setMetric(new SimpleBulkMetric())
                 .setControl(new SimpleBulkControl())
                 .toBulkNodeClient(client("1"));
@@ -96,9 +96,9 @@ public class BulkNodeClientTest extends NodeTestUtils {
 
     @Test
     public void testSingleDocNodeClient() {
-        final BulkNodeClient client = ClientBuilder.builder()
-                .put(ClientBuilder.MAX_ACTIONS_PER_REQUEST, MAX_ACTIONS)
-                .put(ClientBuilder.FLUSH_INTERVAL, TimeValue.timeValueSeconds(30))
+        final BulkNodeClient client = Clients.builder()
+                .put(Clients.MAX_ACTIONS_PER_REQUEST, MAX_ACTIONS)
+                .put(Clients.FLUSH_INTERVAL, TimeValue.timeValueSeconds(30))
                 .setMetric(new SimpleBulkMetric())
                 .setControl(new SimpleBulkControl())
                 .toBulkNodeClient(client("1"));
@@ -106,7 +106,7 @@ public class BulkNodeClientTest extends NodeTestUtils {
             client.newIndex("test");
             client.index("test", "test", "1", "{ \"name\" : \"Hello World\"}"); // single doc ingest
             client.flushIngest();
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
         } catch (InterruptedException e) {
             // ignore
         } catch (NoNodeAvailableException e) {
@@ -126,9 +126,9 @@ public class BulkNodeClientTest extends NodeTestUtils {
     @Test
     public void testRandomDocsNodeClient() throws Exception {
         long numactions = NUM_ACTIONS;
-        final BulkNodeClient client = ClientBuilder.builder()
-                .put(ClientBuilder.MAX_ACTIONS_PER_REQUEST, MAX_ACTIONS)
-                .put(ClientBuilder.FLUSH_INTERVAL, TimeValue.timeValueSeconds(60))
+        final BulkNodeClient client = Clients.builder()
+                .put(Clients.MAX_ACTIONS_PER_REQUEST, MAX_ACTIONS)
+                .put(Clients.FLUSH_INTERVAL, TimeValue.timeValueSeconds(60))
                 .setMetric(new SimpleBulkMetric())
                 .setControl(new SimpleBulkControl())
                 .toBulkNodeClient(client("1"));
@@ -138,7 +138,7 @@ public class BulkNodeClientTest extends NodeTestUtils {
                 client.index("test", "test", null, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             client.flushIngest();
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
@@ -157,9 +157,9 @@ public class BulkNodeClientTest extends NodeTestUtils {
         Long maxactions = MAX_ACTIONS;
         final Long maxloop = NUM_ACTIONS;
         logger.info("NodeClient max={} maxactions={} maxloop={}", maxthreads, maxactions, maxloop);
-        final BulkNodeClient client = ClientBuilder.builder()
-                .put(ClientBuilder.MAX_ACTIONS_PER_REQUEST, maxactions)
-                .put(ClientBuilder.FLUSH_INTERVAL, TimeValue.timeValueSeconds(60))// disable auto flush for this test
+        final BulkNodeClient client = Clients.builder()
+                .put(Clients.MAX_ACTIONS_PER_REQUEST, maxactions)
+                .put(Clients.FLUSH_INTERVAL, TimeValue.timeValueSeconds(60))// disable auto flush for this test
                 .setMetric(new SimpleBulkMetric())
                 .setControl(new SimpleBulkControl())
                 .toBulkNodeClient(client("1"));
@@ -183,7 +183,7 @@ public class BulkNodeClientTest extends NodeTestUtils {
             latch.await(30, TimeUnit.SECONDS);
             logger.info("flush...");
             client.flushIngest();
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
             logger.info("got all responses, thread pool shutdown...");
             pool.shutdown();
             logger.info("pool is shut down");

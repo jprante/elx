@@ -50,9 +50,9 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
 
     private int maxConcurrentRequests = DEFAULT_MAX_CONCURRENT_REQUESTS;
 
-    private ByteSizeValue maxVolume = DEFAULT_MAX_VOLUME_PER_REQUEST;
+    private ByteSizeValue maxVolume;
 
-    private TimeValue flushInterval = DEFAULT_FLUSH_INTERVAL;
+    private TimeValue flushInterval;
 
     private Node node;
 
@@ -81,14 +81,14 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
     }
 
     @Override
-    public BulkNodeClient maxVolumePerRequest(ByteSizeValue maxVolume) {
-        this.maxVolume = maxVolume;
+    public BulkNodeClient maxVolumePerRequest(String maxVolume) {
+        this.maxVolume = ByteSizeValue.parseBytesSizeValue(maxVolume, "maxVolumePerRequest");
         return this;
     }
 
     @Override
-    public BulkNodeClient flushIngestInterval(TimeValue flushInterval) {
-        this.flushInterval = flushInterval;
+    public BulkNodeClient flushIngestInterval(String flushInterval) {
+        this.flushInterval = TimeValue.parseTimeValue(flushInterval, TimeValue.timeValueSeconds(5), "flushIngestInterval");
         return this;
     }
 
@@ -345,11 +345,12 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
     }
 
     @Override
-    public BulkNodeClient waitForResponses(TimeValue maxWaitTime) throws InterruptedException, ExecutionException {
+    public BulkNodeClient waitForResponses(String maxWaitTime) throws InterruptedException, ExecutionException {
         if (closed) {
             throwClose();
         }
-        while (!bulkProcessor.awaitClose(maxWaitTime.getMillis(), TimeUnit.MILLISECONDS)) {
+        while (!bulkProcessor.awaitClose(TimeValue.parseTimeValue(maxWaitTime, TimeValue.timeValueSeconds(30),
+                "maxWaitTime").getMillis(), TimeUnit.MILLISECONDS)) {
             logger.warn("still waiting for responses");
         }
         return this;

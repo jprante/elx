@@ -1,17 +1,21 @@
 package org.xbib.elasticsearch.extras.client.node;
 
-import org.elasticsearch.action.admin.indices.stats.*;
+import org.elasticsearch.action.admin.indices.stats.CommonStats;
+import org.elasticsearch.action.admin.indices.stats.IndexShardStats;
+import org.elasticsearch.action.admin.indices.stats.IndexStats;
+import org.elasticsearch.action.admin.indices.stats.IndicesStatsAction;
+import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequestBuilder;
+import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.indexing.IndexingStats;
 import org.junit.Test;
 import org.xbib.elasticsearch.NodeTestUtils;
-import org.xbib.elasticsearch.extras.client.ClientBuilder;
+import org.xbib.elasticsearch.extras.client.Clients;
 import org.xbib.elasticsearch.extras.client.SimpleBulkControl;
 import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
 
@@ -43,7 +47,7 @@ public class BulkNodeReplicaTest extends NodeTestUtils {
                 .put("index.number_of_replicas", 1)
                 .build();
 
-        final BulkNodeClient client = ClientBuilder.builder()
+        final BulkNodeClient client = Clients.builder()
                 .setMetric(new SimpleBulkMetric())
                 .setControl(new SimpleBulkControl())
                 .toBulkNodeClient(client("1"));
@@ -51,7 +55,7 @@ public class BulkNodeReplicaTest extends NodeTestUtils {
         try {
             client.newIndex("test1", settingsTest1, null)
                     .newIndex("test2", settingsTest2, null);
-            client.waitForCluster("GREEN", TimeValue.timeValueSeconds(30));
+            client.waitForCluster("GREEN", "30s");
             for (int i = 0; i < 1234; i++) {
                 client.index("test1", "test", null, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
@@ -59,7 +63,7 @@ public class BulkNodeReplicaTest extends NodeTestUtils {
                 client.index("test2", "test", null, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             client.flushIngest();
-            client.waitForResponses(TimeValue.timeValueSeconds(60));
+            client.waitForResponses("30s");
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {

@@ -1,9 +1,5 @@
 package org.xbib.elasticsearch.extras.client;
 
-import org.elasticsearch.common.unit.ByteSizeUnit;
-import org.elasticsearch.common.unit.ByteSizeValue;
-import org.elasticsearch.common.unit.TimeValue;
-
 /**
  *
  */
@@ -13,9 +9,9 @@ public interface Parameters {
 
     int DEFAULT_MAX_CONCURRENT_REQUESTS = Runtime.getRuntime().availableProcessors() * 4;
 
-    ByteSizeValue DEFAULT_MAX_VOLUME_PER_REQUEST = new ByteSizeValue(10, ByteSizeUnit.MB);
+    String DEFAULT_MAX_VOLUME_PER_REQUEST = "10mb";
 
-    TimeValue DEFAULT_FLUSH_INTERVAL = TimeValue.timeValueSeconds(30);
+    String DEFAULT_FLUSH_INTERVAL = "30s";
 
     String MAX_ACTIONS_PER_REQUEST = "max_actions_per_request";
 

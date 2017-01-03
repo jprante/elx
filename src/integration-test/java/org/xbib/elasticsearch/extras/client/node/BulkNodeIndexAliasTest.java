@@ -8,7 +8,7 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.Test;
 import org.xbib.elasticsearch.NodeTestUtils;
-import org.xbib.elasticsearch.extras.client.ClientBuilder;
+import org.xbib.elasticsearch.extras.client.Clients;
 import org.xbib.elasticsearch.extras.client.IndexAliasAdder;
 import org.xbib.elasticsearch.extras.client.SimpleBulkControl;
 import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
@@ -28,7 +28,7 @@ public class BulkNodeIndexAliasTest extends NodeTestUtils {
 
     @Test
     public void testIndexAlias() throws Exception {
-        final BulkNodeClient client = ClientBuilder.builder()
+        final BulkNodeClient client = Clients.builder()
                 .setMetric(new SimpleBulkMetric())
                 .setControl(new SimpleBulkControl())
                 .toBulkNodeClient(client("1"));
@@ -66,7 +66,7 @@ public class BulkNodeIndexAliasTest extends NodeTestUtils {
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
             client.shutdown();
             if (client.hasThrowable()) {
                 logger.error("error", client.getThrowable());

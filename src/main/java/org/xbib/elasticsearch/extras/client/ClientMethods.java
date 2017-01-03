@@ -5,8 +5,6 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.ByteSizeValue;
-import org.elasticsearch.common.unit.TimeValue;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -102,7 +100,7 @@ public interface ClientMethods extends Parameters {
      * @param maxVolume maximum volume
      * @return this ingest
      */
-    ClientMethods maxVolumePerRequest(ByteSizeValue maxVolume);
+    ClientMethods maxVolumePerRequest(String maxVolume);
 
     /**
      * Set the flush interval for automatic flushing outstanding ingest requests.
@@ -110,7 +108,7 @@ public interface ClientMethods extends Parameters {
      * @param flushInterval the flush interval, default is 30 seconds
      * @return this ingest
      */
-    ClientMethods flushIngestInterval(TimeValue flushInterval);
+    ClientMethods flushIngestInterval(String flushInterval);
 
     /**
      * Set mapping.
@@ -243,12 +241,12 @@ public interface ClientMethods extends Parameters {
     /**
      * Wait for all outstanding responses.
      *
-     * @param maxWait maximum wait time
+     * @param maxWaitTime maximum wait time
      * @return this ingest
      * @throws InterruptedException if wait is interrupted
      * @throws ExecutionException   if execution failed
      */
-    ClientMethods waitForResponses(TimeValue maxWait) throws InterruptedException, ExecutionException;
+    ClientMethods waitForResponses(String maxWaitTime) throws InterruptedException, ExecutionException;
 
     /**
      * Refresh the index.
@@ -281,7 +279,7 @@ public interface ClientMethods extends Parameters {
      * @param timeValue   time value
      * @throws IOException if wait failed
      */
-    void waitForCluster(String healthColor, TimeValue timeValue) throws IOException;
+    void waitForCluster(String healthColor, String timeValue) throws IOException;
 
     /**
      * Get current health color.
