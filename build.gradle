@@ -1,7 +1,6 @@
 
 plugins {
     id "org.sonarqube" version "2.2"
-    id "org.xbib.gradle.plugin.jbake" version "1.2.1"
 }
 
 printf "Host: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGroovy: %s\nGradle: %s\n" +
