@@ -64,6 +64,8 @@ dependencies {
         exclude group: 'org.elasticsearch.plugin', module: 'percolator-client'
         exclude group: 'org.elasticsearch.plugin', module: 'lang-mustache-client'
     }
+    compile "io.netty:netty-transport-native-epoll:4.1.6.Final"
+    compile "io.netty:netty-transport-native-epoll:4.1.6.Final:linux-x86_64"
     compile "org.apache.logging.log4j:log4j-api:2.7"
     testCompile "junit:junit:4.12"
     testCompile "org.apache.logging.log4j:log4j-core:2.7"
