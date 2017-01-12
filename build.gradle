@@ -46,8 +46,9 @@ sourceSets {
     }
 }
 
-sourceCompatibility = JavaVersion.VERSION_1_8
-targetCompatibility = JavaVersion.VERSION_1_8
+repositories {
+    mavenCentral()
+}
 
 configurations {
     wagon
@@ -64,13 +65,15 @@ dependencies {
         exclude group: 'org.elasticsearch.plugin', module: 'percolator-client'
         exclude group: 'org.elasticsearch.plugin', module: 'lang-mustache-client'
     }
-    compile "io.netty:netty-transport-native-epoll:4.1.6.Final"
     compile "io.netty:netty-transport-native-epoll:4.1.6.Final:linux-x86_64"
     compile "org.apache.logging.log4j:log4j-api:2.7"
     testCompile "junit:junit:4.12"
     testCompile "org.apache.logging.log4j:log4j-core:2.7"
     wagon 'org.apache.maven.wagon:wagon-ssh-external:2.10'
 }
+
+sourceCompatibility = JavaVersion.VERSION_1_8
+targetCompatibility = JavaVersion.VERSION_1_8
 
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 tasks.withType(JavaCompile) {
