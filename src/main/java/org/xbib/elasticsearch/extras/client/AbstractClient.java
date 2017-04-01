@@ -43,6 +43,7 @@ import org.elasticsearch.cluster.metadata.AliasMetaData;
 import org.elasticsearch.common.io.Streams;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
@@ -285,7 +286,7 @@ public abstract class AbstractClient {
         if (!mappings().isEmpty()) {
             for (Map.Entry<String, String> me : mappings().entrySet()) {
                 client().execute(PutMappingAction.INSTANCE,
-                        new PutMappingRequest(index).type(me.getKey()).source(me.getValue())).actionGet();
+                        new PutMappingRequest(index).type(me.getKey()).source(me.getValue(), XContentType.JSON)).actionGet();
             }
         }
     }

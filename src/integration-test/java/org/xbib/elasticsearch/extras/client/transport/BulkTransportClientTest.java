@@ -12,7 +12,6 @@ import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -22,7 +21,6 @@ import org.xbib.elasticsearch.NodeTestBase;
 import org.xbib.elasticsearch.extras.client.ClientBuilder;
 import org.xbib.elasticsearch.extras.client.SimpleBulkControl;
 import org.xbib.elasticsearch.extras.client.SimpleBulkMetric;
-import org.xbib.elasticsearch.extras.client.node.BulkNodeClient;
 
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
@@ -152,7 +150,7 @@ public class BulkTransportClientTest extends NodeTestBase {
     }
 
     @Test
-    public void testBulkTransportClientRandomDocs() {
+    public void testBulkTransportClientRandomDocs() throws Exception {
         long numactions = NUM_ACTIONS;
         final BulkTransportClient client = ClientBuilder.builder()
                 .put(getClientSettings())
@@ -168,31 +166,25 @@ public class BulkTransportClientTest extends NodeTestBase {
             }
             client.flushIngest();
             client.waitForResponses(TimeValue.timeValueSeconds(30));
-        } catch (InterruptedException e) {
-            // ignore
-        } catch (ExecutionException e) {
-            logger.error(e.getMessage(), e);
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
-        } catch (Throwable t) {
-            logger.error("unexcepted: " + t.getMessage(), t);
         } finally {
-            logger.info("assuring {} == {}", numactions, client.getMetric().getSucceeded().getCount());
-            assertEquals(numactions, client.getMetric().getSucceeded().getCount());
             if (client.hasThrowable()) {
                 logger.error("error", client.getThrowable());
             }
+            logger.info("assuring {} == {}", numactions, client.getMetric().getSucceeded().getCount());
+            assertEquals(numactions, client.getMetric().getSucceeded().getCount());
             assertFalse(client.hasThrowable());
             client.shutdown();
         }
     }
 
     @Test
-    public void testBulkTransportClientThreadedRandomDocs() {
+    public void testBulkTransportClientThreadedRandomDocs() throws Exception {
         int maxthreads = Runtime.getRuntime().availableProcessors();
         long maxactions = MAX_ACTIONS;
         final long maxloop = NUM_ACTIONS;
-        logger.info("firing up client");
+        logger.info("TransportClient max={} maxactions={} maxloop={}", maxthreads, maxactions, maxloop);
         final BulkTransportClient client = ClientBuilder.builder()
                 .put(getClientSettings())
                 .put(ClientBuilder.MAX_ACTIONS_PER_REQUEST, maxactions)
@@ -201,23 +193,14 @@ public class BulkTransportClientTest extends NodeTestBase {
                 .setControl(new SimpleBulkControl())
                 .toBulkTransportClient();
         try {
-            logger.info("new index");
-            Settings settingsForIndex = Settings.builder()
-                    .put("index.number_of_shards", 2)
-                    .put("index.number_of_replicas", 1)
-                    .build();
-            client.newIndex("test", settingsForIndex, null)
-                    .startBulk("test", -1, 1000);
-            logger.info("pool");
+            client.newIndex("test").startBulk("test", 30 * 1000, 1000);
             ExecutorService executorService = Executors.newFixedThreadPool(maxthreads);
             final CountDownLatch latch = new CountDownLatch(maxthreads);
             for (int i = 0; i < maxthreads; i++) {
                 executorService.execute(() -> {
-                    logger.info("executing runnable");
                     for (int i1 = 0; i1 < maxloop; i1++) {
                         client.index("test", "test", null, "{ \"name\" : \"" + randomString(32) + "\"}");
                     }
-                    logger.info("done runnable");
                     latch.countDown();
                 });
             }
@@ -232,8 +215,6 @@ public class BulkTransportClientTest extends NodeTestBase {
             client.stopBulk("test");
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
-        } catch (Throwable t) {
-            logger.error("unexpected error: " + t.getMessage(), t);
         } finally {
             logger.info("assuring {} == {}", maxthreads * maxloop, client.getMetric().getSucceeded().getCount());
             assertEquals(maxthreads * maxloop, client.getMetric().getSucceeded().getCount());

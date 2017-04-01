@@ -1,7 +1,7 @@
 package org.xbib.elasticsearch.extras.client.transport;
 
-import static java.util.stream.Collectors.toList;
 import static org.elasticsearch.common.unit.TimeValue.timeValueSeconds;
+import static java.util.stream.Collectors.toList;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -23,6 +23,7 @@ import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
+import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.collect.MapBuilder;
 import org.elasticsearch.common.component.LifecycleComponent;
 import org.elasticsearch.common.inject.Injector;
@@ -39,8 +40,8 @@ import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.util.BigArrays;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.indices.breaker.CircuitBreakerService;
+import org.elasticsearch.node.InternalSettingsPreparer;
 import org.elasticsearch.node.Node;
-import org.elasticsearch.node.internal.InternalSettingsPreparer;
 import org.elasticsearch.plugins.ActionPlugin;
 import org.elasticsearch.plugins.NetworkPlugin;
 import org.elasticsearch.plugins.Plugin;
@@ -56,6 +57,7 @@ import org.elasticsearch.transport.TransportRequestOptions;
 import org.elasticsearch.transport.TransportService;
 
 import java.io.Closeable;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -77,6 +79,8 @@ import java.util.stream.Stream;
  * Configurable connect ping interval setting added.
  */
 public class TransportClient extends AbstractClient {
+
+    private static final Logger logger = LogManager.getLogger(TransportClient.class);
 
     private static final String CLIENT_TYPE = "transport";
 
@@ -452,8 +456,11 @@ public class TransportClient extends AbstractClient {
             }
             modules.add(b -> b.bind(ThreadPool.class).toInstance(threadPool));
             ActionModule actionModule = new ActionModule(true, settings, null,
-                    settingsModule.getClusterSettings(), threadPool,
-                    pluginsService.filterPlugins(ActionPlugin.class));
+                    settingsModule.getIndexScopedSettings(),
+                    settingsModule.getClusterSettings(),
+                    settingsModule.getSettingsFilter(),
+                    threadPool,
+                    pluginsService.filterPlugins(ActionPlugin.class), null, null);
             modules.add(actionModule);
             CircuitBreakerService circuitBreakerService = Node.createCircuitBreakerService(settingsModule.getSettings(),
                     settingsModule.getClusterSettings());
@@ -464,10 +471,12 @@ public class TransportClient extends AbstractClient {
             NetworkModule networkModule = new NetworkModule(settings, true,
                     pluginsService.filterPlugins(NetworkPlugin.class), threadPool,
                     bigArrays, circuitBreakerService, namedWriteableRegistry,
-                    xContentRegistry, networkService);
+                    xContentRegistry, networkService, null);
             final Transport transport = networkModule.getTransportSupplier().get();
             final TransportService transportService = new TransportService(settings, transport, threadPool,
-                    networkModule.getTransportInterceptor(), null);
+                    networkModule.getTransportInterceptor(), boundTransportAddress ->
+                        DiscoveryNode.createLocal(settings, dummyAddress(networkModule), UUIDs.randomBase64UUID()),
+                    null);
             modules.add((b -> {
                 b.bind(BigArrays.class).toInstance(bigArrays);
                 b.bind(PluginsService.class).toInstance(pluginsService);
@@ -495,7 +504,15 @@ public class TransportClient extends AbstractClient {
         }
     }
 
-    private static final Logger logger = LogManager.getLogger(TransportClient.class);
+    private static TransportAddress dummyAddress(NetworkModule networkModule) {
+        final TransportAddress address;
+        try {
+            address = networkModule.getTransportSupplier().get().addressesFromString("0.0.0.0:0", 1)[0];
+        } catch (UnknownHostException e) {
+            throw new RuntimeException(e);
+        }
+        return address;
+    }
 
     private static PluginsService newPluginService(final Settings settings, Collection<Class<? extends Plugin>> plugins) {
         final Settings.Builder settingsBuilder = Settings.builder()

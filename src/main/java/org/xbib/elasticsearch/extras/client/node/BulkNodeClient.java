@@ -21,6 +21,7 @@ import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.node.NodeValidationException;
@@ -241,7 +242,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
             if (metric != null) {
                 metric.getCurrentIngest().inc(index, type, id);
             }
-            bulkProcessor.add(new IndexRequest(index).type(type).id(id).create(false).source(source));
+            bulkProcessor.add(new IndexRequest(index).type(type).id(id).create(false).source(source, XContentType.JSON));
         } catch (Exception e) {
             throwable = e;
             closed = true;
@@ -313,7 +314,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
             if (metric != null) {
                 metric.getCurrentIngest().inc(index, type, id);
             }
-            bulkProcessor.add(new UpdateRequest().index(index).type(type).id(id).upsert(source));
+            bulkProcessor.add(new UpdateRequest().index(index).type(type).id(id).upsert(source, XContentType.JSON));
         } catch (Exception e) {
             throwable = e;
             closed = true;
@@ -446,7 +447,7 @@ public class BulkNodeClient extends AbstractClient implements ClientMethods {
                 String type = entry.getKey();
                 String mapping = entry.getValue();
                 logger.info("found mapping for {}", type);
-                createIndexRequestBuilder.addMapping(type, mapping);
+                createIndexRequestBuilder.addMapping(type, mapping, XContentType.JSON);
             }
         }
         createIndexRequestBuilder.execute().actionGet();

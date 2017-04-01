@@ -9,6 +9,7 @@ import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.cluster.block.ClusterBlockException;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.junit.Before;
 import org.junit.Test;
 import org.xbib.elasticsearch.NodeTestBase;
@@ -45,7 +46,8 @@ public class ClusterBlockTest extends NodeTestBase {
         BulkRequestBuilder brb = client("1").prepareBulk();
         XContentBuilder builder = jsonBuilder().startObject().field("field1", "value1").endObject();
         String jsonString = builder.string();
-        IndexRequestBuilder irb = client("1").prepareIndex("test", "test", "1").setSource(jsonString);
+        IndexRequestBuilder irb = client("1").prepareIndex("test", "test", "1")
+                .setSource(jsonString, XContentType.JSON);
         brb.add(irb);
         brb.execute().actionGet();
     }

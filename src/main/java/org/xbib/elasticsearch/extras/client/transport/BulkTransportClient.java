@@ -27,6 +27,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.transport.Netty4Plugin;
 import org.xbib.elasticsearch.extras.client.AbstractClient;
 import org.xbib.elasticsearch.extras.client.BulkControl;
@@ -293,7 +294,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
                 String type = entry.getKey();
                 String mapping = entry.getValue();
                 logger.info("found mapping for {}", type);
-                createIndexRequestBuilder.addMapping(type, mapping);
+                createIndexRequestBuilder.addMapping(type, mapping, XContentType.JSON);
             }
         }
         createIndexRequestBuilder.execute().actionGet();
@@ -348,8 +349,11 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
             throwClose();
         }
         try {
-            metric.getCurrentIngest().inc(index, type, id);
-            bulkProcessor.add(new IndexRequest().index(index).type(type).id(id).create(false).source(source));
+            if (metric != null) {
+                metric.getCurrentIngest().inc(index, type, id);
+            }
+            bulkProcessor.add(new IndexRequest().index(index).type(type).id(id).create(false)
+                    .source(source, XContentType.JSON));
         } catch (Exception e) {
             throwable = e;
             closed = true;
@@ -364,7 +368,9 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
             throwClose();
         }
         try {
-            metric.getCurrentIngest().inc(indexRequest.index(), indexRequest.type(), indexRequest.id());
+            if (metric != null) {
+                metric.getCurrentIngest().inc(indexRequest.index(), indexRequest.type(), indexRequest.id());
+            }
             bulkProcessor.add(indexRequest);
         } catch (Exception e) {
             throwable = e;
@@ -380,7 +386,9 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
             throwClose();
         }
         try {
-            metric.getCurrentIngest().inc(index, type, id);
+            if (metric != null) {
+                metric.getCurrentIngest().inc(index, type, id);
+            }
             bulkProcessor.add(new DeleteRequest().index(index).type(type).id(id));
         } catch (Exception e) {
             throwable = e;
@@ -396,7 +404,9 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
             throwClose();
         }
         try {
-            metric.getCurrentIngest().inc(deleteRequest.index(), deleteRequest.type(), deleteRequest.id());
+            if (metric != null) {
+                metric.getCurrentIngest().inc(deleteRequest.index(), deleteRequest.type(), deleteRequest.id());
+            }
             bulkProcessor.add(deleteRequest);
         } catch (Exception e) {
             throwable = e;
@@ -412,8 +422,10 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
             throwClose();
         }
         try {
-            metric.getCurrentIngest().inc(index, type, id);
-            bulkProcessor.add(new UpdateRequest().index(index).type(type).id(id).upsert(source));
+            if (metric != null) {
+                metric.getCurrentIngest().inc(index, type, id);
+            }
+            bulkProcessor.add(new UpdateRequest().index(index).type(type).id(id).upsert(source, XContentType.JSON));
         } catch (Exception e) {
             throwable = e;
             closed = true;
@@ -428,7 +440,9 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
             throwClose();
         }
         try {
-            metric.getCurrentIngest().inc(updateRequest.index(), updateRequest.type(), updateRequest.id());
+            if (metric != null) {
+                metric.getCurrentIngest().inc(updateRequest.index(), updateRequest.type(), updateRequest.id());
+            }
             bulkProcessor.add(updateRequest);
         } catch (Exception e) {
             throwable = e;
@@ -439,7 +453,7 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     }
 
     @Override
-    public synchronized BulkTransportClient flushIngest() {
+    public BulkTransportClient flushIngest() {
         if (closed) {
             throwClose();
         }
@@ -449,12 +463,13 @@ public class BulkTransportClient extends AbstractClient implements ClientMethods
     }
 
     @Override
-    public synchronized BulkTransportClient waitForResponses(TimeValue maxWaitTime)
-            throws InterruptedException, ExecutionException {
+    public BulkTransportClient waitForResponses(TimeValue maxWaitTime) throws InterruptedException, ExecutionException {
         if (closed) {
             throwClose();
         }
-        bulkProcessor.awaitClose(maxWaitTime.getMillis(), TimeUnit.MILLISECONDS);
+        if (!bulkProcessor.awaitClose(maxWaitTime.getMillis(), TimeUnit.MILLISECONDS)) {
+            logger.warn("still waiting for responses");
+        }
         return this;
     }
 

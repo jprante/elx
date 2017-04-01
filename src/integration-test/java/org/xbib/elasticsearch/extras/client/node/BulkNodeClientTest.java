@@ -142,10 +142,11 @@ public class BulkNodeClientTest extends NodeTestBase {
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
-            assertEquals(numactions, client.getMetric().getSucceeded().getCount());
             if (client.hasThrowable()) {
                 logger.error("error", client.getThrowable());
             }
+            logger.info("assuring {} == {}", numactions, client.getMetric().getSucceeded().getCount());
+            assertEquals(numactions, client.getMetric().getSucceeded().getCount());
             assertFalse(client.hasThrowable());
             client.shutdown();
         }
@@ -164,8 +165,7 @@ public class BulkNodeClientTest extends NodeTestBase {
                 .setControl(new SimpleBulkControl())
                 .toBulkNodeClient(client("1"));
         try {
-            client.newIndex("test")
-                    .startBulk("test", 30 * 1000, 1000);
+            client.newIndex("test").startBulk("test", 30 * 1000, 1000);
             ExecutorService executorService = Executors.newFixedThreadPool(maxthreads);
             final CountDownLatch latch = new CountDownLatch(maxthreads);
             for (int i = 0; i < maxthreads; i++) {
@@ -183,11 +183,12 @@ public class BulkNodeClientTest extends NodeTestBase {
             client.waitForResponses(TimeValue.timeValueSeconds(30));
             logger.info("got all responses, executor service shutdown...");
             executorService.shutdown();
-            logger.info("pool is shut down");
+            logger.info("executor service is shut down");
+            client.stopBulk("test");
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
-            client.stopBulk("test");
+            logger.info("assuring {} == {}", maxthreads * maxloop, client.getMetric().getSucceeded().getCount());
             assertEquals(maxthreads * maxloop, client.getMetric().getSucceeded().getCount());
             if (client.hasThrowable()) {
                 logger.error("error", client.getThrowable());
@@ -195,11 +196,12 @@ public class BulkNodeClientTest extends NodeTestBase {
             assertFalse(client.hasThrowable());
             client.refreshIndex("test");
             SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client.client(), SearchAction.INSTANCE)
-                    .setQuery(QueryBuilders.matchAllQuery()).setSize(0);
+                    .setIndices("test")
+                    .setQuery(QueryBuilders.matchAllQuery())
+                    .setSize(0);
             assertEquals(maxthreads * maxloop,
                     searchRequestBuilder.execute().actionGet().getHits().getTotalHits());
             client.shutdown();
         }
     }
-
 }

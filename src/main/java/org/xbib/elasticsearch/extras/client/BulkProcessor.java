@@ -1,12 +1,12 @@
 package org.xbib.elasticsearch.extras.client;
 
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.bulk.BulkAction;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.unit.ByteSizeUnit;
@@ -117,7 +117,7 @@ public class BulkProcessor implements Closeable {
         if (bulkRequest.numberOfActions() > 0) {
             execute();
         }
-        return this.bulkRequestHandler.awaitClose(timeout, unit);
+        return bulkRequestHandler.awaitClose(timeout, unit);
     }
 
     /**
@@ -127,8 +127,16 @@ public class BulkProcessor implements Closeable {
      * @param request request
      * @return his bulk processor
      */
-    public BulkProcessor add(IndexRequest request) {
-        return add((ActionRequest) request);
+    public synchronized BulkProcessor add(IndexRequest request) {
+        if (request == null) {
+            return this;
+        }
+        ensureOpen();
+        bulkRequest.add(request);
+        if (isOverTheLimit()) {
+            execute();
+        }
+        return this;
     }
 
     /**
@@ -137,64 +145,53 @@ public class BulkProcessor implements Closeable {
      * @param request request
      * @return his bulk processor
      */
-    public BulkProcessor add(DeleteRequest request) {
-        return add((ActionRequest) request);
-    }
-
-    /**
-     * Adds either a delete or an index request.
-     *
-     * @param request request
-     * @return his bulk processor
-     */
-    public BulkProcessor add(ActionRequest request) {
-        return add(request, null);
-    }
-
-    /**
-     * Adds either a delete or an index request with a payload.
-     *
-     * @param request request
-     * @param payload payload
-     * @return his bulk processor
-     */
-    public BulkProcessor add(ActionRequest request, @Nullable Object payload) {
-        internalAdd(request, payload);
+    public synchronized BulkProcessor add(DeleteRequest request) {
+        if (request == null) {
+            return this;
+        }
+        ensureOpen();
+        bulkRequest.add(request);
+        if (isOverTheLimit()) {
+            execute();
+        }
         return this;
     }
 
-    protected void ensureOpen() {
+    /**
+     * Adds an {@link org.elasticsearch.action.update.UpdateRequest} to the list of actions to execute.
+     *
+     * @param request request
+     * @return his bulk processor
+     */
+    public synchronized BulkProcessor add(UpdateRequest request) {
+        if (request == null) {
+            return this;
+        }
+        ensureOpen();
+        bulkRequest.add(request);
+        if (isOverTheLimit()) {
+            execute();
+        }
+        return this;
+    }
+
+    private void ensureOpen() {
         if (closed) {
             throw new IllegalStateException("bulk process already closed");
         }
     }
 
-    private synchronized void internalAdd(ActionRequest request, @Nullable Object payload) {
-        ensureOpen();
-        bulkRequest.add(request, payload);
-        executeIfNeeded();
-    }
-
-    private void executeIfNeeded() {
-        ensureOpen();
-        if (!isOverTheLimit()) {
-            return;
-        }
-        execute();
+    private boolean isOverTheLimit() {
+        final int count = bulkRequest.numberOfActions();
+        return count > 0 &&
+                (bulkActions != -1 && count >= bulkActions) ||
+                (bulkSize != -1 && bulkRequest.estimatedSizeInBytes() >= bulkSize);
     }
 
     private void execute() {
         final BulkRequest myBulkRequest = this.bulkRequest;
-        final long executionId = executionIdGen.incrementAndGet();
+        bulkRequestHandler.execute(myBulkRequest, executionIdGen.incrementAndGet());
         this.bulkRequest = new BulkRequest();
-        this.bulkRequestHandler.execute(myBulkRequest, executionId);
-    }
-
-    private boolean isOverTheLimit() {
-        return bulkActions != -1 &&
-                bulkRequest.numberOfActions() >= bulkActions ||
-                bulkSize != -1 &&
-                bulkRequest.estimatedSizeInBytes() >= bulkSize;
     }
 
     /**
@@ -347,17 +344,13 @@ public class BulkProcessor implements Closeable {
                 if (closed) {
                     return;
                 }
-                if (bulkRequest.numberOfActions() == 0) {
-                    return;
+                if (bulkRequest.numberOfActions() > 0) {
+                    execute();
                 }
-                execute();
             }
         }
     }
 
-    /**
-     * Abstracts the low-level details of bulk request handling.
-     */
     interface BulkRequestHandler {
 
         void execute(BulkRequest bulkRequest, long executionId);
