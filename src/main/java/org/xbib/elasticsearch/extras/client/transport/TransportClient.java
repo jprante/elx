@@ -1,5 +1,6 @@
 package org.xbib.elasticsearch.extras.client.transport;
 
+import static java.util.stream.Collectors.toList;
 import static org.elasticsearch.common.unit.TimeValue.timeValueSeconds;
 
 import org.apache.logging.log4j.LogManager;
@@ -36,6 +37,7 @@ import org.elasticsearch.common.settings.SettingsModule;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.util.BigArrays;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.indices.breaker.CircuitBreakerService;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.node.internal.InternalSettingsPreparer;
@@ -64,7 +66,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 /**
  * Stripped-down transport client without node sampling and without retrying.
@@ -301,10 +304,10 @@ public class TransportClient extends AbstractClient {
         for (DiscoveryNode listedNode : listedNodes) {
             if (!transportService.nodeConnected(listedNode)) {
                 try {
-                    logger.debug("connecting to listed node (light) [{}]", listedNode);
-                    transportService.connectToNodeLight(listedNode);
+                    logger.debug("connecting to listed node [{}]", listedNode);
+                    transportService.connectToNode(listedNode);
                 } catch (Exception e) {
-                    logger.debug("failed to connect to node [{}], removed from nodes list", e, listedNode);
+                    logger.debug("failed to connect to node [{}]", e);
                     continue;
                 }
             }
@@ -346,7 +349,7 @@ public class TransportClient extends AbstractClient {
                     transportService.connectToNode(node);
                 } catch (Exception e) {
                     it.remove();
-                    logger.debug("failed to connect to discovered node [" + node + "]", e);
+                    logger.debug("failed to connect to new node [" + node + "], removed", e);
                 }
             }
         }
@@ -435,20 +438,23 @@ public class TransportClient extends AbstractClient {
             entries.addAll(searchModule.getNamedWriteables());
             entries.addAll(pluginsService.filterPlugins(Plugin.class).stream()
                     .flatMap(p -> p.getNamedWriteables().stream())
-                    .collect(Collectors.toList()));
+                    .collect(toList()));
             NamedWriteableRegistry namedWriteableRegistry = new NamedWriteableRegistry(entries);
-
+            NamedXContentRegistry xContentRegistry = new NamedXContentRegistry(Stream.of(
+                    searchModule.getNamedXContents().stream(),
+                    pluginsService.filterPlugins(Plugin.class).stream()
+                            .flatMap(p -> p.getNamedXContent().stream())
+            ).flatMap(Function.identity()).collect(toList()));
             ModulesBuilder modules = new ModulesBuilder();
             // plugin modules must be added here, before others or we can get crazy injection errors
             for (Module pluginModule : pluginsService.createGuiceModules()) {
                 modules.add(pluginModule);
             }
             modules.add(b -> b.bind(ThreadPool.class).toInstance(threadPool));
-            ActionModule actionModule = new ActionModule(false, true,
-                    settings, null, settingsModule.getClusterSettings(),
+            ActionModule actionModule = new ActionModule(true, settings, null,
+                    settingsModule.getClusterSettings(), threadPool,
                     pluginsService.filterPlugins(ActionPlugin.class));
             modules.add(actionModule);
-
             CircuitBreakerService circuitBreakerService = Node.createCircuitBreakerService(settingsModule.getSettings(),
                     settingsModule.getClusterSettings());
             BigArrays bigArrays = new BigArrays(settings, circuitBreakerService);
@@ -457,7 +463,8 @@ public class TransportClient extends AbstractClient {
             modules.add(settingsModule);
             NetworkModule networkModule = new NetworkModule(settings, true,
                     pluginsService.filterPlugins(NetworkPlugin.class), threadPool,
-                    bigArrays, circuitBreakerService, namedWriteableRegistry, networkService);
+                    bigArrays, circuitBreakerService, namedWriteableRegistry,
+                    xContentRegistry, networkService);
             final Transport transport = networkModule.getTransportSupplier().get();
             final TransportService transportService = new TransportService(settings, transport, threadPool,
                     networkModule.getTransportInterceptor(), null);
@@ -473,10 +480,10 @@ public class TransportClient extends AbstractClient {
             Injector injector = modules.createInjector();
             final ProxyActionMap proxy = new ProxyActionMap(settings, transportService,
                     actionModule.getActions().values().stream()
-                            .map(ActionPlugin.ActionHandler::getAction).collect(Collectors.toList()));
+                            .map(ActionPlugin.ActionHandler::getAction).collect(toList()));
             List<LifecycleComponent> pluginLifecycleComponents = new ArrayList<>();
             pluginLifecycleComponents.addAll(pluginsService.getGuiceServiceClasses().stream()
-                    .map(injector::getInstance).collect(Collectors.toList()));
+                    .map(injector::getInstance).collect(toList()));
             resourcesToClose.addAll(pluginLifecycleComponents);
             transportService.start();
             transportService.acceptIncomingRequests();

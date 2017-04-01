@@ -57,19 +57,19 @@ configurations {
 }
 
 dependencies {
-    compile "org.xbib:metrics:1.0.0"
-    compile("org.elasticsearch.client:transport:5.1.1") {
+    compile("org.elasticsearch.client:transport:${project.property('elasticsearch-client-transport.version')}") {
         exclude group: 'org.elasticsearch', module: 'securesm'
         exclude group: 'org.elasticsearch.plugin', module: 'transport-netty3-client'
         exclude group: 'org.elasticsearch.plugin', module: 'reindex-client'
         exclude group: 'org.elasticsearch.plugin', module: 'percolator-client'
         exclude group: 'org.elasticsearch.plugin', module: 'lang-mustache-client'
     }
-    compile "io.netty:netty-transport-native-epoll:4.1.6.Final:linux-x86_64"
-    compile "org.apache.logging.log4j:log4j-api:2.7"
-    testCompile "junit:junit:4.12"
-    testCompile "org.apache.logging.log4j:log4j-core:2.7"
-    wagon 'org.apache.maven.wagon:wagon-ssh-external:2.10'
+    compile "org.xbib:metrics:${project.property('xbib-metrics.version')}"
+    compile "io.netty:netty-transport-native-epoll:${project.property('netty-transport-native-epoll.version')}:linux-x86_64"
+    compile "org.apache.logging.log4j:log4j-api:${project.property('log4j.version')}"
+    testCompile "junit:junit:${project.property('junit.version')}"
+    testCompile "org.apache.logging.log4j:log4j-core:${project.property('log4j.version')}"
+    wagon "org.apache.maven.wagon:wagon-ssh-external:${project.property('wagon.version')}"
 }
 
 sourceCompatibility = JavaVersion.VERSION_1_8
