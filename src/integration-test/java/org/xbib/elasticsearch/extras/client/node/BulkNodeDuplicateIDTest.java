@@ -24,14 +24,15 @@ public class BulkNodeDuplicateIDTest extends NodeTestBase {
 
     private static final Logger logger = LogManager.getLogger(BulkNodeDuplicateIDTest.class.getName());
 
-    private static final Long MAX_ACTIONS = 1000L;
+    private static final long MAX_ACTIONS = 100L;
 
-    private static final Long NUM_ACTIONS = 12345L;
+    private static final long NUM_ACTIONS = 12345L;
 
     @Test
     public void testDuplicateDocIDs() throws Exception {
-        long numactions = NUM_ACTIONS;
+
         final BulkNodeClient client = ClientBuilder.builder()
+                .put(ClientBuilder.MAX_CONCURRENT_REQUESTS, 2) // avoid EsRejectedExecutionException
                 .put(ClientBuilder.MAX_ACTIONS_PER_REQUEST, MAX_ACTIONS)
                 .setMetric(new SimpleBulkMetric())
                 .setControl(new SimpleBulkControl())
@@ -55,11 +56,16 @@ public class BulkNodeDuplicateIDTest extends NodeTestBase {
             logger.warn("skipping, no node available");
         } finally {
             client.shutdown();
-            assertEquals(numactions, client.getMetric().getSucceeded().getCount());
             if (client.hasThrowable()) {
                 logger.error("error", client.getThrowable());
             }
             assertFalse(client.hasThrowable());
+            logger.info("numactions = {}, submitted = {}, succeeded= {}, failed = {}", NUM_ACTIONS,
+                    client.getMetric().getSubmitted().getCount(),
+                    client.getMetric().getSucceeded().getCount(),
+                    client.getMetric().getFailed().getCount());
+            assertEquals(NUM_ACTIONS, client.getMetric().getSubmitted().getCount());
+            assertEquals(NUM_ACTIONS, client.getMetric().getSucceeded().getCount());
         }
     }
 }
