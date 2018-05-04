@@ -1,4 +1,0 @@
-/**
- * Test suites.
- */
-package suites;

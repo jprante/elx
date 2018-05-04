@@ -1,0 +1,8 @@
+ext {
+    user = 'xbib'
+    name = 'elasticsearch-java-client'
+    description = 'Netty Java client for Elasticsearch'
+    scmUrl = 'https://github.com/' + user + '/' + name
+    scmConnection = 'scm:git:git://github.com/' + user + '/' + name + '.git'
+    scmDeveloperConnection = 'scm:git:git://github.com/' + user + '/' + name + '.git'
+}

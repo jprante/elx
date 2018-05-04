@@ -1,4 +1,4 @@
-# Elasticsearch Extras - Client
+# Elasticsearch Clients
 
 image:https://api.travis-ci.org/xbib/content.svg[title="Build status", link="https://travis-ci.org/jprante/elasticsearch-extras-client/"]
 image:https://img.shields.io/sonar/http/nemo.sonarqube.com/org.xbib%3Aelasticsearch-extras-client/coverage.svg?style=flat-square[title="Coverage", link="https://sonarqube.com/dashboard/index?id=org.xbib%3Aelasticsearch-extras-client"]

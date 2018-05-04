@@ -1,1 +1,6 @@
-rootProject.name = name
+
+include 'api'
+include 'common'
+include 'node'
+include 'transport'
+include 'http'
