@@ -1,8 +1,0 @@
-ext {
-    user = 'xbib'
-    name = 'elasticsearch-extras-client'
-    description = 'Some extras implemented for using Elasticsearch clients (node and transport)'
-    scmUrl = 'https://github.com/' + user + '/' + name
-    scmConnection = 'scm:git:git://github.com/' + user + '/' + name + '.git'
-    scmDeveloperConnection = 'scm:git:git://github.com/' + user + '/' + name + '.git'
-}

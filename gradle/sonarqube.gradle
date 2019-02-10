@@ -1,8 +1,8 @@
 tasks.withType(FindBugs) {
     ignoreFailures = true
     reports {
-        xml.enabled = true
-        html.enabled = false
+        xml.enabled = false
+        html.enabled = true
     }
 }
 tasks.withType(Pmd) {
@@ -20,22 +20,11 @@ tasks.withType(Checkstyle) {
     }
 }
 
-jacocoTestReport {
-    reports {
-        xml.enabled true
-        csv.enabled false
-        xml.destination "${buildDir}/reports/jacoco-xml"
-        html.destination "${buildDir}/reports/jacoco-html"
-    }
-}
-
 sonarqube {
     properties {
         property "sonar.projectName", "${project.group} ${project.name}"
         property "sonar.sourceEncoding", "UTF-8"
-        property "sonar.tests", "src/integration-test/java"
         property "sonar.scm.provider", "git"
-        property "sonar.java.coveragePlugin", "jacoco"
         property "sonar.junit.reportsPath", "build/test-results/test/"
     }
 }

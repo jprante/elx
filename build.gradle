@@ -1,10 +1,27 @@
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
-plugins {
-    id "org.sonarqube" version "2.2"
+buildscript {
+    repositories {
+        jcenter()
+        maven {
+            url 'http://xbib.org/repository'
+        }
+    }
+    dependencies {
+        classpath "org.xbib.elasticsearch:gradle-plugin-elasticsearch-build:6.3.2.4"
+    }
 }
 
-printf "Host: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGroovy: %s\nGradle: %s\n" +
+plugins {
+    id "org.sonarqube" version "2.6.1"
+    id "io.codearte.nexus-staging" version "0.11.0"
+    id "org.xbib.gradle.plugin.asciidoctor" version "1.6.0.1"
+}
+
+printf "Date: %s\nHost: %s\nOS: %s %s %s\nJava: %s %s %s %s\nGradle: %s Groovy: %s Java: %s\n" +
         "Build: group: ${project.group} name: ${project.name} version: ${project.version}\n",
+        ZonedDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME),
         InetAddress.getLocalHost(),
         System.getProperty("os.name"),
         System.getProperty("os.arch"),
@@ -13,102 +30,121 @@ printf "Host: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGroovy: %s\nGradle: %s\n" +
         System.getProperty("java.vm.version"),
         System.getProperty("java.vm.vendor"),
         System.getProperty("java.vm.name"),
-        GroovySystem.getVersion(),
-        gradle.gradleVersion
+        gradle.gradleVersion, GroovySystem.getVersion(), JavaVersion.current()
 
-apply plugin: 'java'
-apply plugin: 'maven'
-apply plugin: 'signing'
-apply plugin: 'findbugs'
-apply plugin: 'pmd'
-apply plugin: 'checkstyle'
-apply plugin: "jacoco"
 
-apply from: 'gradle/ext.gradle'
+apply plugin: "io.codearte.nexus-staging"
+apply plugin: 'org.xbib.gradle.plugin.asciidoctor'
 
-sourceSets {
-    integrationTest {
-        java {
-            srcDir file('src/integration-test/java')
-            compileClasspath += main.output
-            compileClasspath += test.output
+ext {
+    user = 'jprante'
+    name = 'elx'
+    description = 'Elasticsearch extensions'
+    scmUrl = 'https://github.com/' + user + '/' + name
+    scmConnection = 'scm:git:git://github.com/' + user + '/' + name + '.git'
+    scmDeveloperConnection = 'scm:git:git://github.com/' + user + '/' + name + '.git'
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'maven'
+    apply plugin: 'signing'
+
+    configurations {
+        wagon
+        alpnagent
+        asciidoclet
+    }
+
+    dependencies {
+        alpnagent "org.mortbay.jetty.alpn:jetty-alpn-agent:${project.property('alpnagent.version')}"
+        asciidoclet "org.xbib:asciidoclet:${project.property('asciidoclet.version')}"
+        wagon "org.apache.maven.wagon:wagon-ssh:${project.property('wagon.version')}"
+    }
+
+    compileJava {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    compileTestJava {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    jar {
+        baseName "${rootProject.name}-${project.name}"
+    }
+
+    javadoc {
+        options.docletpath = configurations.asciidoclet.files.asType(List)
+        options.doclet = 'org.xbib.asciidoclet.Asciidoclet'
+        options.overview = "src/docs/asciidoclet/overview.adoc"
+        options.addStringOption "-base-dir", "${projectDir}"
+        options.addStringOption "-attribute",
+                "name=${project.name},version=${project.version},title-link=https://github.com/jprante/${project.name}"
+        configure(options) {
+            noTimestamp = true
         }
-        resources {
-            srcDir file('src/integration-test/resources')
+    }
+
+    /*task javadocJar(type: Jar, dependsOn: classes) {
+        baseName "${rootProject.name}-${project.name}"
+        from javadoc
+        into "build/tmp"
+        classifier 'javadoc'
+    }
+
+    task sourcesJar(type: Jar, dependsOn: classes) {
+        baseName "${rootProject.name}-${project.name}"
+        from sourceSets.main.allSource
+        into "build/tmp"
+        classifier 'sources'
+    }
+
+    artifacts {
+        archives javadocJar, sourcesJar
+    }*/
+
+    if (project.hasProperty('signing.keyId')) {
+        signing {
+            sign configurations.archives
         }
     }
+
+    apply from: "${rootProject.projectDir}/gradle/ext.gradle"
+    apply from: "${rootProject.projectDir}/gradle/publish.gradle"
+    //apply from: "${rootProject.projectDir}/gradle/sonarqube.gradle"
+
 }
 
-configurations {
-    wagon
-    integrationTestCompile.extendsFrom testCompile
-    integrationTestRuntime.extendsFrom testRuntime
-}
+/*asciidoctor {
+    attributes toc: 'left',
+            doctype: 'book',
+            icons: 'font',
+            encoding: 'utf-8',
+            sectlink: true,
+            sectanchors: true,
+            linkattrs: true,
+            imagesdir: 'img',
+            'source-highlighter': 'coderay'
+}*/
 
-dependencies {
-    compile "org.xbib:metrics:1.0.0"
-    compile("org.elasticsearch:elasticsearch:2.2.1") {
-        exclude module: "securesm"
+/*
+task aggregatedJavadoc(type: Javadoc) {
+    group = 'aggregation'
+    description = 'Generates aggregated Javadoc API documentation.'
+    title = "$description $version API"
+    destinationDir = file("$buildDir/docs/javadoc")
+    def sourceProjects = subprojects.findAll {
+        it.plugins.hasPlugin('java') || it.plugins.hasPlugin('groovy')
     }
-    testCompile "net.java.dev.jna:jna:4.1.0"
-    testCompile "junit:junit:4.12"
-    testCompile "org.apache.logging.log4j:log4j-core:2.7"
-    testCompile "org.apache.logging.log4j:log4j-slf4j-impl:2.7"
-    wagon 'org.apache.maven.wagon:wagon-ssh-external:2.10'
-}
-
-sourceCompatibility = JavaVersion.VERSION_1_8
-targetCompatibility = JavaVersion.VERSION_1_8
-
-[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
-tasks.withType(JavaCompile) {
-    options.compilerArgs << "-Xlint:all"
-}
-
-task integrationTest(type: Test) {
-    include '**/MiscTestSuite.class'
-    include '**/BulkNodeTestSuite.class'
-    include '**/BulkTransportTestSuite.class'
-    testClassesDir = sourceSets.integrationTest.output.classesDir
-    classpath = configurations.integrationTestCompile
-    classpath += configurations.integrationTestRuntime
-    classpath += sourceSets.main.output
-    classpath += sourceSets.test.output
-    classpath += sourceSets.integrationTest.output
-    outputs.upToDateWhen { false }
-    systemProperty 'path.home', projectDir.absolutePath
-    testLogging.showStandardStreams = true
-}
-
-integrationTest.mustRunAfter test
-check.dependsOn integrationTest
-
-clean {
-    delete "plugins"
-    delete "logs"
-}
-
-task javadocJar(type: Jar, dependsOn: classes) {
-    from javadoc
-    into "build/tmp"
-    classifier 'javadoc'
-}
-
-task sourcesJar(type: Jar, dependsOn: classes) {
-    from sourceSets.main.allSource
-    into "build/tmp"
-    classifier 'sources'
-}
-
-artifacts {
-    archives javadocJar, sourcesJar
-}
-
-if (project.hasProperty('signing.keyId')) {
-    signing {
-        sign configurations.archives
+    source sourceProjects.collect {
+        it.sourceSets.main.allJava
     }
+    classpath = files(sourceProjects.collect {
+        it.sourceSets.main.runtimeClasspath
+    })
+    //options.overview = 'gradle/api/overview.html'
+    options.showFromProtected()
 }
-
-apply from: 'gradle/publish.gradle'
-apply from: 'gradle/sonarqube.gradle'
+*/
