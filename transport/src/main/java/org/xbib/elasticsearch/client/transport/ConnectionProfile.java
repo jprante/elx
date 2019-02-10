@@ -1,6 +1,6 @@
 package org.xbib.elasticsearch.client.transport;
 
-import org.elasticsearch.common.inject.internal.Nullable;
+import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.transport.TransportRequestOptions;
 

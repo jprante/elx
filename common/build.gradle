@@ -6,7 +6,7 @@ buildscript {
         }
     }
     dependencies {
-        classpath "org.xbib.elasticsearch:gradle-plugin-elasticsearch-build:6.2.2.0"
+        classpath "org.xbib.elasticsearch:gradle-plugin-elasticsearch-build:6.3.2.4"
     }
 }
 
@@ -21,18 +21,20 @@ dependencies {
     compile project(':api')
     compile "org.xbib:metrics:${project.property('xbib-metrics.version')}"
     compileOnly "org.apache.logging.log4j:log4j-api:${project.property('log4j.version')}"
-    testCompile "org.xbib.elasticsearch:elasticsearch-test-framework:${project.property('xbib-elasticsearch-test.version')}"
-    testRuntime "org.xbib.elasticsearch:elasticsearch-test-framework:${project.property('xbib-elasticsearch-test.version')}"
+    testCompile "org.xbib.elasticsearch:elasticsearch-test-framework:${project.property('elasticsearch-devkit.version')}"
+    testRuntime "org.xbib.elasticsearch:elasticsearch-test-framework:${project.property('elasticsearch-devkit.version')}"
 }
 
 jar {
     baseName "${rootProject.name}-common"
 }
 
+/*
 task testJar(type: Jar, dependsOn: testClasses) {
     baseName = "${project.archivesBaseName}-tests"
     from sourceSets.test.output
 }
+*/
 
 artifacts {
     main jar
@@ -56,7 +58,7 @@ randomizedTest {
 
 esTest {
     // test with the jars, not the classes, for security manager
-    classpath = files(configurations.testRuntime) + configurations.main.artifacts.files + configurations.tests.artifacts.files
+    // classpath = files(configurations.testRuntime) + configurations.main.artifacts.files + configurations.tests.artifacts.files
     systemProperty 'tests.security.manager', 'true'
 }
 esTest.dependsOn jar, testJar

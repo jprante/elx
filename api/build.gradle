@@ -7,7 +7,7 @@ dependencies {
         exclude group: 'org.elasticsearch.plugin', module: 'percolator-client'
         exclude group: 'org.elasticsearch.plugin', module: 'lang-mustache-client'
     }
-    // we try to override the Elasticsearch netty by our netty version which might be more recent
+    // we try to override the Elasticsearch netty by our netty version which is more recent
     compile "io.netty:netty-buffer:${rootProject.property('netty.version')}"
     compile "io.netty:netty-codec-http:${rootProject.property('netty.version')}"
     compile "io.netty:netty-handler:${rootProject.property('netty.version')}"

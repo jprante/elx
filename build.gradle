@@ -1,12 +1,27 @@
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+
+buildscript {
+    repositories {
+        jcenter()
+        maven {
+            url 'http://xbib.org/repository'
+        }
+    }
+    dependencies {
+        classpath "org.xbib.elasticsearch:gradle-plugin-elasticsearch-build:6.3.2.4"
+    }
+}
 
 plugins {
     id "org.sonarqube" version "2.6.1"
     id "io.codearte.nexus-staging" version "0.11.0"
-    id "org.xbib.gradle.plugin.asciidoctor" version "1.6.0.0"
+    id "org.xbib.gradle.plugin.asciidoctor" version "1.6.0.1"
 }
 
-printf "Host: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGroovy: %s\nGradle: %s\n" +
+printf "Date: %s\nHost: %s\nOS: %s %s %s\nJava: %s %s %s %s\nGradle: %s Groovy: %s Java: %s\n" +
         "Build: group: ${project.group} name: ${project.name} version: ${project.version}\n",
+        ZonedDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME),
         InetAddress.getLocalHost(),
         System.getProperty("os.name"),
         System.getProperty("os.arch"),
@@ -15,19 +30,25 @@ printf "Host: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGroovy: %s\nGradle: %s\n" +
         System.getProperty("java.vm.version"),
         System.getProperty("java.vm.vendor"),
         System.getProperty("java.vm.name"),
-        GroovySystem.getVersion(),
-        gradle.gradleVersion
+        gradle.gradleVersion, GroovySystem.getVersion(), JavaVersion.current()
+
 
 apply plugin: "io.codearte.nexus-staging"
+apply plugin: 'org.xbib.gradle.plugin.asciidoctor'
+
+ext {
+    user = 'jprante'
+    name = 'elx'
+    description = 'Elasticsearch extensions'
+    scmUrl = 'https://github.com/' + user + '/' + name
+    scmConnection = 'scm:git:git://github.com/' + user + '/' + name + '.git'
+    scmDeveloperConnection = 'scm:git:git://github.com/' + user + '/' + name + '.git'
+}
 
 subprojects {
     apply plugin: 'java'
     apply plugin: 'maven'
     apply plugin: 'signing'
-    //apply plugin: 'findbugs'
-    //apply plugin: 'pmd'
-    //apply plugin: 'checkstyle'
-    apply plugin: 'org.xbib.gradle.plugin.asciidoctor'
 
     configurations {
         wagon
@@ -36,34 +57,22 @@ subprojects {
     }
 
     dependencies {
-        //testCompile "junit:junit:${project.property('junit.version')}"
-        //testCompile "org.apache.logging.log4j:log4j-core:${project.property('log4j.version')}"
         alpnagent "org.mortbay.jetty.alpn:jetty-alpn-agent:${project.property('alpnagent.version')}"
         asciidoclet "org.xbib:asciidoclet:${project.property('asciidoclet.version')}"
         wagon "org.apache.maven.wagon:wagon-ssh:${project.property('wagon.version')}"
     }
 
-    sourceCompatibility = JavaVersion.VERSION_1_9
-    targetCompatibility = JavaVersion.VERSION_1_8
-    [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
-    tasks.withType(JavaCompile) {
-        options.compilerArgs << "-proc:none" << "-Xlint:all,-rawtypes,-unchecked,-try" << "--release" << "8" //<< "-profile" << "compact3"
+    compileJava {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    compileTestJava {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     jar {
         baseName "${rootProject.name}-${project.name}"
-    }
-
-    asciidoctor {
-        attributes toc: 'left',
-                doctype: 'book',
-                icons: 'font',
-                encoding: 'utf-8',
-                sectlink: true,
-                sectanchors: true,
-                linkattrs: true,
-                imagesdir: 'img',
-                'source-highlighter': 'coderay'
     }
 
     javadoc {
@@ -107,6 +116,18 @@ subprojects {
     //apply from: "${rootProject.projectDir}/gradle/sonarqube.gradle"
 
 }
+
+/*asciidoctor {
+    attributes toc: 'left',
+            doctype: 'book',
+            icons: 'font',
+            encoding: 'utf-8',
+            sectlink: true,
+            sectanchors: true,
+            linkattrs: true,
+            imagesdir: 'img',
+            'source-highlighter': 'coderay'
+}*/
 
 /*
 task aggregatedJavadoc(type: Javadoc) {

@@ -13,6 +13,7 @@ import org.elasticsearch.action.GenericAction;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.DeprecationHandler;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.xbib.netty.http.client.Request;
@@ -143,6 +144,7 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
             throw new IllegalStateException("unsupported content-type: " + mediaType);
         }
         try (XContentParser parser = xContentType.xContent().createParser(httpActionContext.getHttpClient().getRegistry(),
+                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
                 httpActionContext.getHttpResponse().content().array())) {
             return entityParser().apply(parser);
         } catch (IOException e) {

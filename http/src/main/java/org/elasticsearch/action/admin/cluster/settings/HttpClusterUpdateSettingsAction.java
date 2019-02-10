@@ -1,6 +1,7 @@
 package org.elasticsearch.action.admin.cluster.settings;
 
 import org.elasticsearch.common.CheckedFunction;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -32,7 +33,7 @@ public class HttpClusterUpdateSettingsAction extends HttpAction<ClusterUpdateSet
             builder.startObject("transient");
             request.transientSettings().toXContent(builder, ToXContent.EMPTY_PARAMS);
             builder.endObject().endObject();
-            return newPutRequest(url, "/_cluster/settings", builder.bytes());
+            return newPutRequest(url, "/_cluster/settings", BytesReference.bytes(builder));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

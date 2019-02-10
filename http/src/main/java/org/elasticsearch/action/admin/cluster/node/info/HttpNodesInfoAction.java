@@ -119,7 +119,10 @@ public class HttpNodesInfoAction extends HttpAction<NodesInfoRequest, NodesInfoR
             try {
                 InetAddress[] inetAddresses = InetAddress.getAllByName(host);
                 TransportAddress transportAddress = new TransportAddress(inetAddresses[0], port);
-                Build build = new Build((String) map2.get("build"), (String)map2.get("date"), (Boolean)map2.get("snapshst"));
+                Build build = new Build(Build.Flavor.OSS, Build.Type.TAR,
+                        (String) map2.get("build"),
+                        (String)map2.get("date"),
+                        (Boolean)map2.get("snapshot"));
                 Map<String, String> attributes = Collections.emptyMap();
                 Set<DiscoveryNode.Role> roles = new HashSet<>();
                 Version version = Version.fromString((String) map2.get("version"));

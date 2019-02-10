@@ -1,6 +1,7 @@
 package org.elasticsearch.action.admin.indices.settings.put;
 
 import org.elasticsearch.common.CheckedFunction;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -30,7 +31,7 @@ public class HttpUpdateSettingsAction extends HttpAction<UpdateSettingsRequest, 
             request.settings().toXContent(builder, ToXContent.EMPTY_PARAMS);
             builder.endObject();
             String index = request.indices() != null ? "/" + String.join(",", request.indices()) : "";
-            return newPutRequest(url, index + "/_settings", builder.bytes());
+            return newPutRequest(url, index + "/_settings", BytesReference.bytes(builder));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
