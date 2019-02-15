@@ -18,10 +18,9 @@ import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.index.shard.IndexingStats;
-import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.testframework.ESIntegTestCase;
 import org.junit.Before;
 import org.xbib.elasticsearch.client.ClientBuilder;
 import org.xbib.elasticsearch.client.SimpleBulkControl;
@@ -76,7 +75,7 @@ public class TransportBulkClientReplicaTests extends ESIntegTestCase {
         try {
             client.newIndex("test1", settingsTest1, null)
                     .newIndex("test2", settingsTest2, null);
-            client.waitForCluster("GREEN", TimeValue.timeValueSeconds(30));
+            client.waitForCluster("GREEN", "30s");
             for (int i = 0; i < 1234; i++) {
                 client.index("test1", "test", null, false, "{ \"name\" : \"" + randomAlphaOfLength(32) + "\"}");
             }
@@ -84,7 +83,7 @@ public class TransportBulkClientReplicaTests extends ESIntegTestCase {
                 client.index("test2", "test", null, false, "{ \"name\" : \"" + randomAlphaOfLength(32) + "\"}");
             }
             client.flushIngest();
-            client.waitForResponses(TimeValue.timeValueSeconds(60));
+            client.waitForResponses("60s");
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {

@@ -80,9 +80,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- *
- */
 public abstract class AbstractClient implements ClientMethods {
 
     private static final Logger logger = LogManager.getLogger(AbstractClient.class.getName());
@@ -109,9 +106,9 @@ public abstract class AbstractClient implements ClientMethods {
 
     protected int maxConcurrentRequests = DEFAULT_MAX_CONCURRENT_REQUESTS;
 
-    protected ByteSizeValue maxVolume = DEFAULT_MAX_VOLUME_PER_REQUEST;
+    protected String maxVolumePerRequest = DEFAULT_MAX_VOLUME_PER_REQUEST;
 
-    protected TimeValue flushInterval = DEFAULT_FLUSH_INTERVAL;
+    protected String flushIngestInterval = DEFAULT_FLUSH_INTERVAL;
 
     @Override
     public AbstractClient init(ElasticsearchClient client, Settings settings,
@@ -209,9 +206,9 @@ public abstract class AbstractClient implements ClientMethods {
             BulkProcessor.Builder builder = BulkProcessor.builder(this.client, listener)
                     .setBulkActions(maxActionsPerRequest)
                     .setConcurrentRequests(maxConcurrentRequests)
-                    .setFlushInterval(flushInterval);
-            if (maxVolume != null) {
-                builder.setBulkSize(maxVolume);
+                    .setFlushInterval(TimeValue.parseTimeValue(flushIngestInterval, "flushIngestInterval"));
+            if (maxVolumePerRequest != null) {
+                builder.setBulkSize(ByteSizeValue.parseBytesSizeValue(maxVolumePerRequest, "maxVolumePerRequest"));
             }
             this.bulkProcessor = builder.build();
         }
@@ -239,14 +236,14 @@ public abstract class AbstractClient implements ClientMethods {
     }
 
     @Override
-    public ClientMethods maxVolumePerRequest(ByteSizeValue maxVolume) {
-        this.maxVolume = maxVolume;
+    public ClientMethods maxVolumePerRequest(String maxVolumePerRequest) {
+        this.maxVolumePerRequest = maxVolumePerRequest;
         return this;
     }
 
     @Override
-    public ClientMethods flushIngestInterval(TimeValue flushInterval) {
-        this.flushInterval = flushInterval;
+    public ClientMethods flushIngestInterval(String flushIngestInterval) {
+        this.flushIngestInterval = flushIngestInterval;
         return this;
     }
 
@@ -538,11 +535,12 @@ public abstract class AbstractClient implements ClientMethods {
     }
 
     @Override
-    public ClientMethods waitForResponses(TimeValue maxWaitTime) throws InterruptedException, ExecutionException {
+    public ClientMethods waitForResponses(String maxWaitTime) throws InterruptedException, ExecutionException {
         if (closed) {
             throwClose();
         }
-        while (!bulkProcessor.awaitClose(maxWaitTime.getMillis(), TimeUnit.MILLISECONDS)) {
+        long millis = TimeValue.parseTimeValue(maxWaitTime, "millis").getMillis();
+        while (!bulkProcessor.awaitClose(millis, TimeUnit.MILLISECONDS)) {
             logger.warn("still waiting for responses");
         }
         return this;
@@ -571,7 +569,7 @@ public abstract class AbstractClient implements ClientMethods {
     }
 
     @Override
-    public void waitForCluster(String statusString, TimeValue timeout) throws IOException {
+    public void waitForCluster(String statusString, String timeout) throws IOException {
         if (client() == null) {
             return;
         }
@@ -632,7 +630,7 @@ public abstract class AbstractClient implements ClientMethods {
     }
 
     public int updateReplicaLevel(String index, int level) throws IOException {
-        waitForCluster("YELLOW", TimeValue.timeValueSeconds(30));
+        waitForCluster("YELLOW","30s");
         updateIndexSetting(index, "number_of_replicas", level);
         return waitForRecovery(index);
     }

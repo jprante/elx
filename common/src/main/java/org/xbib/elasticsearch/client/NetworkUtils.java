@@ -16,9 +16,6 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
 
-/**
- *
- */
 public class NetworkUtils {
 
     private static final Logger logger = LogManager.getLogger(NetworkUtils.class.getName());
@@ -253,9 +250,6 @@ public class NetworkUtils {
         return left.length - right.length;
     }
 
-    /**
-     *
-     */
     public enum ProtocolVersion {
         IPV4, IPV6, IPV46, NONE
     }

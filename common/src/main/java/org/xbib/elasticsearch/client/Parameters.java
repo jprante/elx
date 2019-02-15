@@ -1,13 +1,10 @@
 package org.xbib.elasticsearch.client;
 
-/**
- *
- */
 public interface Parameters {
 
     int DEFAULT_MAX_ACTIONS_PER_REQUEST = 1000;
 
-    int DEFAULT_MAX_CONCURRENT_REQUESTS = Runtime.getRuntime().availableProcessors() * 4;
+    int DEFAULT_MAX_CONCURRENT_REQUESTS = Runtime.getRuntime().availableProcessors();
 
     String DEFAULT_MAX_VOLUME_PER_REQUEST = "10mb";
 

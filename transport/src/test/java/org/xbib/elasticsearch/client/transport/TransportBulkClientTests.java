@@ -11,6 +11,7 @@ import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.cluster.ClusterName;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.network.NetworkModule;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
@@ -20,7 +21,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.plugins.Plugin;
-import org.elasticsearch.test.ESSingleNodeTestCase;
+import org.elasticsearch.testframework.ESSingleNodeTestCase;
 import org.elasticsearch.transport.Netty4Plugin;
 import org.junit.Before;
 import org.xbib.elasticsearch.client.ClientBuilder;
@@ -123,7 +124,7 @@ public class TransportBulkClientTests extends ESSingleNodeTestCase {
                 .endObject()
                 .endObject()
                 .endObject();
-        client.mapping("test", builder.string());
+        client.mapping("test", Strings.toString(builder));
         client.newIndex("test");
         GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices("test");
         GetMappingsResponse getMappingsResponse =
@@ -153,7 +154,7 @@ public class TransportBulkClientTests extends ESSingleNodeTestCase {
             logger.info("flush");
             client.flushIngest();
             logger.info("wait for responses");
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
             logger.info("waited for responses");
         } catch (InterruptedException e) {
             // ignore
@@ -186,7 +187,7 @@ public class TransportBulkClientTests extends ESSingleNodeTestCase {
                 client.index("test", "test", null, false, "{ \"name\" : \"" + randomAlphaOfLength(32) + "\"}");
             }
             client.flushIngest();
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
@@ -228,7 +229,7 @@ public class TransportBulkClientTests extends ESSingleNodeTestCase {
             latch.await(30, TimeUnit.SECONDS);
             logger.info("client flush ...");
             client.flushIngest();
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
             logger.info("executor service to be shut down ...");
             executorService.shutdown();
             logger.info("executor service is shut down");

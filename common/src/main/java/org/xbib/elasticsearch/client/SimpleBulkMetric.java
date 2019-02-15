@@ -8,9 +8,6 @@ import org.xbib.metrics.Metered;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-/**
- *
- */
 public class SimpleBulkMetric implements BulkMetric {
 
     private final ScheduledExecutorService executorService;

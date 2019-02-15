@@ -44,7 +44,7 @@ artifacts {
 
 test {
     enabled = false
-    jvmArgs "-javaagent:" + configurations.alpnagent.asPath
+    //jvmArgs "-javaagent:" + configurations.alpnagent.asPath
     systemProperty 'path.home', project.buildDir.absolutePath
     testLogging {
         showStandardStreams = true
@@ -62,4 +62,9 @@ esTest {
     systemProperty 'tests.security.manager', 'true'
 }
 esTest.dependsOn jar, testJar
+
+dependencyLicenses.enabled = false
+
+// we not like to examine Netty
+thirdPartyAudit.enabled = false
 

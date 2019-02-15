@@ -19,7 +19,8 @@ configurations {
 
 dependencies {
     compile project(':common')
-    compile "org.xbib:netty-http-client:${project.property('xbib-netty-http-client.version')}"
+    compile "org.xbib:netty-http-client:${project.property('netty-http.version')}"
+    compile "org.xbib.elasticsearch:transport-netty4:${project.property('elasticsearch-server.version')}"
     testCompile "org.xbib.elasticsearch:elasticsearch-test-framework:${project.property('elasticsearch-devkit.version')}"
     testRuntime "org.xbib.elasticsearch:elasticsearch-test-framework:${project.property('elasticsearch-devkit.version')}"
 }
@@ -56,10 +57,10 @@ randomizedTest {
 
 esTest {
     enabled = true
+    dependsOn jar, testJar
     // test with the jars, not the classes, for security manager
     // classpath = files(configurations.testRuntime) + configurations.main.artifacts.files + configurations.tests.artifacts.files
     systemProperty 'tests.security.manager', 'true'
-    // maybe we like some extra security policy for our code
+    // some extra security policy for our code
     systemProperty 'tests.security.policy', '/extra-security.policy'
 }
-esTest.dependsOn jar, testJar

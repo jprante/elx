@@ -5,8 +5,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-/**
- */
 public class SimpleBulkControl implements BulkControl {
 
     private final Set<String> indexNames = new HashSet<>();

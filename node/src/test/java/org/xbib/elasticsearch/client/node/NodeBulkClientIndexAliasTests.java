@@ -5,9 +5,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.test.ESSingleNodeTestCase;
+import org.elasticsearch.testframework.ESSingleNodeTestCase;
 import org.xbib.elasticsearch.client.ClientBuilder;
 import org.xbib.elasticsearch.client.IndexAliasAdder;
 import org.xbib.elasticsearch.client.SimpleBulkControl;
@@ -61,7 +60,7 @@ public class NodeBulkClientIndexAliasTests extends ESSingleNodeTestCase {
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
             client.shutdown();
             if (client.hasThrowable()) {
                 logger.error("error", client.getThrowable());

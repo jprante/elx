@@ -5,8 +5,6 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.ByteSizeValue;
-import org.elasticsearch.common.unit.TimeValue;
 import org.xbib.elasticsearch.client.BulkControl;
 import org.xbib.elasticsearch.client.BulkMetric;
 
@@ -40,12 +38,12 @@ public class MockTransportBulkClient extends TransportBulkClient {
     }
 
     @Override
-    public MockTransportBulkClient maxVolumePerRequest(ByteSizeValue maxVolumePerRequest) {
+    public MockTransportBulkClient maxVolumePerRequest(String maxVolumePerRequest) {
         return this;
     }
 
     @Override
-    public MockTransportBulkClient flushIngestInterval(TimeValue interval) {
+    public MockTransportBulkClient flushIngestInterval(String interval) {
         return this;
     }
 
@@ -85,7 +83,7 @@ public class MockTransportBulkClient extends TransportBulkClient {
     }
 
     @Override
-    public MockTransportBulkClient waitForResponses(TimeValue timeValue) throws InterruptedException {
+    public MockTransportBulkClient waitForResponses(String timeValue) throws InterruptedException {
         return this;
     }
 
@@ -130,7 +128,7 @@ public class MockTransportBulkClient extends TransportBulkClient {
     }
 
     @Override
-    public void waitForCluster(String healthColor, TimeValue timeValue) throws IOException {
+    public void waitForCluster(String healthColor, String timeValue) throws IOException {
         // mockup method
     }
 

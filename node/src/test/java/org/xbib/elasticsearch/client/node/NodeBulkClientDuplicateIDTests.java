@@ -6,8 +6,7 @@ import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.test.ESSingleNodeTestCase;
+import org.elasticsearch.testframework.ESSingleNodeTestCase;
 import org.xbib.elasticsearch.client.ClientBuilder;
 import org.xbib.elasticsearch.client.SimpleBulkControl;
 import org.xbib.elasticsearch.client.SimpleBulkMetric;
@@ -36,7 +35,7 @@ public class NodeBulkClientDuplicateIDTests extends ESSingleNodeTestCase {
                 client.index("test", "test", randomAlphaOfLength(1), false, "{ \"name\" : \"" + randomAlphaOfLength(32) + "\"}");
             }
             client.flushIngest();
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
             client.refreshIndex("test");
             SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client.client(), SearchAction.INSTANCE)
                     .setIndices("test")

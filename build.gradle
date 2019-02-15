@@ -75,7 +75,7 @@ subprojects {
         baseName "${rootProject.name}-${project.name}"
     }
 
-    javadoc {
+    /*javadoc {
         options.docletpath = configurations.asciidoclet.files.asType(List)
         options.doclet = 'org.xbib.asciidoclet.Asciidoclet'
         options.overview = "src/docs/asciidoclet/overview.adoc"
@@ -85,7 +85,7 @@ subprojects {
         configure(options) {
             noTimestamp = true
         }
-    }
+    }*/
 
     /*task javadocJar(type: Jar, dependsOn: classes) {
         baseName "${rootProject.name}-${project.name}"

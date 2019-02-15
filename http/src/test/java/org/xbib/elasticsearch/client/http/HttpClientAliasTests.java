@@ -9,10 +9,9 @@ import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.common.network.NetworkModule;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.plugins.Plugin;
-import org.elasticsearch.test.ESSingleNodeTestCase;
+import org.elasticsearch.testframework.ESSingleNodeTestCase;
 import org.elasticsearch.transport.Netty4Plugin;
 import org.junit.Before;
 import org.xbib.elasticsearch.client.ClientBuilder;
@@ -98,7 +97,7 @@ public class HttpClientAliasTests extends ESSingleNodeTestCase {
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
             client.shutdown();
             if (client.hasThrowable()) {
                 logger.error("error", client.getThrowable());

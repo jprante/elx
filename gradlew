@@ -155,11 +155,7 @@ if $cygwin ; then
 fi
 
 # Escape application args
-<<<<<<< HEAD
-save ( ) {
-=======
 save () {
->>>>>>> 6.3
     for i do printf %s\\n "$i" | sed "s/'/'\\\\''/g;1s/^/'/;\$s/\$/' \\\\/" ; done
     echo " "
 }

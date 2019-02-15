@@ -3,9 +3,6 @@ package org.xbib.elasticsearch.client;
 import org.xbib.metrics.Count;
 import org.xbib.metrics.Metered;
 
-/**
- *
- */
 public interface BulkMetric {
 
     Metered getTotalIngest();

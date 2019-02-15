@@ -8,9 +8,8 @@ import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
-import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.testframework.ESIntegTestCase;
 import org.junit.Before;
 import org.xbib.elasticsearch.client.ClientBuilder;
 import org.xbib.elasticsearch.client.SimpleBulkControl;
@@ -60,12 +59,12 @@ public class TransportBulkClientUpdateReplicaLevelTests extends ESIntegTestCase 
 
         try {
             client.newIndex("replicatest", settings, null);
-            client.waitForCluster("GREEN", TimeValue.timeValueSeconds(30));
+            client.waitForCluster("GREEN", "30s");
             for (int i = 0; i < 12345; i++) {
                 client.index("replicatest", "replicatest", null, false, "{ \"name\" : \"" + randomAlphaOfLength(32) + "\"}");
             }
             client.flushIngest();
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
             shardsAfterReplica = client.updateReplicaLevel("replicatest", 3);
             assertEquals(shardsAfterReplica, 2 * (3 + 1));
         } catch (NoNodeAvailableException e) {

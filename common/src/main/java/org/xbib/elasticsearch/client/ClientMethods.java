@@ -396,6 +396,7 @@ public interface ClientMethods extends Parameters {
 
     /**
      * Shutdown the ingesting.
+     * @throws IOException is shutdown fails
      */
     void shutdown() throws IOException;
 }

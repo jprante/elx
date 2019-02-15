@@ -11,7 +11,7 @@ import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.plugins.Plugin;
-import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.testframework.ESIntegTestCase;
 import org.elasticsearch.transport.Netty4Plugin;
 import org.junit.Before;
 import org.xbib.elasticsearch.client.ClientBuilder;
@@ -75,12 +75,12 @@ public class HttpClientUpdateReplicaLevelTests extends ESIntegTestCase {
 
         try {
             client.newIndex("replicatest", settings, null);
-            client.waitForCluster("GREEN", TimeValue.timeValueSeconds(30));
+            client.waitForCluster("GREEN", "30s");
             for (int i = 0; i < 12345; i++) {
                 client.index("replicatest", "replicatest", null, false, "{ \"name\" : \"" + randomAlphaOfLength(32) + "\"}");
             }
             client.flushIngest();
-            client.waitForResponses(TimeValue.timeValueSeconds(30));
+            client.waitForResponses("30s");
             shardsAfterReplica = client.updateReplicaLevel("replicatest", replicaLevel);
             assertEquals(shardsAfterReplica, numberOfShards * (replicaLevel + 1));
         } catch (NoNodeAvailableException e) {

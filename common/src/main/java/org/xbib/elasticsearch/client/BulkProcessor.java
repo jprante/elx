@@ -263,7 +263,7 @@ public class BulkProcessor implements Closeable {
         /**
          * Sets the number of concurrent requests allowed to be executed. A value of 0 means that only a single
          * request will be allowed to be executed. A value of 1 means 1 concurrent request is allowed to be executed
-         * while accumulating new bulk requests. Defaults to <tt>1</tt>.
+         * while accumulating new bulk requests. Defaults to {@code 1}.
          *
          * @param concurrentRequests maximum number of concurrent requests
          * @return this builder
@@ -275,7 +275,7 @@ public class BulkProcessor implements Closeable {
 
         /**
          * Sets when to flush a new bulk request based on the number of actions currently added. Defaults to
-         * <tt>1000</tt>. Can be set to <tt>-1</tt> to disable it.
+         * {@code 1000}. Can be set to {@code -1} to disable it.
          *
          * @param bulkActions mbulk actions
          * @return this builder
@@ -287,7 +287,7 @@ public class BulkProcessor implements Closeable {
 
         /**
          * Sets when to flush a new bulk request based on the size of actions currently added. Defaults to
-         * <tt>5mb</tt>. Can be set to <tt>-1</tt> to disable it.
+         * {@code 5mb}. Can be set to {@code -1} to disable it.
          *
          * @param bulkSize bulk size
          * @return this builder
@@ -299,8 +299,8 @@ public class BulkProcessor implements Closeable {
 
         /**
          * Sets a flush interval flushing *any* bulk actions pending if the interval passes. Defaults to not set.
-         * Note, both {@link #setBulkActions(int)} and {@link #setBulkSize(org.elasticsearch.common.unit.ByteSizeValue)}
-         * can be set to <tt>-1</tt> with the flush interval set allowing for complete async processing of bulk actions.
+         * Note, both {@link #setBulkActions(int)} and {@link #setBulkSize(ByteSizeValue)}
+         * can be set to {@code -1} with the flush interval set allowing for complete async processing of bulk actions.
          *
          * @param flushInterval flush interval
          * @return this builder

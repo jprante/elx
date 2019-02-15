@@ -19,6 +19,7 @@ configurations {
 
 dependencies {
     compile project(':common')
+    compile "org.xbib.elasticsearch:transport-netty4:${project.property('elasticsearch-server.version')}"
     testCompile "org.xbib.elasticsearch:elasticsearch-test-framework:${project.property('elasticsearch-devkit.version')}"
     testRuntime "org.xbib.elasticsearch:elasticsearch-test-framework:${project.property('elasticsearch-devkit.version')}"
 }
@@ -56,7 +57,7 @@ randomizedTest {
 
 test {
     enabled = false
-    jvmArgs "-javaagent:" + configurations.alpnagent.asPath
+    //jvmArgs "-javaagent:" + configurations.alpnagent.asPath
     systemProperty 'path.home', projectDir.absolutePath
     testLogging {
         showStandardStreams = true

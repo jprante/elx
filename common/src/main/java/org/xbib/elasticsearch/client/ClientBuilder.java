@@ -5,14 +5,10 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
 
-/**
- *
- */
 public final class ClientBuilder implements Parameters {
 
     private final Settings.Builder settingsBuilder;
@@ -87,18 +83,18 @@ public final class ClientBuilder implements Parameters {
         return this;
     }
 
-    public <C extends ClientMethods> C getClient(Class<C> clientClass) throws IOException {
+    public <C extends ClientMethods> C getClient(Class<C> clientClass) {
         return getClient(null, clientClass);
     }
 
     @SuppressWarnings("unchecked")
-    public <C extends ClientMethods> C getClient(Client client, Class<C> clientClass) throws IOException {
+    public <C extends ClientMethods> C getClient(Client client, Class<C> clientClass) {
         Settings settings = settingsBuilder.build();
         return (C) clientMethodsMap.get(clientClass)
                 .maxActionsPerRequest(settings.getAsInt(MAX_ACTIONS_PER_REQUEST, DEFAULT_MAX_ACTIONS_PER_REQUEST))
                 .maxConcurrentRequests(settings.getAsInt(MAX_CONCURRENT_REQUESTS, DEFAULT_MAX_CONCURRENT_REQUESTS))
-                .maxVolumePerRequest(settings.getAsBytesSize(MAX_VOLUME_PER_REQUEST, DEFAULT_MAX_VOLUME_PER_REQUEST))
-                .flushIngestInterval(settings.getAsTime(FLUSH_INTERVAL, DEFAULT_FLUSH_INTERVAL))
+                .maxVolumePerRequest(settings.get(MAX_VOLUME_PER_REQUEST, DEFAULT_MAX_VOLUME_PER_REQUEST))
+                .flushIngestInterval(settings.get(FLUSH_INTERVAL, DEFAULT_FLUSH_INTERVAL))
                 .init(client, settings, metric, control);
     }
 }
