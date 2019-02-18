@@ -1,1 +1,5 @@
-rootProject.name = 'elasticsearch-extras-client'
+include 'elx-api'
+include 'elx-common'
+include 'elx-node'
+include 'elx-transport'
+include 'elx-http'

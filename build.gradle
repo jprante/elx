@@ -1,9 +1,11 @@
-
 plugins {
-    id "org.sonarqube" version "2.2"
+    id "org.sonarqube" version "2.6.1"
+    id "io.codearte.nexus-staging" version "0.11.0"
+    id "com.github.spotbugs" version "1.6.9"
+    id "org.xbib.gradle.plugin.asciidoctor" version "1.5.6.0.1"
 }
 
-printf "Host: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGroovy: %s\nGradle: %s\n" +
+printf "Host: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGradle: %s Groovy: %s Java: %s\n" +
         "Build: group: ${project.group} name: ${project.name} version: ${project.version}\n",
         InetAddress.getLocalHost(),
         System.getProperty("os.name"),
@@ -13,102 +15,143 @@ printf "Host: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGroovy: %s\nGradle: %s\n" +
         System.getProperty("java.vm.version"),
         System.getProperty("java.vm.vendor"),
         System.getProperty("java.vm.name"),
+        gradle.gradleVersion,
         GroovySystem.getVersion(),
-        gradle.gradleVersion
+        JavaVersion.current()
 
-apply plugin: 'java'
-apply plugin: 'maven'
-apply plugin: 'signing'
-apply plugin: 'findbugs'
-apply plugin: 'pmd'
-apply plugin: 'checkstyle'
-apply plugin: "jacoco"
+if (JavaVersion.current() < JavaVersion.VERSION_11) {
+    throw new GradleException("This build must be run with java 11 or higher")
+}
 
-apply from: 'gradle/ext.gradle'
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'maven'
+    apply plugin: 'signing'
+    apply plugin: 'com.github.spotbugs'
+    apply plugin: 'pmd'
+    apply plugin: 'checkstyle'
+    apply plugin: 'org.xbib.gradle.plugin.asciidoctor'
+    
+    configurations {
+        asciidoclet
+        wagon
+    }
 
-sourceSets {
-    integrationTest {
-        java {
-            srcDir file('src/integration-test/java')
-            compileClasspath += main.output
-            compileClasspath += test.output
+    dependencies {
+        testCompile "junit:junit:${project.property('junit.version')}"
+        testCompile "org.apache.logging.log4j:log4j-core:${project.property('log4j.version')}"
+        testCompile "org.apache.logging.log4j:log4j-slf4j-impl:${project.property('log4j.version')}"
+        wagon "org.apache.maven.wagon:wagon-ssh:${project.property('wagon.version')}"
+    }
+
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+
+    tasks.withType(JavaCompile) {
+        options.compilerArgs << "-Xlint:all"
+        if (!options.compilerArgs.contains("-processor")) {
+            options.compilerArgs << '-proc:none'
         }
-        resources {
-            srcDir file('src/integration-test/resources')
+    }
+
+    test {
+        jvmArgs =[
+               '--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED',
+               '--add-opens=java.base/java.nio=ALL-UNNAMED'
+        ]
+        systemProperty 'jna.debug_load', 'true'
+        testLogging {
+            showStandardStreams = true
+            exceptionFormat = 'full'
+        }
+    }
+    
+    clean {
+        delete "plugins"
+        delete "logs"
+        delete "out"
+    }
+
+    /*javadoc {
+        options.docletpath = configurations.asciidoclet.files.asType(List)
+        options.doclet = 'org.asciidoctor.Asciidoclet'
+        options.overview = "src/docs/asciidoclet/overview.adoc"
+        options.addStringOption "-base-dir", "${projectDir}"
+        options.addStringOption "-attribute",
+                "name=${project.name},version=${project.version},title-link=https://github.com/xbib/${project.name}"
+        configure(options) {
+            noTimestamp = true
+        }
+    }*/
+
+    task javadocJar(type: Jar, dependsOn: javadoc) {
+        classifier 'javadoc'
+    }
+
+    task sourcesJar(type: Jar, dependsOn: classes) {
+        from sourceSets.main.allSource
+        classifier 'sources'
+    }
+
+    artifacts {
+        archives javadocJar, sourcesJar
+    }
+
+    if (project.hasProperty('signing.keyId')) {
+        signing {
+            sign configurations.archives
+        }
+    }
+
+    apply from: "${rootProject.projectDir}/gradle/publish.gradle"
+
+    spotbugs {
+        effort = "max"
+        reportLevel = "low"
+        //includeFilter = file("findbugs-exclude.xml")
+    }
+
+    tasks.withType(com.github.spotbugs.SpotBugsTask) {
+        ignoreFailures = true
+        reports {
+            xml.enabled = false
+            html.enabled = true
+        }
+    }
+
+    tasks.withType(Pmd) {
+        ignoreFailures = true
+        reports {
+            xml.enabled = true
+            html.enabled = true
+        }
+    }
+    tasks.withType(Checkstyle) {
+        ignoreFailures = true
+        reports {
+            xml.enabled = true
+            html.enabled = true
+        }
+    }
+
+    pmd {
+        toolVersion = '6.11.0'
+        ruleSets = ['category/java/bestpractices.xml']
+    }
+    
+    checkstyle {
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+        ignoreFailures = true
+        showViolations = true
+    }
+
+    sonarqube {
+        properties {
+            property "sonar.projectName", "${project.group} ${project.name}"
+            property "sonar.sourceEncoding", "UTF-8"
+            property "sonar.tests", "src/test/java"
+            property "sonar.scm.provider", "git"
+            property "sonar.junit.reportsPath", "build/test-results/test/"
         }
     }
 }
-
-configurations {
-    wagon
-    integrationTestCompile.extendsFrom testCompile
-    integrationTestRuntime.extendsFrom testRuntime
-}
-
-dependencies {
-    compile "org.xbib:metrics:1.0.0"
-    compile("org.elasticsearch:elasticsearch:2.2.1") {
-        exclude module: "securesm"
-    }
-    testCompile "net.java.dev.jna:jna:4.1.0"
-    testCompile "junit:junit:4.12"
-    testCompile "org.apache.logging.log4j:log4j-core:2.7"
-    testCompile "org.apache.logging.log4j:log4j-slf4j-impl:2.7"
-    wagon 'org.apache.maven.wagon:wagon-ssh-external:2.10'
-}
-
-sourceCompatibility = JavaVersion.VERSION_1_8
-targetCompatibility = JavaVersion.VERSION_1_8
-
-[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
-tasks.withType(JavaCompile) {
-    options.compilerArgs << "-Xlint:all"
-}
-
-task integrationTest(type: Test) {
-    include '**/MiscTestSuite.class'
-    include '**/BulkNodeTestSuite.class'
-    include '**/BulkTransportTestSuite.class'
-    testClassesDir = sourceSets.integrationTest.output.classesDir
-    classpath = configurations.integrationTestCompile
-    classpath += configurations.integrationTestRuntime
-    classpath += sourceSets.main.output
-    classpath += sourceSets.test.output
-    classpath += sourceSets.integrationTest.output
-    outputs.upToDateWhen { false }
-    systemProperty 'path.home', projectDir.absolutePath
-    testLogging.showStandardStreams = true
-}
-
-integrationTest.mustRunAfter test
-check.dependsOn integrationTest
-
-clean {
-    delete "plugins"
-    delete "logs"
-}
-
-task javadocJar(type: Jar, dependsOn: classes) {
-    from javadoc
-    into "build/tmp"
-    classifier 'javadoc'
-}
-
-task sourcesJar(type: Jar, dependsOn: classes) {
-    from sourceSets.main.allSource
-    into "build/tmp"
-    classifier 'sources'
-}
-
-artifacts {
-    archives javadocJar, sourcesJar
-}
-
-if (project.hasProperty('signing.keyId')) {
-    signing {
-        sign configurations.archives
-    }
-}
-
-apply from: 'gradle/publish.gradle'
-apply from: 'gradle/sonarqube.gradle'
