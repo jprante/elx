@@ -1,12 +1,11 @@
-package org.xbib.elx.common.management;
+package org.xbib.elx.api;
 
+import java.net.MalformedURLException;
 import java.net.URL;
 
 public class IndexDefinition {
 
     private String index;
-
-    private String type;
 
     private String fullIndexName;
 
@@ -28,6 +27,8 @@ public class IndexDefinition {
 
     private IndexRetention indexRetention;
 
+    private String maxWaitTime;
+
     public IndexDefinition setIndex(String index) {
         this.index = index;
         return this;
@@ -46,13 +47,9 @@ public class IndexDefinition {
         return fullIndexName;
     }
 
-    public IndexDefinition setType(String type) {
-        this.type = type;
+    public IndexDefinition setSettingsUrl(String settingsUrlString) throws MalformedURLException {
+        this.settingsUrl = settingsUrlString != null ? new URL(settingsUrlString) : null;
         return this;
-    }
-
-    public String getType() {
-        return type;
     }
 
     public IndexDefinition setSettingsUrl(URL settingsUrl) {
@@ -62,6 +59,11 @@ public class IndexDefinition {
 
     public URL getSettingsUrl() {
         return settingsUrl;
+    }
+
+    public IndexDefinition setMappingsUrl(String mappingsUrlString) throws MalformedURLException {
+        this.mappingsUrl = mappingsUrlString != null ? new URL(mappingsUrlString) : null;
+        return this;
     }
 
     public IndexDefinition setMappingsUrl(URL mappingsUrl) {
@@ -136,4 +138,12 @@ public class IndexDefinition {
         return indexRetention;
     }
 
+    public IndexDefinition setMaxWaitTime(String maxWaitTime) {
+        this.maxWaitTime = maxWaitTime;
+        return this;
+    }
+
+    public String getMaxWaitTime() {
+        return maxWaitTime;
+    }
 }

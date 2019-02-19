@@ -27,23 +27,23 @@ public class ExtendedNodeIndexAliasTest extends NodeTestUtils {
         try {
             client.newIndex("test1234");
             for (int i = 0; i < 1; i++) {
-                client.index("test1234", "test", randomString(1), false, "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test1234", randomString(1), false, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             client.flushIngest();
             client.refreshIndex("test1234");
 
             List<String> simpleAliases = Arrays.asList("a", "b", "c");
-            client.switchAliases("test", "test1234", simpleAliases);
+            client.switchIndex("test", "test1234", simpleAliases);
 
             client.newIndex("test5678");
             for (int i = 0; i < 1; i++) {
-                client.index("test5678", "test", randomString(1), false, "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test5678", randomString(1), false, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             client.flushIngest();
             client.refreshIndex("test5678");
 
             simpleAliases = Arrays.asList("d", "e", "f");
-            client.switchAliases("test", "test5678", simpleAliases, (builder, index, alias) ->
+            client.switchIndex("test", "test5678", simpleAliases, (builder, index, alias) ->
                     builder.addAlias(index, alias, QueryBuilders.termQuery("my_key", alias)));
             Map<String, String> aliases = client.getIndexFilters("test5678");
             logger.info("aliases of index test5678 = {}", aliases);

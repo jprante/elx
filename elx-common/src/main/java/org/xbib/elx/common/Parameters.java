@@ -8,7 +8,7 @@ public enum Parameters {
 
     DEFAULT_MAX_VOLUME_PER_REQUEST("10mb"),
 
-    DEFAULT_FLUSH_INTERVAL("30s"),
+    DEFAULT_FLUSH_INTERVAL(30),
 
     MAX_ACTIONS_PER_REQUEST ("max_actions_per_request"),
 

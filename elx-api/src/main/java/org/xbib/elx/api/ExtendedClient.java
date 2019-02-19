@@ -10,17 +10,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 
 /**
- * Interface for providing extended administrative methods for managing and ingesting Elasticsearch.
+ * Interface for extended managing and indexing methods of an Elasticsearch client.
  */
 public interface ExtendedClient {
 
     /**
      * Set an Elasticsearch client to extend from it. May be null for TransportClient.
      * @param client client
-     * @return an ELasticsearch client
+     * @return this client
      */
     ExtendedClient setClient(ElasticsearchClient client);
 
@@ -31,16 +30,8 @@ public interface ExtendedClient {
      */
     ElasticsearchClient getClient();
 
-    ExtendedClient setBulkMetric(BulkMetric bulkMetric);
-
-    BulkMetric getBulkMetric();
-
-    ExtendedClient setBulkControl(BulkControl bulkControl);
-
-    BulkControl getBulkControl();
-
     /**
-     * Create new Elasticsearch client, wrap an existing Elasticsearch client.
+     * Initiative the extended client, cerates instances and connect to cluster, if required.
      *
      * @param settings settings
      * @return this client
@@ -49,57 +40,91 @@ public interface ExtendedClient {
     ExtendedClient init(Settings settings) throws IOException;
 
     /**
-     * Bulked index request. Each request will be added to a queue for bulking requests.
-     * Submitting request will be done when bulk limits are exceeded.
+     * Set bulk metric.
+     * @param bulkMetric the bulk metric
+     * @return this client
+     */
+    ExtendedClient setBulkMetric(BulkMetric bulkMetric);
+
+    /**
+     * Get bulk metric.
+     * @return the bulk metric
+     */
+    BulkMetric getBulkMetric();
+
+    /**
+     * Set bulk control.
+     * @param bulkControl the bulk control
+     * @return this
+     */
+    ExtendedClient setBulkControl(BulkControl bulkControl);
+
+    /**
+     * Get buulk control.
+     * @return the bulk control
+     */
+    BulkControl getBulkControl();
+
+    /**
+     * Build index definition from settings.
+     *
+     * @param index the index name
+     * @param settings the settings for the index
+     * @return index definition
+     * @throws IOException if settings/mapping URL is invalid/malformed
+     */
+    IndexDefinition buildIndexDefinitionFromSettings(String index, Settings settings) throws IOException;
+
+    /**
+     * Add index request. Each request will be added to a queue for bulking requests.
+     * Submitting request will be done when limits are exceeded.
      *
      * @param index  the index
-     * @param type   the type
      * @param id     the id
      * @param create true if document must be created
      * @param source the source
      * @return this
      */
-    ExtendedClient index(String index, String type, String id, boolean create, BytesReference source);
+    ExtendedClient index(String index, String id, boolean create, BytesReference source);
 
     /**
-     * Index document.
+     * Index request. Each request will be added to a queue for bulking requests.
+     * Submitting request will be done when limits are exceeded.
      *
      * @param index  the index
-     * @param type   the type
      * @param id     the id
      * @param create true if document is to be created, false otherwise
      * @param source the source
      * @return this client methods
      */
-    ExtendedClient index(String index, String type, String id, boolean create, String source);
+    ExtendedClient index(String index, String id, boolean create, String source);
 
     /**
-     * Bulked index request. Each request will be added to a queue for bulking requests.
+     * Index request. Each request will be added to a queue for bulking requests.
      * Submitting request will be done when bulk limits are exceeded.
      *
      * @param indexRequest the index request to add
-     * @return this ingest
+     * @return this
      */
-    ExtendedClient indexRequest(IndexRequest indexRequest);
+    ExtendedClient index(IndexRequest indexRequest);
 
     /**
-     * Delete document.
+     * Delete request.
      *
      * @param index the index
-     * @param type  the type
      * @param id    the id
-     * @return this ingest
+     * @return this
      */
-    ExtendedClient delete(String index, String type, String id);
+    ExtendedClient delete(String index, String id);
 
     /**
-     * Bulked delete request. Each request will be added to a queue for bulking requests.
+     * Delete request. Each request will be added to a queue for bulking requests.
      * Submitting request will be done when bulk limits are exceeded.
      *
      * @param deleteRequest the delete request to add
-     * @return this ingest
+     * @return this
      */
-    ExtendedClient deleteRequest(DeleteRequest deleteRequest);
+    ExtendedClient delete(DeleteRequest deleteRequest);
 
     /**
      * Bulked update request. Each request will be added to a queue for bulking requests.
@@ -107,23 +132,21 @@ public interface ExtendedClient {
      * Note that updates only work correctly when all operations between nodes are synchronized.
      *
      * @param index  the index
-     * @param type   the type
      * @param id     the id
      * @param source the source
      * @return this
      */
-    ExtendedClient update(String index, String type, String id, BytesReference source);
+    ExtendedClient update(String index, String id, BytesReference source);
 
     /**
      * Update document. Use with precaution! Does not work in all cases.
      *
      * @param index  the index
-     * @param type   the type
      * @param id     the id
      * @param source the source
      * @return this
      */
-    ExtendedClient update(String index, String type, String id, String source);
+    ExtendedClient update(String index, String id, String source);
 
     /**
      * Bulked update request. Each request will be added to a queue for bulking requests.
@@ -131,207 +154,225 @@ public interface ExtendedClient {
      * Note that updates only work correctly when all operations between nodes are synchronized.
      *
      * @param updateRequest the update request to add
-     * @return this ingest
+     * @return this
      */
-    ExtendedClient updateRequest(UpdateRequest updateRequest);
-
-    /**
-     * Set the maximum number of actions per request.
-     *
-     * @param maxActionsPerRequest maximum number of actions per request
-     * @return this ingest
-     */
-    ExtendedClient maxActionsPerRequest(int maxActionsPerRequest);
-
-    /**
-     * Set the maximum concurent requests.
-     *
-     * @param maxConcurentRequests maximum number of concurrent ingest requests
-     * @return this Ingest
-     */
-    ExtendedClient maxConcurrentRequests(int maxConcurentRequests);
-
-    /**
-     * Set the maximum volume for request before flush.
-     *
-     * @param maxVolume maximum volume
-     * @return this ingest
-     */
-    ExtendedClient maxVolumePerRequest(String maxVolume);
-
-    /**
-     * Set the flush interval for automatic flushing outstanding ingest requests.
-     *
-     * @param flushInterval the flush interval, default is 30 seconds
-     * @return this ingest
-     */
-    ExtendedClient flushIngestInterval(String flushInterval);
-
-    /**
-     * Set mapping.
-     *
-     * @param type mapping type
-     * @param in   mapping definition as input stream
-     * @throws IOException if mapping could not be added
-     */
-    void mapping(String type, InputStream in) throws IOException;
-
-    /**
-     * Set mapping.
-     *
-     * @param type    mapping type
-     * @param mapping mapping definition as input stream
-     * @throws IOException if mapping could not be added
-     */
-    void mapping(String type, String mapping) throws IOException;
-
-    /**
-     * Put mapping.
-     *
-     * @param index index
-     */
-    void putMapping(String index);
+    ExtendedClient update(UpdateRequest updateRequest);
 
     /**
      * Create a new index.
      *
      * @param index index
-     * @return this ingest
-     */
-    ExtendedClient newIndex(String index);
-
-    /**
-     * Create a new index.
-     *
-     * @param index    index
-     * @param type     type
-     * @param settings settings
-     * @param mappings mappings
-     * @return this ingest
+     * @return this
      * @throws IOException if new index creation fails
      */
-    ExtendedClient newIndex(String index, String type, InputStream settings, InputStream mappings) throws IOException;
+    ExtendedClient newIndex(String index) throws IOException;
 
     /**
      * Create a new index.
      *
-     * @param index    index
+     * @param index index
      * @param settings settings
-     * @param mappings mappings
-     * @return this ingest
-     */
-    ExtendedClient newIndex(String index, Settings settings, Map<String, String> mappings);
-
-    /**
-     * Create new mapping.
-     *
-     * @param index   index
-     * @param type    index type
      * @param mapping mapping
-     * @return this ingest
+     * @return this
+     * @throws IOException if settings/mapping is invalid or index creation fails
      */
-    ExtendedClient newMapping(String index, String type, Map<String, Object> mapping);
+    ExtendedClient newIndex(String index, InputStream settings, InputStream mapping) throws IOException;
 
     /**
-     * Delete index.
+     * Create a new index.
      *
      * @param index index
-     * @return this ingest
+     * @param settings settings
+     * @param mapping mapping
+     * @return this
+     * @throws IOException if settings/mapping is invalid or index creation fails
+     */
+    ExtendedClient newIndex(String index, Settings settings, String mapping) throws IOException;
+
+    /**
+     * Create a new index.
+     *
+     * @param index index
+     * @param settings settings
+     * @param mapping mapping
+     * @return this
+     * @throws IOException if settings/mapping is invalid or index creation fails
+     */
+    ExtendedClient newIndex(String index, Settings settings, Map<String, Object> mapping) throws IOException;
+
+    /**
+     * Create a new index.
+     * @param indexDefinition the index definition
+     * @return this
+     * @throws IOException if settings/mapping is invalid or index creation fails
+     */
+    ExtendedClient newIndex(IndexDefinition indexDefinition) throws IOException;
+
+    /**
+     * Delete an index.
+     * @param indexDefinition the index definition
+     * @return this
+     */
+    ExtendedClient deleteIndex(IndexDefinition indexDefinition);
+
+    /**
+     * Delete an index.
+     *
+     * @param index index
+     * @return this
      */
     ExtendedClient deleteIndex(String index);
 
     /**
+     * Start bulk mode for indexes.
+     * @param indexDefinition index definition
+     * @return this
+     * @throws IOException if bulk could not be started
+     */
+    ExtendedClient startBulk(IndexDefinition indexDefinition) throws IOException;
+
+    /**
      * Start bulk mode.
      *
-     * @param index                       index
+     * @param index index
      * @param startRefreshIntervalSeconds refresh interval before bulk
      * @param stopRefreshIntervalSeconds  refresh interval after bulk
-     * @return this ingest
+     * @return this
      * @throws IOException if bulk could not be started
      */
     ExtendedClient startBulk(String index, long startRefreshIntervalSeconds,
                              long stopRefreshIntervalSeconds) throws IOException;
 
     /**
+     * Stop bulk mode.
+     *
+     * @param indexDefinition index definition
+     * @return this
+     * @throws IOException if bulk could not be startet
+     */
+    ExtendedClient stopBulk(IndexDefinition indexDefinition) throws IOException;
+
+    /**
      * Stops bulk mode.
      *
      * @param index index
-     * @return this Ingest
+     * @param maxWaitTime maximum wait time
+     * @return this
      * @throws IOException if bulk could not be stopped
      */
-    ExtendedClient stopBulk(String index) throws IOException;
+    ExtendedClient stopBulk(String index, String maxWaitTime) throws IOException;
 
     /**
-     * Flush ingest, move all pending documents to the cluster.
+     * Flush bulk indexing, move all pending documents to the cluster.
      *
      * @return this
      */
     ExtendedClient flushIngest();
 
     /**
-     * Wait for all outstanding responses.
-     *
-     * @param maxWaitTime maximum wait time
-     * @return this ingest
-     * @throws InterruptedException if wait is interrupted
-     * @throws ExecutionException   if execution failed
+     * Update replica level.
+     * @param indexDefinition the index definition
+     * @param level the replica level
+     * @return this
+     * @throws IOException if replica setting could not be updated
      */
-    ExtendedClient waitForResponses(String maxWaitTime) throws InterruptedException, ExecutionException;
-
-    /**
-     * Refresh the index.
-     *
-     * @param index index
-     */
-    void refreshIndex(String index);
-
-    /**
-     * Flush the index.
-     *
-     * @param index index
-     */
-    void flushIndex(String index);
+    ExtendedClient updateReplicaLevel(IndexDefinition indexDefinition, int level) throws IOException;
 
     /**
      * Update replica level.
      *
      * @param index index
      * @param level the replica level
-     * @return number of shards after updating replica level
-     * @throws IOException if replica could not be updated
+     * @param maxWaitTime maximum wait time
+     * @return this
+     * @throws IOException if replica setting could not be updated
      */
-    int updateReplicaLevel(String index, int level) throws IOException;
+    ExtendedClient updateReplicaLevel(String index, int level, String maxWaitTime) throws IOException;
+
+    /**
+     * Get replica level.
+     * @param indexDefinition the index name
+     * @return the replica level of the index
+     */
+    int getReplicaLevel(IndexDefinition indexDefinition);
+
+    /**
+     * Get replica level.
+     * @param index the index name
+     * @return the replica level of the index
+     */
+    int getReplicaLevel(String index);
+
+    /**
+     * Refresh the index.
+     *
+     * @param index index
+     * @return this
+     */
+    ExtendedClient refreshIndex(String index);
+
+    /**
+     * Flush the index. The cluster clears cache and completes indexing.
+     *
+     * @param index index
+     * @return this
+     */
+    ExtendedClient flushIndex(String index);
+
+    /**
+     * Force segment merge of an index.
+     * @param indexDefinition th eindex definition
+     * @return this
+     */
+    boolean forceMerge(IndexDefinition indexDefinition);
+
+    /**
+     * Force segment merge of an index.
+     * @param index the index
+     * @param maxWaitTime maximum wait time
+     * @return this
+     */
+    boolean forceMerge(String index, String maxWaitTime);
+
+    /**
+     * Wait for all outstanding bulk responses.
+     *
+     * @param maxWaitTime maximum wait time
+     * @return true if wait succeeded, false if wait timed out
+     */
+    boolean waitForResponses(String maxWaitTime);
 
     /**
      * Wait for cluster being healthy.
      *
      * @param healthColor cluster health color to wait for
-     * @param timeValue   time value
-     * @throws IOException if wait failed
+     * @param maxWaitTime   time value
+     * @return true if wait succeeded, false if wait timed out
      */
-    void waitForCluster(String healthColor, String timeValue) throws IOException;
+    boolean waitForCluster(String healthColor, String maxWaitTime);
 
     /**
      * Get current health color.
      *
+     * @param maxWaitTime maximum wait time
      * @return the cluster health color
      */
-    String healthColor();
+    String getHealthColor(String maxWaitTime);
 
     /**
      * Wait for index recovery (after replica change).
      *
      * @param index index
-     * @return number of shards found
-     * @throws IOException if wait failed
+     * @param maxWaitTime maximum wait time
+     * @return true if wait succeeded, false if wait timed out
      */
-    int waitForRecovery(String index) throws IOException;
+    boolean waitForRecovery(String index, String maxWaitTime);
 
     /**
      * Resolve alias.
      *
      * @param alias the alias
-     * @return one index name behind the alias or the alias if there is no index
+     * @return this index name behind the alias or the alias if there is no index
      */
     String resolveAlias(String alias);
 
@@ -347,40 +388,72 @@ public interface ExtendedClient {
     /**
      * Get all alias filters.
      *
-     * @param index index
+     * @param alias the alias
      * @return map of alias filters
      */
-    Map<String, String> getAliasFilters(String index);
+    Map<String, String> getAliasFilters(String alias);
 
     /**
-     * Switch aliases from one index to another.
-     *
-     * @param index         the index name
-     * @param concreteIndex the index name with timestamp
-     * @param extraAliases  a list of names that should be set as index aliases
+     * Get all index filters.
+     * @param index the index
+     * @return map of index filters
      */
-    void switchAliases(String index, String concreteIndex, List<String> extraAliases);
+    Map<String, String> getIndexFilters(String index);
 
     /**
-     * Switch aliases from one index to another.
+     *  Switch from one index to another.
+     * @param indexDefinition the index definition
+     * @param extraAliases new aliases
+     * @return this
+     */
+    ExtendedClient switchIndex(IndexDefinition indexDefinition, List<String> extraAliases);
+
+    /**
+     * Switch from one index to another.
+     * @param indexDefinition the index definition
+     * @param extraAliases new aliases
+     * @param indexAliasAdder method to add aliases
+     * @return this
+     */
+    ExtendedClient switchIndex(IndexDefinition indexDefinition, List<String> extraAliases, IndexAliasAdder indexAliasAdder);
+
+    /**
+     * Switch from one index to another.
      *
      * @param index         the index name
-     * @param concreteIndex the index name with timestamp
+     * @param fullIndexName the index name with timestamp
+     * @param extraAliases  a list of names that should be set as index aliases
+     * @return this
+     */
+    ExtendedClient switchIndex(String index, String fullIndexName, List<String> extraAliases);
+
+    /**
+     * Switch from one index to another.
+     *
+     * @param index         the index name
+     * @param fullIndexName the index name with timestamp
      * @param extraAliases  a list of names that should be set as index aliases
      * @param adder         an adder method to create alias term queries
+     * @return this
      */
-    void switchAliases(String index, String concreteIndex, List<String> extraAliases, IndexAliasAdder adder);
+    ExtendedClient switchIndex(String index, String fullIndexName, List<String> extraAliases, IndexAliasAdder adder);
 
     /**
-     * Retention policy for an index. All indices before timestampdiff should be deleted,
-     * but mintokeep indices must be kept.
+     * Prune index.
+     * @param indexDefinition the index definition
+     */
+    void pruneIndex(IndexDefinition indexDefinition);
+
+    /**
+     * Apply retention policy to prune indices. All indices before delta should be deleted,
+     * but the number of mintokeep indices must be kept.
      *
      * @param index         index name
-     * @param concreteIndex index name with timestamp
-     * @param timestampdiff timestamp delta (for index timestamps)
+     * @param fullIndexName index name with timestamp
+     * @param delta timestamp delta (for index timestamps)
      * @param mintokeep     minimum number of indices to keep
      */
-    void performRetentionPolicy(String index, String concreteIndex, int timestampdiff, int mintokeep);
+    void pruneIndex(String index, String fullIndexName, int delta, int mintokeep);
 
     /**
      * Find the timestamp of the most recently indexed document in the index.
@@ -413,7 +486,7 @@ public interface ExtendedClient {
     Throwable getThrowable();
 
     /**
-     * Shutdown the ingesting.
+     * Shutdown the client.
      * @throws IOException if shutdown fails
      */
     void shutdown() throws IOException;

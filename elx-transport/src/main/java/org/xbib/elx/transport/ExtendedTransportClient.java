@@ -12,6 +12,7 @@ import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.jboss.netty.channel.DefaultChannelFuture;
 import org.xbib.elx.common.AbstractExtendedClient;
 import org.xbib.elx.common.util.NetworkUtils;
 
@@ -36,15 +37,22 @@ public class ExtendedTransportClient extends AbstractExtendedClient {
                     + " " + System.getProperty("java.vm.vendor")
                     + " " + System.getProperty("java.vm.version")
                     + " Elasticsearch " + Version.CURRENT.toString();
-            logger.info("creating transport client on {} with effective settings {}",
-                    systemIdentifier, settings.getAsMap());
-            TransportClient.Builder builder = TransportClient.builder()
-                    .settings(Settings.builder()
-                            .put("cluster.name", settings.get("cluster.name"))
-                            .put("processors", settings.getAsInt("processors", Runtime.getRuntime().availableProcessors()))
-                            .put("client.transport.ignore_cluster_name", true)
-                            .build());
-            return builder.build();
+            Settings effectiveSettings = Settings.builder()
+                    // for thread pool size
+                    .put("processors",
+                            settings.getAsInt("processors", Runtime.getRuntime().availableProcessors()))
+                    .put("client.transport.sniff", false) // do not sniff
+                    .put("client.transport.nodes_sampler_interval", "1m") // do not ping
+                    .put("client.transport.ping_timeout", "1m") // wait for unresponsive nodes a very long time before disconnect
+                    .put("client.transport.ignore_cluster_name", true) // connect to any cluster
+                    // custom settings may override defaults
+                    .put(settings)
+                    .build();
+            logger.info("creating transport client on {} with custom settings {} and effective settings {}",
+                    systemIdentifier, settings.getAsMap(), effectiveSettings.getAsMap());
+            // we need to disable dead lock check because we may have mixed node/transport clients
+            DefaultChannelFuture.setUseDeadLockChecker(false);
+            return TransportClient.builder().settings(effectiveSettings).build();
         }
         return null;
     }

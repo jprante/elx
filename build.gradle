@@ -67,7 +67,7 @@ subprojects {
     }
     
     clean {
-        delete "plugins"
+        delete "data"
         delete "logs"
         delete "out"
     }

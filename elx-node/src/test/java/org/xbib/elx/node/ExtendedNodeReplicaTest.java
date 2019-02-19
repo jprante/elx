@@ -17,6 +17,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.xbib.elx.common.ClientBuilder;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
@@ -51,14 +52,14 @@ public class ExtendedNodeReplicaTest extends NodeTestUtils {
                 .build();
 
         try {
-            client.newIndex("test1", settingsTest1, null)
-                    .newIndex("test2", settingsTest2, null);
+            client.newIndex("test1", settingsTest1, new HashMap<>())
+                    .newIndex("test2", settingsTest2, new HashMap<>());
             client.waitForCluster("GREEN", "30s");
             for (int i = 0; i < 1234; i++) {
-                client.index("test1", "test", null, false, "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test1", null, false, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             for (int i = 0; i < 1234; i++) {
-                client.index("test2", "test", null, false, "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test2", null, false, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             client.flushIngest();
             client.waitForResponses("30s");

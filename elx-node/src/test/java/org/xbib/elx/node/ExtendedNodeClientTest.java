@@ -3,6 +3,7 @@ package org.xbib.elx.node;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -12,6 +13,7 @@ import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -44,7 +46,7 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
     }
 
     @Test
-    public void testSingleDocNodeClient() throws Exception {
+    public void testSingleDoc() throws Exception {
         final ExtendedNodeClient client = ClientBuilder.builder(client("1"))
                 .provider(ExtendedNodeClientProvider.class)
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
@@ -52,11 +54,9 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
                 .build();
         try {
             client.newIndex("test");
-            client.index("test", "test", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
+            client.index("test", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
             client.flushIngest();
             client.waitForResponses("30s");
-        } catch (InterruptedException e) {
-            // ignore
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
@@ -70,7 +70,7 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
     }
 
     @Test
-    public void testNewIndexNodeClient() throws Exception {
+    public void testNewIndex() throws Exception {
         final ExtendedNodeClient client = ClientBuilder.builder(client("1"))
                 .provider(ExtendedNodeClientProvider.class)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
@@ -84,14 +84,14 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
     }
 
     @Test
-    public void testMappingNodeClient() throws Exception {
+    public void testMapping() throws Exception {
         final ExtendedNodeClient client = ClientBuilder.builder(client("1"))
                 .provider(ExtendedNodeClientProvider.class)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
                 .build();
         XContentBuilder builder = jsonBuilder()
                 .startObject()
-                .startObject("test")
+                .startObject("doc")
                 .startObject("properties")
                 .startObject("location")
                 .field("type", "geo_point")
@@ -99,12 +99,12 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
                 .endObject()
                 .endObject()
                 .endObject();
-        client.mapping("test", builder.string());
-        client.newIndex("test");
+        client.newIndex("test", Settings.EMPTY, builder.string());
         GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices("test");
         GetMappingsResponse getMappingsResponse =
                 client.getClient().execute(GetMappingsAction.INSTANCE, getMappingsRequest).actionGet();
         logger.info("mappings={}", getMappingsResponse.getMappings());
+        assertTrue(getMappingsResponse.getMappings().get("test").containsKey("doc"));
         if (client.hasThrowable()) {
             logger.error("error", client.getThrowable());
         }
@@ -113,7 +113,7 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
     }
 
     @Test
-    public void testRandomDocsNodeClient() throws Exception {
+    public void testRandomDocs() throws Exception {
         long numactions = ACTIONS;
         final ExtendedNodeClient client = ClientBuilder.builder(client("1"))
                 .provider(ExtendedNodeClientProvider.class)
@@ -123,7 +123,7 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
         try {
             client.newIndex("test");
             for (int i = 0; i < ACTIONS; i++) {
-                client.index("test", "test", null, false, "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test", null, false, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             client.flushIngest();
             client.waitForResponses("30s");
@@ -145,7 +145,7 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
     }
 
     @Test
-    public void testThreadedRandomDocsNodeClient() throws Exception {
+    public void testThreadedRandomDocs() throws Exception {
         int maxthreads = Runtime.getRuntime().availableProcessors();
         Long maxActionsPerRequest = MAX_ACTIONS_PER_REQUEST;
         final Long actions = ACTIONS;
@@ -165,7 +165,7 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
             for (int i = 0; i < maxthreads; i++) {
                 pool.execute(() -> {
                     for (int i1 = 0; i1 < actions; i1++) {
-                        client.index("test", "test", null, false,"{ \"name\" : \"" + randomString(32) + "\"}");
+                        client.index("test", null, false,"{ \"name\" : \"" + randomString(32) + "\"}");
                     }
                     latch.countDown();
                 });
@@ -184,7 +184,7 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
-            client.stopBulk("test");
+            client.stopBulk("test", "30s");
             assertEquals(maxthreads * actions, client.getBulkMetric().getSucceeded().getCount());
             if (client.hasThrowable()) {
                 logger.error("error", client.getThrowable());

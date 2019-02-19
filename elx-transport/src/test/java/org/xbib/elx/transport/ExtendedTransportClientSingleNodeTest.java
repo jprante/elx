@@ -21,11 +21,9 @@ public class ExtendedTransportClientSingleNodeTest extends NodeTestUtils {
                 .build();
         try {
             client.newIndex("test");
-            client.index("test", "test", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
+            client.index("test", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
             client.flushIngest();
             client.waitForResponses("30s");
-        } catch (InterruptedException e) {
-            // ignore
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {

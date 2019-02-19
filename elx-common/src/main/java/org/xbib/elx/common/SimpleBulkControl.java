@@ -11,19 +11,26 @@ import java.util.Set;
  */
 public class SimpleBulkControl implements BulkControl {
 
-    private final Set<String> indexNames = new HashSet<>();
+    private final Set<String> indexNames;
 
-    private final Map<String, Long> startBulkRefreshIntervals = new HashMap<>();
+    private final Map<String, Long> startBulkRefreshIntervals;
 
-    private final Map<String, Long> stopBulkRefreshIntervals = new HashMap<>();
+    private final Map<String, Long> stopBulkRefreshIntervals;
+
+    private String maxWaitTime;
+
+    public SimpleBulkControl() {
+        indexNames = new HashSet<>();
+        startBulkRefreshIntervals = new HashMap<>();
+        stopBulkRefreshIntervals = new HashMap<>();
+        maxWaitTime = "30s";
+    }
 
     @Override
     public void startBulk(String indexName, long startRefreshInterval, long stopRefreshInterval) {
-        synchronized (indexNames) {
-            indexNames.add(indexName);
-            startBulkRefreshIntervals.put(indexName, startRefreshInterval);
-            stopBulkRefreshIntervals.put(indexName, stopRefreshInterval);
-        }
+        indexNames.add(indexName);
+        startBulkRefreshIntervals.put(indexName, startRefreshInterval);
+        stopBulkRefreshIntervals.put(indexName, stopRefreshInterval);
     }
 
     @Override
@@ -33,9 +40,7 @@ public class SimpleBulkControl implements BulkControl {
 
     @Override
     public void finishBulk(String indexName) {
-        synchronized (indexNames) {
-            indexNames.remove(indexName);
-        }
+        indexNames.remove(indexName);
     }
 
     @Override
@@ -51,6 +56,11 @@ public class SimpleBulkControl implements BulkControl {
     @Override
     public Map<String, Long> getStopBulkRefreshIntervals() {
         return stopBulkRefreshIntervals;
+    }
+
+    @Override
+    public String getMaxWaitTime() {
+        return maxWaitTime;
     }
 
 }

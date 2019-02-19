@@ -8,6 +8,8 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.xbib.elx.common.ClientBuilder;
 
+import java.util.HashMap;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
@@ -38,15 +40,15 @@ public class ExtendedNodeUpdateReplicaLevelTest extends NodeTestUtils {
                 .build();
 
         try {
-            client.newIndex("replicatest", settings, null);
+            client.newIndex("replicatest", settings, new HashMap<>());
             client.waitForCluster("GREEN", "30s");
             for (int i = 0; i < 12345; i++) {
-                client.index("replicatest", "replicatest", null, false,  "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("replicatest",null, false,  "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             client.flushIngest();
             client.waitForResponses("30s");
-            shardsAfterReplica = client.updateReplicaLevel("replicatest", replicaLevel);
-            assertEquals(shardsAfterReplica, numberOfShards * (replicaLevel + 1));
+            client.updateReplicaLevel("replicatest", replicaLevel, "30s");
+            //assertEquals(shardsAfterReplica, numberOfShards * (replicaLevel + 1));
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {

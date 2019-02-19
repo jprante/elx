@@ -16,4 +16,6 @@ public interface BulkControl {
     Map<String, Long> getStartBulkRefreshIntervals();
 
     Map<String, Long> getStopBulkRefreshIntervals();
+
+    String getMaxWaitTime();
 }

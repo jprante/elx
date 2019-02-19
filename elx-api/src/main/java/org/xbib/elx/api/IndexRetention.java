@@ -1,4 +1,4 @@
-package org.xbib.elx.common.management;
+package org.xbib.elx.api;
 
 public class IndexRetention {
 
@@ -6,12 +6,12 @@ public class IndexRetention {
 
     private int minToKeep;
 
-    public IndexRetention setTimestampDiff(int timestampDiff) {
+    public IndexRetention setDelta(int timestampDiff) {
         this.timestampDiff = timestampDiff;
         return this;
     }
 
-    public int getTimestampDiff() {
+    public int getDelta() {
         return timestampDiff;
     }
 

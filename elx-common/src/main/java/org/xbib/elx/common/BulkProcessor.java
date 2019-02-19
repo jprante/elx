@@ -38,24 +38,24 @@ public class BulkProcessor implements Closeable {
 
     private final ScheduledFuture<?> scheduledFuture;
 
-    private final AtomicLong executionIdGen = new AtomicLong();
+    private final AtomicLong executionIdGen;
 
     private final BulkRequestHandler bulkRequestHandler;
 
     private BulkRequest bulkRequest;
 
-    private volatile boolean closed = false;
+    private volatile boolean closed;
 
     private BulkProcessor(Client client, Listener listener, String name, int concurrentRequests,
                           int bulkActions, ByteSizeValue bulkSize, TimeValue flushInterval) {
+        this.executionIdGen = new AtomicLong();
+        this.closed = false;
         this.bulkActions = bulkActions;
         this.bulkSize = bulkSize.bytes();
-
         this.bulkRequest = new BulkRequest();
         this.bulkRequestHandler = concurrentRequests == 0 ?
                 new SyncBulkRequestHandler(client, listener) :
                 new AsyncBulkRequestHandler(client, listener, concurrentRequests);
-
         if (flushInterval != null) {
             this.scheduler = (ScheduledThreadPoolExecutor) Executors.newScheduledThreadPool(1,
                     EsExecutors.daemonThreadFactory(client.settings(),
@@ -83,6 +83,7 @@ public class BulkProcessor implements Closeable {
     @Override
     public void close() {
         try {
+            // 0 = immediate close
             awaitClose(0, TimeUnit.NANOSECONDS);
         } catch (InterruptedException exc) {
             Thread.currentThread().interrupt();
@@ -90,8 +91,27 @@ public class BulkProcessor implements Closeable {
     }
 
     /**
-     * Closes the processor. If flushing by time is enabled, then it's shutdown. Any remaining bulk actions are
-     * flushed.
+     * Wait for bulk request handler with flush.
+     * @param timeout the timeout value
+     * @param unit the timeout unit
+     * @return true is method was successful, false if timeout
+     * @throws InterruptedException if timeout
+     */
+    public boolean awaitFlush(long timeout, TimeUnit unit) throws InterruptedException {
+        if (closed) {
+            return true;
+        }
+        // flush
+        if (bulkRequest.numberOfActions() > 0) {
+            execute();
+        }
+        // wait for all bulk responses
+        return this.bulkRequestHandler.close(timeout, unit);
+    }
+
+    /**
+     * Closes the processor. Any remaining bulk actions are flushed and then closed. This emthod can only be called
+     * once as the last action of a bulk processor.
      *
      * If concurrent requests are not enabled, returns {@code true} immediately.
      * If concurrent requests are enabled, waits for up to the specified timeout for all bulk requests to complete then
@@ -116,7 +136,7 @@ public class BulkProcessor implements Closeable {
         if (bulkRequest.numberOfActions() > 0) {
             execute();
         }
-        return this.bulkRequestHandler.awaitClose(timeout, unit);
+        return this.bulkRequestHandler.close(timeout, unit);
     }
 
     /**
@@ -257,7 +277,7 @@ public class BulkProcessor implements Closeable {
 
         private int bulkActions = 1000;
 
-        private ByteSizeValue bulkSize = new ByteSizeValue(5, ByteSizeUnit.MB);
+        private ByteSizeValue bulkSize = new ByteSizeValue(10, ByteSizeUnit.MB);
 
         private TimeValue flushInterval = null;
 
@@ -367,7 +387,7 @@ public class BulkProcessor implements Closeable {
 
         void execute(BulkRequest bulkRequest, long executionId);
 
-        boolean awaitClose(long timeout, TimeUnit unit) throws InterruptedException;
+        boolean close(long timeout, TimeUnit unit) throws InterruptedException;
 
     }
 
@@ -398,7 +418,7 @@ public class BulkProcessor implements Closeable {
         }
 
         @Override
-        public boolean awaitClose(long timeout, TimeUnit unit) {
+        public boolean close(long timeout, TimeUnit unit) {
             return true;
         }
     }
@@ -461,7 +481,7 @@ public class BulkProcessor implements Closeable {
         }
 
         @Override
-        public boolean awaitClose(long timeout, TimeUnit unit) throws InterruptedException {
+        public boolean close(long timeout, TimeUnit unit) throws InterruptedException {
             if (semaphore.tryAcquire(concurrentRequests, timeout, unit)) {
                 semaphore.release(concurrentRequests);
                 return true;

@@ -47,11 +47,7 @@ public class NodeTestUtils {
 
     private AtomicInteger counter = new AtomicInteger();
 
-    private String cluster;
-
-    private String host;
-
-    private int port;
+    protected String clusterName;
 
     private static void deleteFiles() throws IOException {
         Path directory = Paths.get(getHome() + "/data");
@@ -115,7 +111,7 @@ public class NodeTestUtils {
     }
 
     protected void setClusterName() {
-        this.cluster = "test-helper-cluster-"
+        this.clusterName = "test-helper-cluster-"
                 + NetworkUtils.getLocalAddress().getHostName()
                 + "-" + System.getProperty("user.name")
                 + "-" + counter.incrementAndGet();
@@ -123,7 +119,7 @@ public class NodeTestUtils {
 
     protected Settings getNodeSettings() {
         return settingsBuilder()
-                .put("cluster.name", cluster)
+                .put("cluster.name", clusterName)
                 .put("cluster.routing.schedule", "50ms")
                 .put("cluster.routing.allocation.disk.threshold_enabled", false)
                 .put("discovery.zen.multicast.enabled", true)
@@ -171,8 +167,8 @@ public class NodeTestUtils {
                 .publishAddress();
         if (obj instanceof InetSocketTransportAddress) {
             InetSocketTransportAddress address = (InetSocketTransportAddress) obj;
-            host = address.address().getHostName();
-            port = address.address().getPort();
+            String host = address.address().getHostName();
+            int port = address.address().getPort();
         }
     }
 

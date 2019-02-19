@@ -32,7 +32,7 @@ public class ExtendeNodeDuplicateIDTest extends NodeTestUtils {
         try {
             client.newIndex("test");
             for (int i = 0; i < ACTIONS; i++) {
-                client.index("test", "test", randomString(1), false, "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test", randomString(1), false, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             client.flushIngest();
             client.waitForResponses("30s");

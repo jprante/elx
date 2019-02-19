@@ -10,10 +10,6 @@ import java.util.Collection;
 
 public class MockNode extends Node {
 
-    public MockNode() {
-        super(Settings.EMPTY);
-    }
-
     public MockNode(Settings settings) {
         super(settings);
     }

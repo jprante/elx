@@ -16,15 +16,13 @@ import org.elasticsearch.index.indexing.IndexingStats;
 import org.junit.Test;
 import org.xbib.elx.common.ClientBuilder;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
-/**
- *
- */
 public class ExtendedTransportReplicaTest extends NodeTestUtils {
 
     private static final Logger logger = LogManager.getLogger(ExtendedTransportReplicaTest.class.getSimpleName());
@@ -53,29 +51,30 @@ public class ExtendedTransportReplicaTest extends NodeTestUtils {
                 .build();
 
         try {
-            client.newIndex("test1", settingsTest1, null)
-                    .newIndex("test2", settingsTest2, null);
+            client.newIndex("test1", settingsTest1, new HashMap<>())
+                    .newIndex("test2", settingsTest2, new HashMap<>());
             client.waitForCluster("GREEN", "30s");
             for (int i = 0; i < 1234; i++) {
-                client.index("test1", "test", null, false, "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test1", null, false, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             for (int i = 0; i < 1234; i++) {
-                client.index("test2", "test", null, false,  "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test2", null, false,  "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             client.flushIngest();
             client.waitForResponses("30s");
+            client.refreshIndex("test1");
+            client.refreshIndex("test2");
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
-            logger.info("refreshing");
-            client.refreshIndex("test1");
-            client.refreshIndex("test2");
             SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client.getClient(), SearchAction.INSTANCE)
                     .setIndices("test1", "test2")
                     .setQuery(matchAllQuery());
             long hits = searchRequestBuilder.execute().actionGet().getHits().getTotalHits();
             logger.info("query total hits={}", hits);
             assertEquals(2468, hits);
+
+            // TODO move to api
             IndicesStatsRequestBuilder indicesStatsRequestBuilder = new IndicesStatsRequestBuilder(client.getClient(),
                     IndicesStatsAction.INSTANCE).all();
             IndicesStatsResponse response = indicesStatsRequestBuilder.execute().actionGet();
@@ -93,16 +92,15 @@ public class ExtendedTransportReplicaTest extends NodeTestUtils {
                 }
             }
             try {
-                client.deleteIndex("test1")
-                        .deleteIndex("test2");
+                client.deleteIndex("test1").deleteIndex("test2");
             } catch (Exception e) {
                 logger.error("delete index failed, ignored. Reason:", e);
             }
-            client.shutdown();
             if (client.hasThrowable()) {
                 logger.error("error", client.getThrowable());
             }
             assertFalse(client.hasThrowable());
+            client.shutdown();
         }
     }
 

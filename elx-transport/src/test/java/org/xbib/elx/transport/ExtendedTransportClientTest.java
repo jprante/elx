@@ -2,25 +2,31 @@ package org.xbib.elx.transport;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsAction;
+import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
+import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.Before;
 import org.junit.Test;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.Parameters;
 
+import java.util.HashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-
+import static org.junit.Assert.assertTrue;
 
 public class ExtendedTransportClientTest extends NodeTestUtils {
 
@@ -41,7 +47,7 @@ public class ExtendedTransportClientTest extends NodeTestUtils {
     }
 
     @Test
-    public void testBulkClient() throws Exception {
+    public void testClientIndexOp() throws Exception {
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
                 .put(getSettings())
@@ -68,7 +74,7 @@ public class ExtendedTransportClientTest extends NodeTestUtils {
     }
 
     @Test
-    public void testSingleDocBulkClient() throws Exception {
+    public void testSingleDoc() throws Exception {
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
                 .put(getSettings())
@@ -77,11 +83,9 @@ public class ExtendedTransportClientTest extends NodeTestUtils {
                 .build();
         try {
             client.newIndex("test");
-            client.index("test", "test", "1", true, "{ \"name\" : \"Hello World\"}");
+            client.index("test", "1", true, "{ \"name\" : \"Hello World\"}");
             client.flushIngest();
             client.waitForResponses("30s");
-        } catch (InterruptedException e) {
-            // ignore
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
@@ -95,7 +99,37 @@ public class ExtendedTransportClientTest extends NodeTestUtils {
     }
 
     @Test
-    public void testRandomDocsBulkClient() throws Exception {
+    public void testMapping() throws Exception {
+        final ExtendedTransportClient client = ClientBuilder.builder()
+                .provider(ExtendedTransportClientProvider.class)
+                .put(getSettings())
+                .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
+                .build();
+        XContentBuilder builder = jsonBuilder()
+                .startObject()
+                .startObject("doc")
+                .startObject("properties")
+                .startObject("location")
+                .field("type", "geo_point")
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+        client.newIndex("test", Settings.EMPTY, builder.string());
+        GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices("test");
+        GetMappingsResponse getMappingsResponse =
+                client.getClient().execute(GetMappingsAction.INSTANCE, getMappingsRequest).actionGet();
+        logger.info("mappings={}", getMappingsResponse.getMappings());
+        assertTrue(getMappingsResponse.getMappings().get("test").containsKey("doc"));
+        if (client.hasThrowable()) {
+            logger.error("error", client.getThrowable());
+        }
+        assertFalse(client.hasThrowable());
+        client.shutdown();
+    }
+
+    @Test
+    public void testRandomDocs() throws Exception {
         long numactions = ACTIONS;
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
@@ -106,12 +140,10 @@ public class ExtendedTransportClientTest extends NodeTestUtils {
         try {
             client.newIndex("test");
             for (int i = 0; i < ACTIONS; i++) {
-                client.index("test", "test", null, false, "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test", null, false, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             client.flushIngest();
             client.waitForResponses("30s");
-        } catch (InterruptedException e) {
-            // ignore
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
@@ -125,7 +157,7 @@ public class ExtendedTransportClientTest extends NodeTestUtils {
     }
 
     @Test
-    public void testThreadedRandomDocsBulkClient() throws Exception {
+    public void testThreadedRandomDocs() throws Exception {
         int maxthreads = Runtime.getRuntime().availableProcessors();
         long maxactions = MAX_ACTIONS_PER_REQUEST;
         final long maxloop = ACTIONS;
@@ -142,7 +174,7 @@ public class ExtendedTransportClientTest extends NodeTestUtils {
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
                 .build();
         try {
-            client.newIndex("test", settingsForIndex, null)
+            client.newIndex("test", settingsForIndex, new HashMap<>())
                     .startBulk("test", -1, 1000);
             ThreadPoolExecutor pool = EsExecutors.newFixed("bulkclient-test", maxthreads, 30,
                             EsExecutors.daemonThreadFactory("bulkclient-test"));
@@ -150,7 +182,7 @@ public class ExtendedTransportClientTest extends NodeTestUtils {
             for (int i = 0; i < maxthreads; i++) {
                 pool.execute(() -> {
                     for (int i1 = 0; i1 < maxloop; i1++) {
-                        client.index("test", "test", null, false,  "{ \"name\" : \"" + randomString(32) + "\"}");
+                        client.index("test",null, false,  "{ \"name\" : \"" + randomString(32) + "\"}");
                     }
                     latch.countDown();
                 });
@@ -164,15 +196,16 @@ public class ExtendedTransportClientTest extends NodeTestUtils {
                 pool.shutdown();
                 logger.info("poot shut down");
             }
+            client.stopBulk("test", "30s");
+            assertEquals(maxthreads * maxloop, client.getBulkMetric().getSucceeded().getCount());
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
-            client.stopBulk("test");
-            assertEquals(maxthreads * maxloop, client.getBulkMetric().getSucceeded().getCount());
             if (client.hasThrowable()) {
                 logger.error("error", client.getThrowable());
             }
             assertFalse(client.hasThrowable());
+            // extra search lookup
             client.refreshIndex("test");
             SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client.getClient(), SearchAction.INSTANCE)
                     // to avoid NPE at org.elasticsearch.action.search.SearchRequest.writeTo(SearchRequest.java:580)

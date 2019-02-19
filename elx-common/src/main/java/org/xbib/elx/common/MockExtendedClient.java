@@ -6,8 +6,6 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 
-import java.util.Map;
-
 /**
  * Mock client, it does not perform actions on a cluster. Useful for testing or dry runs.
  */
@@ -29,52 +27,32 @@ public class MockExtendedClient extends AbstractExtendedClient {
     }
 
     @Override
-    public MockExtendedClient maxActionsPerRequest(int maxActions) {
+    public MockExtendedClient index(String index, String id, boolean create, String source) {
         return this;
     }
 
     @Override
-    public MockExtendedClient maxConcurrentRequests(int maxConcurrentRequests) {
+    public MockExtendedClient delete(String index, String id) {
         return this;
     }
 
     @Override
-    public MockExtendedClient maxVolumePerRequest(String maxVolumePerRequest) {
+    public MockExtendedClient update(String index, String id, String source) {
         return this;
     }
 
     @Override
-    public MockExtendedClient flushIngestInterval(String interval) {
+    public MockExtendedClient index(IndexRequest indexRequest) {
         return this;
     }
 
     @Override
-    public MockExtendedClient index(String index, String type, String id, boolean create, String source) {
+    public MockExtendedClient delete(DeleteRequest deleteRequest) {
         return this;
     }
 
     @Override
-    public MockExtendedClient delete(String index, String type, String id) {
-        return this;
-    }
-
-    @Override
-    public MockExtendedClient update(String index, String type, String id, String source) {
-        return this;
-    }
-
-    @Override
-    public MockExtendedClient indexRequest(IndexRequest indexRequest) {
-        return this;
-    }
-
-    @Override
-    public MockExtendedClient deleteRequest(DeleteRequest deleteRequest) {
-        return this;
-    }
-
-    @Override
-    public MockExtendedClient updateRequest(UpdateRequest updateRequest) {
+    public MockExtendedClient update(UpdateRequest updateRequest) {
         return this;
     }
 
@@ -84,22 +62,12 @@ public class MockExtendedClient extends AbstractExtendedClient {
     }
 
     @Override
-    public MockExtendedClient waitForResponses(String timeValue) {
-        return this;
-    }
-
-    @Override
     public MockExtendedClient startBulk(String index, long startRefreshInterval, long stopRefreshIterval) {
         return this;
     }
 
     @Override
-    public MockExtendedClient stopBulk(String index) {
-        return this;
-    }
-
-    @Override
-    public MockExtendedClient deleteIndex(String index) {
+    public MockExtendedClient stopBulk(String index, String maxWaitTime) {
         return this;
     }
 
@@ -109,34 +77,43 @@ public class MockExtendedClient extends AbstractExtendedClient {
     }
 
     @Override
-    public MockExtendedClient newMapping(String index, String type, Map<String, Object> mapping) {
+    public MockExtendedClient deleteIndex(String index) {
         return this;
     }
 
     @Override
-    public void putMapping(String index) {
+    public MockExtendedClient refreshIndex(String index) {
+        return this;
     }
 
     @Override
-    public void refreshIndex(String index) {
+    public MockExtendedClient flushIndex(String index) {
+        return this;
     }
 
     @Override
-    public void flushIndex(String index) {
+    public boolean forceMerge(String index, String maxWaitTime) {
+        return true;
     }
 
     @Override
-    public void waitForCluster(String healthColor, String timeValue) {
+    public boolean waitForCluster(String healthColor, String timeValue) {
+        return true;
     }
 
     @Override
-    public int waitForRecovery(String index) {
-        return -1;
+    public boolean waitForResponses(String maxWaitTime) {
+        return true;
     }
 
     @Override
-    public int updateReplicaLevel(String index, int level) {
-        return -1;
+    public boolean waitForRecovery(String index, String maxWaitTime) {
+        return true;
+    }
+
+    @Override
+    public MockExtendedClient updateReplicaLevel(String index, int level, String maxWaitTime) {
+        return this;
     }
 
     @Override
