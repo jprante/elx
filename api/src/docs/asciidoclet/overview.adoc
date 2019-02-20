@@ -1,4 +1,0 @@
-= Elasticsearch Java client
-Jörg Prante
-Version 5.4.0.0
-

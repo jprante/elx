@@ -1,0 +1,19 @@
+dependencies {
+    compile "org.xbib:metrics:${project.property('xbib-metrics.version')}"
+    compile("org.elasticsearch:elasticsearch:${project.property('elasticsearch.version')}") {
+        // exclude ES jackson yaml, cbor, smile versions
+        exclude group: 'com.fasterxml.jackson.dataformat'
+        // dependencies that are not meant for client
+        exclude module: 'securesm'
+        // we use log4j2, not log4j
+        exclude group: 'log4j'
+    }
+    // override log4j2 of Elastic with ours
+    compile "org.apache.logging.log4j:log4j-core:${project.property('log4j.version')}"
+    // for Elasticsearch session, ES uses SMILE when encoding source for SearchRequest
+    compile "com.fasterxml.jackson.dataformat:jackson-dataformat-smile:${project.property('jackson-dataformat.version')}"
+    // CBOR ist default JSON content compression encoding in ES 2.2.1
+    compile "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${project.property('jackson-dataformat.version')}"
+    // not used, but maybe in other projects
+    compile "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${project.property('jackson-dataformat.version')}"
+}
