@@ -2,148 +2,69 @@ package org.xbib.elx.api;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.concurrent.TimeUnit;
 
-public class IndexDefinition {
+public interface IndexDefinition {
 
-    private String index;
+    IndexDefinition setIndex(String index);
 
-    private String fullIndexName;
+    String getIndex();
 
-    private String dateTimePattern;
+    IndexDefinition setFullIndexName(String fullIndexName);
 
-    private URL settingsUrl;
+    String getFullIndexName();
 
-    private URL mappingsUrl;
+    IndexDefinition setSettingsUrl(String settingsUrlString) throws MalformedURLException;
 
-    private boolean enabled;
+    IndexDefinition setSettingsUrl(URL settingsUrl);
 
-    private boolean ignoreErrors;
+    URL getSettingsUrl();
 
-    private boolean switchAliases;
+    IndexDefinition setMappingsUrl(String mappingsUrlString) throws MalformedURLException;
 
-    private boolean hasForceMerge;
+    IndexDefinition setMappingsUrl(URL mappingsUrl);
 
-    private int replicaLevel;
+    URL getMappingsUrl();
 
-    private IndexRetention indexRetention;
+    IndexDefinition setDateTimePattern(String timeWindow);
 
-    private String maxWaitTime;
+    String getDateTimePattern();
 
-    public IndexDefinition setIndex(String index) {
-        this.index = index;
-        return this;
-    }
+    IndexDefinition setEnabled(boolean enabled);
 
-    public String getIndex() {
-        return index;
-    }
+    boolean isEnabled();
 
-    public IndexDefinition setFullIndexName(String fullIndexName) {
-        this.fullIndexName = fullIndexName;
-        return this;
-    }
+    IndexDefinition setIgnoreErrors(boolean ignoreErrors);
 
-    public String getFullIndexName() {
-        return fullIndexName;
-    }
+    boolean ignoreErrors();
 
-    public IndexDefinition setSettingsUrl(String settingsUrlString) throws MalformedURLException {
-        this.settingsUrl = settingsUrlString != null ? new URL(settingsUrlString) : null;
-        return this;
-    }
+    IndexDefinition setShift(boolean shift);
 
-    public IndexDefinition setSettingsUrl(URL settingsUrl) {
-        this.settingsUrl = settingsUrl;
-        return this;
-    }
+    boolean isShiftEnabled();
 
-    public URL getSettingsUrl() {
-        return settingsUrl;
-    }
+    IndexDefinition setForceMerge(boolean hasForceMerge);
 
-    public IndexDefinition setMappingsUrl(String mappingsUrlString) throws MalformedURLException {
-        this.mappingsUrl = mappingsUrlString != null ? new URL(mappingsUrlString) : null;
-        return this;
-    }
+    boolean hasForceMerge();
 
-    public IndexDefinition setMappingsUrl(URL mappingsUrl) {
-        this.mappingsUrl = mappingsUrl;
-        return this;
-    }
+    IndexDefinition setReplicaLevel(int replicaLevel);
 
-    public URL getMappingsUrl() {
-        return mappingsUrl;
-    }
+    int getReplicaLevel();
 
-    public IndexDefinition setDateTimePattern(String timeWindow) {
-        this.dateTimePattern = timeWindow;
-        return this;
-    }
+    IndexDefinition setRetention(IndexRetention indexRetention);
 
-    public String getDateTimePattern() {
-        return dateTimePattern;
-    }
+    IndexRetention getRetention();
 
-    public IndexDefinition setEnabled(boolean enabled) {
-        this.enabled = enabled;
-        return this;
-    }
+    IndexDefinition setMaxWaitTime(long maxWaitTime, TimeUnit timeUnit);
 
-    public boolean isEnabled() {
-        return enabled;
-    }
+    long getMaxWaitTime();
 
-    public IndexDefinition setIgnoreErrors(boolean ignoreErrors) {
-        this.ignoreErrors = ignoreErrors;
-        return this;
-    }
+    TimeUnit getMaxWaitTimeUnit();
 
-    public boolean ignoreErrors() {
-        return ignoreErrors;
-    }
+    IndexDefinition setStartRefreshInterval(long seconds);
 
-    public IndexDefinition setSwitchAliases(boolean switchAliases) {
-        this.switchAliases = switchAliases;
-        return this;
-    }
+    long getStartRefreshInterval();
 
-    public boolean isSwitchAliases() {
-        return switchAliases;
-    }
+    IndexDefinition setStopRefreshInterval(long seconds);
 
-    public IndexDefinition setForceMerge(boolean hasForceMerge) {
-        this.hasForceMerge = hasForceMerge;
-        return this;
-    }
-
-    public boolean hasForceMerge() {
-        return hasForceMerge;
-    }
-
-    public IndexDefinition setReplicaLevel(int replicaLevel) {
-        this.replicaLevel = replicaLevel;
-        return this;
-    }
-
-    public int getReplicaLevel() {
-        return replicaLevel;
-    }
-
-    public IndexDefinition setRetention(IndexRetention indexRetention) {
-        this.indexRetention = indexRetention;
-        return this;
-    }
-
-    public IndexRetention getRetention() {
-        return indexRetention;
-    }
-
-    public IndexDefinition setMaxWaitTime(String maxWaitTime) {
-        this.maxWaitTime = maxWaitTime;
-        return this;
-    }
-
-    public String getMaxWaitTime() {
-        return maxWaitTime;
-    }
+    long getStopRefreshInterval();
 }

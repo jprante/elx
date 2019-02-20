@@ -308,7 +308,9 @@ public class TransportClient extends AbstractClient {
                     transportService.connectToNode(node);
                 } catch (Exception e) {
                     it.remove();
-                    logger.debug("failed to connect to discovered node [" + node + "]", e);
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("failed to connect to discovered node [" + node + "]", e);
+                    }
                 }
             }
         }

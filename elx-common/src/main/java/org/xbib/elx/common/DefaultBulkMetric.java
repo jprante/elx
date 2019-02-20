@@ -1,5 +1,6 @@
 package org.xbib.elx.common;
 
+import org.elasticsearch.common.settings.Settings;
 import org.xbib.elx.api.BulkMetric;
 import org.xbib.metrics.Count;
 import org.xbib.metrics.CountMetric;
@@ -7,9 +8,8 @@ import org.xbib.metrics.Meter;
 import org.xbib.metrics.Metered;
 
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
-public class SimpleBulkMetric implements BulkMetric {
+public class DefaultBulkMetric implements BulkMetric {
 
     private final Meter totalIngest;
 
@@ -29,18 +29,19 @@ public class SimpleBulkMetric implements BulkMetric {
 
     private Long stopped;
 
-    public SimpleBulkMetric() {
-        this(Executors.newSingleThreadScheduledExecutor());
-    }
-
-    public SimpleBulkMetric(ScheduledExecutorService executorService) {
-        totalIngest = new Meter(executorService);
+    public DefaultBulkMetric() {
+        totalIngest = new Meter(Executors.newSingleThreadScheduledExecutor());
         totalIngestSizeInBytes = new CountMetric();
         currentIngest = new CountMetric();
         currentIngestNumDocs = new CountMetric();
         submitted = new CountMetric();
         succeeded = new CountMetric();
         failed = new CountMetric();
+    }
+
+    @Override
+    public void init(Settings settings) {
+        start();
     }
 
     @Override
@@ -79,6 +80,11 @@ public class SimpleBulkMetric implements BulkMetric {
     }
 
     @Override
+    public long elapsed() {
+        return started != null ? ((stopped != null ? stopped : System.nanoTime()) - started) : -1L;
+    }
+
+    @Override
     public void start() {
         this.started = System.nanoTime();
         totalIngest.start(5L);
@@ -91,8 +97,8 @@ public class SimpleBulkMetric implements BulkMetric {
     }
 
     @Override
-    public long elapsed() {
-        return (stopped != null ? stopped : System.nanoTime()) - started;
+    public void close() {
+        stop();
+        totalIngest.shutdown();
     }
-
 }

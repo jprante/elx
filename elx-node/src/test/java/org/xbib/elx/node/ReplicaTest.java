@@ -19,15 +19,16 @@ import org.xbib.elx.common.ClientBuilder;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 
 @Ignore
-public class ExtendedNodeReplicaTest extends NodeTestUtils {
+public class ReplicaTest extends NodeTestUtils {
 
-    private static final Logger logger = LogManager.getLogger(ExtendedNodeReplicaTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(ReplicaTest.class.getSimpleName());
 
     @Test
     public void testReplicaLevel() throws Exception {
@@ -54,15 +55,15 @@ public class ExtendedNodeReplicaTest extends NodeTestUtils {
         try {
             client.newIndex("test1", settingsTest1, new HashMap<>())
                     .newIndex("test2", settingsTest2, new HashMap<>());
-            client.waitForCluster("GREEN", "30s");
+            client.waitForCluster("GREEN", 30L, TimeUnit.SECONDS);
             for (int i = 0; i < 1234; i++) {
                 client.index("test1", null, false, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             for (int i = 0; i < 1234; i++) {
                 client.index("test2", null, false, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
-            client.flushIngest();
-            client.waitForResponses("30s");
+            client.flush();
+            client.waitForResponses(30L, TimeUnit.SECONDS);
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
@@ -97,11 +98,51 @@ public class ExtendedNodeReplicaTest extends NodeTestUtils {
             } catch (Exception e) {
                 logger.error("delete index failed, ignored. Reason:", e);
             }
-            client.shutdown();
-            if (client.hasThrowable()) {
-                logger.error("error", client.getThrowable());
+            client.close();
+            if (client.getBulkController().getLastBulkError() != null) {
+                logger.error("error", client.getBulkController().getLastBulkError());
             }
-            assertFalse(client.hasThrowable());
+            assertNull(client.getBulkController().getLastBulkError());
+        }
+    }
+
+    @Test
+    public void testUpdateReplicaLevel() throws Exception {
+
+        long numberOfShards = 2;
+        int replicaLevel = 3;
+
+        // we need 3 nodes for replica level 3
+        startNode("2");
+        startNode("3");
+
+        Settings settings = Settings.settingsBuilder()
+                .put("index.number_of_shards", numberOfShards)
+                .put("index.number_of_replicas", 0)
+                .build();
+
+        final ExtendedNodeClient client = ClientBuilder.builder(client("1"))
+                .provider(ExtendedNodeClientProvider.class)
+                .build();
+
+        try {
+            client.newIndex("replicatest", settings, new HashMap<>());
+            client.waitForCluster("GREEN", 30L, TimeUnit.SECONDS);
+            for (int i = 0; i < 12345; i++) {
+                client.index("replicatest",null, false,  "{ \"name\" : \"" + randomString(32) + "\"}");
+            }
+            client.flush();
+            client.waitForResponses(30L, TimeUnit.SECONDS);
+            client.updateReplicaLevel("replicatest", replicaLevel, 30L, TimeUnit.SECONDS);
+            assertEquals(replicaLevel, client.getReplicaLevel("replicatest"));
+        } catch (NoNodeAvailableException e) {
+            logger.warn("skipping, no node available");
+        } finally {
+            client.close();
+            if (client.getBulkController().getLastBulkError() != null) {
+                logger.error("error", client.getBulkController().getLastBulkError());
+            }
+            assertNull(client.getBulkController().getLastBulkError());
         }
     }
 

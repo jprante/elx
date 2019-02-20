@@ -74,15 +74,15 @@ public class ExtendedTransportClient extends AbstractExtendedClient {
     }
 
     @Override
-    public synchronized void shutdown() throws IOException {
-        super.shutdown();
-        logger.info("shutting down...");
+    public synchronized void close() throws IOException {
+        super.close();
+        logger.info("closing");
         if (getClient() != null) {
             TransportClient client = (TransportClient) getClient();
             client.close();
             client.threadPool().shutdown();
         }
-        logger.info("shutting down completed");
+        logger.info("close completed");
     }
 
     private Collection<InetSocketTransportAddress> findAddresses(Settings settings) throws IOException {

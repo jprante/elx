@@ -6,15 +6,19 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
+
+import java.io.Closeable;
+import java.io.Flushable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Interface for extended managing and indexing methods of an Elasticsearch client.
  */
-public interface ExtendedClient {
+public interface ExtendedClient extends Flushable, Closeable {
 
     /**
      * Set an Elasticsearch client to extend from it. May be null for TransportClient.
@@ -31,39 +35,26 @@ public interface ExtendedClient {
     ElasticsearchClient getClient();
 
     /**
-     * Initiative the extended client, cerates instances and connect to cluster, if required.
-     *
-     * @param settings settings
-     * @return this client
-     * @throws IOException if init fails
-     */
-    ExtendedClient init(Settings settings) throws IOException;
-
-    /**
-     * Set bulk metric.
-     * @param bulkMetric the bulk metric
-     * @return this client
-     */
-    ExtendedClient setBulkMetric(BulkMetric bulkMetric);
-
-    /**
      * Get bulk metric.
      * @return the bulk metric
      */
     BulkMetric getBulkMetric();
 
     /**
-     * Set bulk control.
-     * @param bulkControl the bulk control
-     * @return this
-     */
-    ExtendedClient setBulkControl(BulkControl bulkControl);
-
-    /**
      * Get buulk control.
      * @return the bulk control
      */
-    BulkControl getBulkControl();
+    BulkController getBulkController();
+
+    /**
+     * Initiative the extended client, the bulk metric and bulk controller,
+     * creates instances and connect to cluster, if required.
+     *
+     * @param settings settings
+     * @return this client
+     * @throws IOException if init fails
+     */
+    ExtendedClient init(Settings settings) throws IOException;
 
     /**
      * Build index definition from settings.
@@ -256,18 +247,12 @@ public interface ExtendedClient {
      * Stops bulk mode.
      *
      * @param index index
-     * @param maxWaitTime maximum wait time
+     * @param timeout maximum wait time
+     * @param timeUnit time unit for timeout
      * @return this
      * @throws IOException if bulk could not be stopped
      */
-    ExtendedClient stopBulk(String index, String maxWaitTime) throws IOException;
-
-    /**
-     * Flush bulk indexing, move all pending documents to the cluster.
-     *
-     * @return this
-     */
-    ExtendedClient flushIngest();
+    ExtendedClient stopBulk(String index, long timeout, TimeUnit timeUnit) throws IOException;
 
     /**
      * Update replica level.
@@ -284,10 +269,11 @@ public interface ExtendedClient {
      * @param index index
      * @param level the replica level
      * @param maxWaitTime maximum wait time
+     * @param timeUnit time unit
      * @return this
      * @throws IOException if replica setting could not be updated
      */
-    ExtendedClient updateReplicaLevel(String index, int level, String maxWaitTime) throws IOException;
+    ExtendedClient updateReplicaLevel(String index, int level, long maxWaitTime, TimeUnit timeUnit) throws IOException;
 
     /**
      * Get replica level.
@@ -330,43 +316,57 @@ public interface ExtendedClient {
      * Force segment merge of an index.
      * @param index the index
      * @param maxWaitTime maximum wait time
+     * @param timeUnit time unit
      * @return this
      */
-    boolean forceMerge(String index, String maxWaitTime);
+    boolean forceMerge(String index, long maxWaitTime, TimeUnit timeUnit);
 
     /**
      * Wait for all outstanding bulk responses.
      *
-     * @param maxWaitTime maximum wait time
+     * @param timeout maximum wait time
+     * @param timeUnit unit of timeout value
      * @return true if wait succeeded, false if wait timed out
      */
-    boolean waitForResponses(String maxWaitTime);
+    boolean waitForResponses(long timeout, TimeUnit timeUnit);
 
     /**
      * Wait for cluster being healthy.
      *
      * @param healthColor cluster health color to wait for
      * @param maxWaitTime   time value
+     * @param timeUnit time unit
      * @return true if wait succeeded, false if wait timed out
      */
-    boolean waitForCluster(String healthColor, String maxWaitTime);
+    boolean waitForCluster(String healthColor, long maxWaitTime, TimeUnit timeUnit);
 
     /**
      * Get current health color.
      *
      * @param maxWaitTime maximum wait time
+     * @param timeUnit time unit
      * @return the cluster health color
      */
-    String getHealthColor(String maxWaitTime);
+    String getHealthColor(long maxWaitTime, TimeUnit timeUnit);
 
     /**
      * Wait for index recovery (after replica change).
      *
      * @param index index
      * @param maxWaitTime maximum wait time
+     * @param timeUnit time unit
      * @return true if wait succeeded, false if wait timed out
      */
-    boolean waitForRecovery(String index, String maxWaitTime);
+    boolean waitForRecovery(String index, long maxWaitTime, TimeUnit timeUnit);
+
+    /**
+     * Update index setting.
+     * @param index the index
+     * @param key the key of the value to be updated
+     * @param value the new value
+     * @throws IOException if update index setting failed
+     */
+    void updateIndexSetting(String index, String key, Object value) throws IOException;
 
     /**
      * Resolve alias.
@@ -386,14 +386,6 @@ public interface ExtendedClient {
     String resolveMostRecentIndex(String alias);
 
     /**
-     * Get all alias filters.
-     *
-     * @param alias the alias
-     * @return map of alias filters
-     */
-    Map<String, String> getAliasFilters(String alias);
-
-    /**
      * Get all index filters.
      * @param index the index
      * @return map of index filters
@@ -401,48 +393,49 @@ public interface ExtendedClient {
     Map<String, String> getIndexFilters(String index);
 
     /**
-     *  Switch from one index to another.
+     *  Shift from one index to another.
      * @param indexDefinition the index definition
-     * @param extraAliases new aliases
+     * @param additionalAliases new aliases
      * @return this
      */
-    ExtendedClient switchIndex(IndexDefinition indexDefinition, List<String> extraAliases);
+    IndexShiftResult shiftIndex(IndexDefinition indexDefinition, List<String> additionalAliases);
 
     /**
-     * Switch from one index to another.
+     * Shift from one index to another.
      * @param indexDefinition the index definition
-     * @param extraAliases new aliases
+     * @param additionalAliases new aliases
      * @param indexAliasAdder method to add aliases
      * @return this
      */
-    ExtendedClient switchIndex(IndexDefinition indexDefinition, List<String> extraAliases, IndexAliasAdder indexAliasAdder);
+    IndexShiftResult shiftIndex(IndexDefinition indexDefinition, List<String> additionalAliases,
+                                IndexAliasAdder indexAliasAdder);
 
     /**
-     * Switch from one index to another.
-     *
+     * Shift from one index to another.
      * @param index         the index name
      * @param fullIndexName the index name with timestamp
-     * @param extraAliases  a list of names that should be set as index aliases
+     * @param additionalAliases  a list of names that should be set as index aliases
      * @return this
      */
-    ExtendedClient switchIndex(String index, String fullIndexName, List<String> extraAliases);
+    IndexShiftResult shiftIndex(String index, String fullIndexName, List<String> additionalAliases);
 
     /**
-     * Switch from one index to another.
-     *
+     * Shift from one index to another.
      * @param index         the index name
      * @param fullIndexName the index name with timestamp
-     * @param extraAliases  a list of names that should be set as index aliases
+     * @param additionalAliases  a list of names that should be set as index aliases
      * @param adder         an adder method to create alias term queries
      * @return this
      */
-    ExtendedClient switchIndex(String index, String fullIndexName, List<String> extraAliases, IndexAliasAdder adder);
+    IndexShiftResult shiftIndex(String index, String fullIndexName, List<String> additionalAliases,
+                                IndexAliasAdder adder);
 
     /**
      * Prune index.
      * @param indexDefinition the index definition
+     * @return the index prune result
      */
-    void pruneIndex(IndexDefinition indexDefinition);
+    IndexPruneResult pruneIndex(IndexDefinition indexDefinition);
 
     /**
      * Apply retention policy to prune indices. All indices before delta should be deleted,
@@ -452,8 +445,10 @@ public interface ExtendedClient {
      * @param fullIndexName index name with timestamp
      * @param delta timestamp delta (for index timestamps)
      * @param mintokeep     minimum number of indices to keep
+     * @param perform true if pruning should be executed, false if not
+     * @return the index prune result
      */
-    void pruneIndex(String index, String fullIndexName, int delta, int mintokeep);
+    IndexPruneResult pruneIndex(String index, String fullIndexName, int delta, int mintokeep, boolean perform);
 
     /**
      * Find the timestamp of the most recently indexed document in the index.
@@ -470,24 +465,4 @@ public interface ExtendedClient {
      * @return the cluster name
      */
     String getClusterName();
-
-    /**
-     * Returns true is a throwable exists.
-     *
-     * @return true if a Throwable exists
-     */
-    boolean hasThrowable();
-
-    /**
-     * Return last throwable if exists.
-     *
-     * @return last throwable
-     */
-    Throwable getThrowable();
-
-    /**
-     * Shutdown the client.
-     * @throws IOException if shutdown fails
-     */
-    void shutdown() throws IOException;
 }

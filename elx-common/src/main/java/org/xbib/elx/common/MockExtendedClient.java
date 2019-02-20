@@ -6,8 +6,10 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 
+import java.util.concurrent.TimeUnit;
+
 /**
- * Mock client, it does not perform actions on a cluster. Useful for testing or dry runs.
+ * Mock client, it does not perform any actions on a cluster. Useful for testing.
  */
 public class MockExtendedClient extends AbstractExtendedClient {
 
@@ -57,17 +59,12 @@ public class MockExtendedClient extends AbstractExtendedClient {
     }
 
     @Override
-    public MockExtendedClient flushIngest() {
-        return this;
-    }
-
-    @Override
     public MockExtendedClient startBulk(String index, long startRefreshInterval, long stopRefreshIterval) {
         return this;
     }
 
     @Override
-    public MockExtendedClient stopBulk(String index, String maxWaitTime) {
+    public MockExtendedClient stopBulk(String index, long maxWaitTime, TimeUnit timeUnit) {
         return this;
     }
 
@@ -92,32 +89,37 @@ public class MockExtendedClient extends AbstractExtendedClient {
     }
 
     @Override
-    public boolean forceMerge(String index, String maxWaitTime) {
+    public boolean forceMerge(String index, long maxWaitTime, TimeUnit timeUnit) {
         return true;
     }
 
     @Override
-    public boolean waitForCluster(String healthColor, String timeValue) {
+    public boolean waitForCluster(String healthColor, long timeValue, TimeUnit timeUnit) {
         return true;
     }
 
     @Override
-    public boolean waitForResponses(String maxWaitTime) {
+    public boolean waitForResponses(long maxWaitTime, TimeUnit timeUnit) {
         return true;
     }
 
     @Override
-    public boolean waitForRecovery(String index, String maxWaitTime) {
+    public boolean waitForRecovery(String index, long maxWaitTime, TimeUnit timeUnit) {
         return true;
     }
 
     @Override
-    public MockExtendedClient updateReplicaLevel(String index, int level, String maxWaitTime) {
+    public MockExtendedClient updateReplicaLevel(String index, int level, long maxWaitTime, TimeUnit timeUnit) {
         return this;
     }
 
     @Override
-    public void shutdown() {
+    public void flush() {
+        // nothing to do
+    }
+
+    @Override
+    public void close() {
         // nothing to do
     }
 }

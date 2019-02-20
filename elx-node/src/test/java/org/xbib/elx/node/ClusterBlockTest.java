@@ -4,17 +4,16 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.index.IndexRequestBuilder;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.block.ClusterBlockException;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentFactory;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-
-@Ignore
-public class ExtendedNodeClusterBlockTest extends NodeTestUtils {
+public class ClusterBlockTest extends NodeTestUtils {
 
     private static final Logger logger = LogManager.getLogger("test");
 
@@ -23,7 +22,6 @@ public class ExtendedNodeClusterBlockTest extends NodeTestUtils {
         try {
             setClusterName();
             startNode("1");
-            findNodeAddress();
             // do not wait for green health state
             logger.info("ready");
         } catch (Throwable t) {
@@ -41,11 +39,11 @@ public class ExtendedNodeClusterBlockTest extends NodeTestUtils {
 
     @Test(expected = ClusterBlockException.class)
     public void testClusterBlock() throws Exception {
-        BulkRequestBuilder brb = client("1").prepareBulk();
-        XContentBuilder builder = jsonBuilder().startObject().field("field1", "value1").endObject();
-        IndexRequestBuilder irb = client("1").prepareIndex("test", "test", "1").setSource(builder);
+        Client client = client("1");
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field("field1", "value1").endObject();
+        IndexRequestBuilder irb = client.prepareIndex("test", "test", "1").setSource(builder);
+        BulkRequestBuilder brb = client.prepareBulk();
         brb.add(irb);
         brb.execute().actionGet();
     }
-
 }

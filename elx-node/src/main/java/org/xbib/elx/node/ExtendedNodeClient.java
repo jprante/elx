@@ -47,10 +47,9 @@ public class ExtendedNodeClient extends AbstractExtendedClient {
         return null;
     }
 
-
     @Override
-    public void shutdown() throws IOException {
-        super.shutdown();
+    public void close() throws IOException {
+        super.close();
         try {
             if (node != null) {
                 logger.debug("closing node...");

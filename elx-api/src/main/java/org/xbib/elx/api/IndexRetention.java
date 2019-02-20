@@ -1,27 +1,13 @@
 package org.xbib.elx.api;
 
-public class IndexRetention {
+public interface IndexRetention {
 
-    private int timestampDiff;
+    IndexRetention setDelta(int delta);
 
-    private int minToKeep;
+    int getDelta();
 
-    public IndexRetention setDelta(int timestampDiff) {
-        this.timestampDiff = timestampDiff;
-        return this;
-    }
+    IndexRetention setMinToKeep(int minToKeep);
 
-    public int getDelta() {
-        return timestampDiff;
-    }
-
-    public IndexRetention setMinToKeep(int minToKeep) {
-        this.minToKeep = minToKeep;
-        return this;
-    }
-
-    public int getMinToKeep() {
-        return minToKeep;
-    }
+    int getMinToKeep();
 
 }

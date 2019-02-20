@@ -63,9 +63,7 @@ public class NodeTestUtils {
                 Files.delete(dir);
                 return FileVisitResult.CONTINUE;
             }
-
         });
-
     }
 
     @Before
@@ -74,7 +72,6 @@ public class NodeTestUtils {
             logger.info("starting");
             setClusterName();
             startNode("1");
-            findNodeAddress();
             try {
                 ClusterHealthResponse healthResponse = client("1").execute(ClusterHealthAction.INSTANCE,
                         new ClusterHealthRequest().waitForStatus(ClusterHealthStatus.GREEN)
@@ -158,18 +155,6 @@ public class NodeTestUtils {
         }
         nodes.clear();
         logger.info("all nodes closed");
-    }
-
-    protected void findNodeAddress() {
-        NodesInfoRequest nodesInfoRequest = new NodesInfoRequest().transport(true);
-        NodesInfoResponse response = client("1").admin().cluster().nodesInfo(nodesInfoRequest).actionGet();
-        Object obj = response.iterator().next().getTransport().getAddress()
-                .publishAddress();
-        if (obj instanceof InetSocketTransportAddress) {
-            InetSocketTransportAddress address = (InetSocketTransportAddress) obj;
-            String host = address.address().getHostName();
-            int port = address.address().getPort();
-        }
     }
 
     private Node buildNode(String id) {

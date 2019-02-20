@@ -2,7 +2,7 @@ package org.xbib.elx.node;
 
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.logging.log4j.LogManager;
@@ -27,9 +27,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-public class ExtendedNodeClientTest extends NodeTestUtils {
+public class ClientTest extends NodeTestUtils {
 
-    private static final Logger logger = LogManager.getLogger(ExtendedNodeClientTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(ClientTest.class.getSimpleName());
 
     private static final Long ACTIONS = 25000L;
 
@@ -55,17 +55,17 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
         try {
             client.newIndex("test");
             client.index("test", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
-            client.flushIngest();
-            client.waitForResponses("30s");
+            client.flush();
+            client.waitForResponses(30L, TimeUnit.SECONDS);
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
             assertEquals(1, client.getBulkMetric().getSucceeded().getCount());
-            if (client.hasThrowable()) {
-                logger.error("error", client.getThrowable());
+            if (client.getBulkController().getLastBulkError() != null) {
+                logger.error("error", client.getBulkController().getLastBulkError());
             }
-            assertFalse(client.hasThrowable());
-            client.shutdown();
+            assertNull(client.getBulkController().getLastBulkError());
+            client.close();
         }
     }
 
@@ -76,11 +76,7 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
                 .build();
         client.newIndex("test");
-        if (client.hasThrowable()) {
-            logger.error("error", client.getThrowable());
-        }
-        assertFalse(client.hasThrowable());
-        client.shutdown();
+        client.close();
     }
 
     @Test
@@ -105,11 +101,7 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
                 client.getClient().execute(GetMappingsAction.INSTANCE, getMappingsRequest).actionGet();
         logger.info("mappings={}", getMappingsResponse.getMappings());
         assertTrue(getMappingsResponse.getMappings().get("test").containsKey("doc"));
-        if (client.hasThrowable()) {
-            logger.error("error", client.getThrowable());
-        }
-        assertFalse(client.hasThrowable());
-        client.shutdown();
+        client.close();
     }
 
     @Test
@@ -125,22 +117,22 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
             for (int i = 0; i < ACTIONS; i++) {
                 client.index("test", null, false, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
-            client.flushIngest();
-            client.waitForResponses("30s");
+            client.flush();
+            client.waitForResponses(30L, TimeUnit.SECONDS);
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
             assertEquals(numactions, client.getBulkMetric().getSucceeded().getCount());
-            if (client.hasThrowable()) {
-                logger.error("error", client.getThrowable());
+            if (client.getBulkController().getLastBulkError() != null) {
+                logger.error("error", client.getBulkController().getLastBulkError());
             }
-            assertFalse(client.hasThrowable());
+            assertNull(client.getBulkController().getLastBulkError());
             client.refreshIndex("test");
             SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client.getClient(), SearchAction.INSTANCE)
                     .setQuery(QueryBuilders.matchAllQuery()).setSize(0);
             assertEquals(numactions,
                     searchRequestBuilder.execute().actionGet().getHits().getTotalHits());
-            client.shutdown();
+            client.close();
         }
     }
 
@@ -172,9 +164,9 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
             }
             logger.info("waiting for latch...");
             if (latch.await(5, TimeUnit.MINUTES)) {
-                logger.info("last flush...");
-                client.flushIngest();
-                client.waitForResponses("60s");
+                logger.info("flush...");
+                client.flush();
+                client.waitForResponses(60L, TimeUnit.SECONDS);
                 logger.info("got all responses, pool shutdown...");
                 pool.shutdown();
                 logger.info("pool is shut down");
@@ -184,18 +176,18 @@ public class ExtendedNodeClientTest extends NodeTestUtils {
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
-            client.stopBulk("test", "30s");
+            client.stopBulk("test", 30L, TimeUnit.SECONDS);
             assertEquals(maxthreads * actions, client.getBulkMetric().getSucceeded().getCount());
-            if (client.hasThrowable()) {
-                logger.error("error", client.getThrowable());
+            if (client.getBulkController().getLastBulkError() != null) {
+                logger.error("error", client.getBulkController().getLastBulkError());
             }
-            assertFalse(client.hasThrowable());
+            assertNull(client.getBulkController().getLastBulkError());
             client.refreshIndex("test");
             SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client.getClient(), SearchAction.INSTANCE)
                     .setQuery(QueryBuilders.matchAllQuery()).setSize(0);
             assertEquals(maxthreads * actions,
                     searchRequestBuilder.execute().actionGet().getHits().getTotalHits());
-            client.shutdown();
+            client.close();
         }
     }
 }

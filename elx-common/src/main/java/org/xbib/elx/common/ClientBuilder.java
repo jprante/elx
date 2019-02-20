@@ -5,8 +5,6 @@ import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
-import org.xbib.elx.api.BulkControl;
-import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.ExtendedClient;
 import org.xbib.elx.api.ExtendedClientProvider;
 
@@ -26,10 +24,6 @@ public class ClientBuilder {
 
     private Class<? extends ExtendedClientProvider> provider;
 
-    private BulkMetric metric;
-
-    private BulkControl control;
-
     public ClientBuilder() {
         this(null);
     }
@@ -48,8 +42,6 @@ public class ClientBuilder {
         for (ExtendedClientProvider provider : serviceLoader) {
             providerMap.put(provider.getClass(), provider);
         }
-        this.metric = new SimpleBulkMetric();
-        this.control = new SimpleBulkControl();
     }
 
     public static ClientBuilder builder() {
@@ -100,25 +92,11 @@ public class ClientBuilder {
         return this;
     }
 
-    public ClientBuilder setMetric(BulkMetric metric) {
-        this.metric = metric;
-        return this;
-    }
-
-    public ClientBuilder setControl(BulkControl control) {
-        this.control = control;
-        return this;
-    }
-
     @SuppressWarnings("unchecked")
     public <C extends ExtendedClient> C build() throws IOException {
         if (provider == null) {
             throw new IllegalArgumentException("no provider");
         }
-        return (C) providerMap.get(provider).getExtendedClient()
-                .setClient(client)
-                .setBulkMetric(metric)
-                .setBulkControl(control)
-                .init(settingsBuilder.build());
+        return (C) providerMap.get(provider).getExtendedClient().setClient(client).init(settingsBuilder.build());
     }
 }

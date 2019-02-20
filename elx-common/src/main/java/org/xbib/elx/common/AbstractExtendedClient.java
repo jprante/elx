@@ -4,7 +4,6 @@ import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
@@ -44,16 +43,12 @@ import org.elasticsearch.action.admin.indices.settings.get.GetSettingsRequest;
 import org.elasticsearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsAction;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
-import org.elasticsearch.action.bulk.BulkItemResponse;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
@@ -62,7 +57,6 @@ import org.elasticsearch.cluster.metadata.MappingMetaData;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -71,12 +65,14 @@ import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
-import org.xbib.elx.api.BulkControl;
+import org.xbib.elx.api.BulkController;
 import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.ExtendedClient;
 import org.xbib.elx.api.IndexAliasAdder;
 import org.xbib.elx.api.IndexDefinition;
+import org.xbib.elx.api.IndexPruneResult;
 import org.xbib.elx.api.IndexRetention;
+import org.xbib.elx.api.IndexShiftResult;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -99,6 +95,7 @@ import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -120,27 +117,58 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
      */
     private ElasticsearchClient client;
 
-    /**
-     * Our replacement for the buk processor.
-     */
-    private BulkProcessor bulkProcessor;
-
     private BulkMetric bulkMetric;
 
-    private BulkControl bulkControl;
+    private BulkController bulkController;
 
-    private Throwable throwable;
+    private AtomicBoolean closed;
 
-    private boolean closed;
+    private static final IndexShiftResult EMPTY_INDEX_SHIFT_RESULT = new IndexShiftResult() {
+        @Override
+        public List<String> getMovedAliases() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<String> getNewAliases() {
+            return Collections.emptyList();
+        }
+    };
+
+    private static final IndexPruneResult EMPTY_INDEX_PRUNE_RESULT = new IndexPruneResult() {
+        @Override
+        public State getState() {
+            return State.NONE;
+        }
+
+        @Override
+        public List<String> getCandidateIndices() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<String> getDeletedIndices() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public boolean isAcknowledged() {
+            return false;
+        }
+    };
 
     protected abstract ElasticsearchClient createClient(Settings settings) throws IOException;
 
     protected AbstractExtendedClient() {
+        closed = new AtomicBoolean(false);
     }
 
     @Override
     public AbstractExtendedClient setClient(ElasticsearchClient client) {
         this.client = client;
+        this.bulkMetric = new DefaultBulkMetric();
+        bulkMetric.start();
+        this.bulkController = new DefaultBulkController(this, bulkMetric);
         return this;
     }
 
@@ -150,27 +178,13 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     }
 
     @Override
-    public AbstractExtendedClient setBulkMetric(BulkMetric metric) {
-        this.bulkMetric = metric;
-        // you must start bulk metric or it will bail out at stop()
-        bulkMetric.start();
-        return this;
-    }
-
-    @Override
     public BulkMetric getBulkMetric() {
         return bulkMetric;
     }
 
     @Override
-    public AbstractExtendedClient setBulkControl(BulkControl bulkControl) {
-        this.bulkControl = bulkControl;
-        return this;
-    }
-
-    @Override
-    public BulkControl getBulkControl() {
-        return bulkControl;
+    public BulkController getBulkController() {
+        return bulkController;
     }
 
     @Override
@@ -181,120 +195,33 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
         if (bulkMetric != null) {
             bulkMetric.start();
         }
-        BulkProcessor.Listener listener = new BulkProcessor.Listener() {
-
-            private final Logger logger = LogManager.getLogger("org.xbib.elx.BulkProcessor.Listener");
-
-            @Override
-            public void beforeBulk(long executionId, BulkRequest request) {
-                long l = 0;
-                if (bulkMetric != null) {
-                    l = bulkMetric.getCurrentIngest().getCount();
-                    bulkMetric.getCurrentIngest().inc();
-                    int n = request.numberOfActions();
-                    bulkMetric.getSubmitted().inc(n);
-                    bulkMetric.getCurrentIngestNumDocs().inc(n);
-                    bulkMetric.getTotalIngestSizeInBytes().inc(request.estimatedSizeInBytes());
-                }
-                logger.debug("before bulk [{}] [actions={}] [bytes={}] [concurrent requests={}]",
-                        executionId,
-                        request.numberOfActions(),
-                        request.estimatedSizeInBytes(),
-                        l);
-            }
-
-            @Override
-            public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
-                long l = 0;
-                if (bulkMetric != null) {
-                    l = bulkMetric.getCurrentIngest().getCount();
-                    bulkMetric.getCurrentIngest().dec();
-                    bulkMetric.getSucceeded().inc(response.getItems().length);
-                }
-                int n = 0;
-                for (BulkItemResponse itemResponse : response.getItems()) {
-                    if (bulkMetric != null) {
-                        bulkMetric.getCurrentIngest().dec(itemResponse.getIndex(), itemResponse.getType(), itemResponse.getId());
-                    }
-                    if (itemResponse.isFailed()) {
-                        n++;
-                        if (bulkMetric != null) {
-                            bulkMetric.getSucceeded().dec(1);
-                            bulkMetric.getFailed().inc(1);
-                        }
-                    }
-                }
-                if (bulkMetric != null) {
-                    logger.debug("after bulk [{}] [succeeded={}] [failed={}] [{}ms] {} concurrent requests",
-                            executionId,
-                            bulkMetric.getSucceeded().getCount(),
-                            bulkMetric.getFailed().getCount(),
-                            response.getTook().millis(),
-                            l);
-                }
-                if (n > 0) {
-                    logger.error("bulk [{}] failed with {} failed items, failure message = {}",
-                            executionId, n, response.buildFailureMessage());
-                } else {
-                    if (bulkMetric != null) {
-                        bulkMetric.getCurrentIngestNumDocs().dec(response.getItems().length);
-                    }
-                }
-            }
-
-            @Override
-            public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
-                if (bulkMetric != null) {
-                    bulkMetric.getCurrentIngest().dec();
-                }
-                throwable = failure;
-                closed = true;
-                logger.error("after bulk [" + executionId + "] error", failure);
-            }
-        };
-        if (client != null) {
-            int maxActionsPerRequest = settings.getAsInt(Parameters.MAX_ACTIONS_PER_REQUEST.name(),
-                    Parameters.DEFAULT_MAX_ACTIONS_PER_REQUEST.getNum());
-            int maxConcurrentRequests = settings.getAsInt(Parameters.MAX_CONCURRENT_REQUESTS.name(),
-                    Parameters.DEFAULT_MAX_CONCURRENT_REQUESTS.getNum());
-            TimeValue flushIngestInterval = settings.getAsTime(Parameters.FLUSH_INTERVAL.name(),
-                    TimeValue.timeValueSeconds(Parameters.DEFAULT_FLUSH_INTERVAL.getNum()));
-            ByteSizeValue maxVolumePerRequest = settings.getAsBytesSize(Parameters.MAX_VOLUME_PER_REQUEST.name(),
-                    ByteSizeValue.parseBytesSizeValue(Parameters.DEFAULT_MAX_VOLUME_PER_REQUEST.getString(),
-                            "maxVolumePerRequest"));
-            logger.info("bulk processor up with maxActionsPerRequest = {} maxConcurrentRequests = {} " +
-                            "flushIngestInterval = {} maxVolumePerRequest = {}",
-                    maxActionsPerRequest, maxConcurrentRequests, flushIngestInterval, maxVolumePerRequest);
-            BulkProcessor.Builder builder = BulkProcessor.builder((Client) client, listener)
-                    .setBulkActions(maxActionsPerRequest)
-                    .setConcurrentRequests(maxConcurrentRequests)
-                    .setFlushInterval(flushIngestInterval)
-                    .setBulkSize(maxVolumePerRequest);
-            this.bulkProcessor = builder.build();
+        if (bulkController != null) {
+            bulkController.init(settings);
         }
-        this.closed = false;
-        this.throwable = null;
         return this;
     }
 
     @Override
-    public synchronized void shutdown() throws IOException {
+    public void flush() throws IOException {
+        if (bulkController != null) {
+            bulkController.flush();
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
         ensureActive();
-        if (bulkProcessor != null) {
-            logger.info("closing bulk processor");
-            bulkProcessor.close();
-        }
-        if (bulkMetric != null) {
-            logger.info("stopping metric before bulk stop (for precise measurement)");
-            bulkMetric.stop();
-        }
-        if (bulkControl != null && bulkControl.indices() != null && !bulkControl.indices().isEmpty()) {
-            logger.info("stopping bulk mode for indices {}...", bulkControl.indices());
-            for (String index : bulkControl.indices()) {
-                stopBulk(index, bulkControl.getMaxWaitTime());
+        if (closed.compareAndSet(false, true)) {
+            if (bulkMetric != null) {
+                logger.info("closing bulk metric before bulk controller (for precise measurement)");
+                bulkMetric.close();
             }
+            if (bulkController != null) {
+                logger.info("closing bulk controller");
+                bulkController.close();
+            }
+            logger.info("shutdown complete");
         }
-        logger.info("shutdown complete");
     }
 
     @Override
@@ -320,7 +247,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     @Override
     public ExtendedClient newIndex(IndexDefinition indexDefinition) throws IOException {
         ensureActive();
-        waitForCluster("YELLOW", "30s");
+        waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
         URL indexSettings = indexDefinition.getSettingsUrl();
         if (indexSettings == null) {
             logger.warn("warning while creating index '{}', no settings/mappings",
@@ -417,37 +344,27 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     @Override
     public ExtendedClient startBulk(String index, long startRefreshIntervalSeconds, long stopRefreshIntervalSeconds)
             throws IOException {
-        ensureActive();
-        if (bulkControl == null) {
-            return this;
-        }
-        if (!bulkControl.isBulk(index) && startRefreshIntervalSeconds > 0L && stopRefreshIntervalSeconds > 0L) {
-            bulkControl.startBulk(index, startRefreshIntervalSeconds, stopRefreshIntervalSeconds);
-            updateIndexSetting(index, "refresh_interval", startRefreshIntervalSeconds + "s");
+        if (bulkController != null) {
+            ensureActive();
+            bulkController.startBulkMode(index, startRefreshIntervalSeconds, stopRefreshIntervalSeconds);
         }
         return this;
     }
 
     @Override
     public ExtendedClient stopBulk(IndexDefinition indexDefinition) throws IOException {
-        return stopBulk(indexDefinition.getFullIndexName(), indexDefinition.getMaxWaitTime());
+        if (bulkController != null) {
+            ensureActive();
+            bulkController.stopBulkMode(indexDefinition);
+        }
+        return this;
     }
 
     @Override
-    public ExtendedClient stopBulk(String index, String maxWaitTime) throws IOException {
-        ensureActive();
-        if (bulkControl == null) {
-            return this;
-        }
-        flushIngest();
-        if (waitForResponses(maxWaitTime)) {
-            if (bulkControl.isBulk(index)) {
-                long secs = bulkControl.getStopBulkRefreshIntervals().get(index);
-                if (secs > 0L) {
-                    updateIndexSetting(index, "refresh_interval", secs + "s");
-                }
-                bulkControl.finishBulk(index);
-            }
+    public ExtendedClient stopBulk(String index, long timeout, TimeUnit timeUnit) throws IOException {
+        if (bulkController != null) {
+            ensureActive();
+            bulkController.stopBulkMode(index, timeout, timeUnit);
         }
         return this;
     }
@@ -465,16 +382,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     @Override
     public ExtendedClient index(IndexRequest indexRequest) {
         ensureActive();
-        try {
-            if (bulkMetric != null) {
-                bulkMetric.getCurrentIngest().inc(indexRequest.index(), indexRequest.type(), indexRequest.id());
-            }
-            bulkProcessor.add(indexRequest);
-        } catch (Exception e) {
-            throwable = e;
-            closed = true;
-            logger.error("bulk add of index request failed: " + e.getMessage(), e);
-        }
+        bulkController.index(indexRequest);
         return this;
     }
 
@@ -486,16 +394,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     @Override
     public ExtendedClient delete(DeleteRequest deleteRequest) {
         ensureActive();
-        try {
-            if (bulkMetric != null) {
-                bulkMetric.getCurrentIngest().inc(deleteRequest.index(), deleteRequest.type(), deleteRequest.id());
-            }
-            bulkProcessor.add(deleteRequest);
-        } catch (Exception e) {
-            throwable = e;
-            closed = true;
-            logger.error("bulk add of delete failed: " + e.getMessage(), e);
-        }
+        bulkController.delete(deleteRequest);
         return this;
     }
 
@@ -512,49 +411,23 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     @Override
     public ExtendedClient update(UpdateRequest updateRequest) {
         ensureActive();
-        try {
-            if (bulkMetric != null) {
-                bulkMetric.getCurrentIngest().inc(updateRequest.index(), updateRequest.type(), updateRequest.id());
-            }
-            bulkProcessor.add(updateRequest);
-        } catch (Exception e) {
-            throwable = e;
-            closed = true;
-            logger.error("bulk add of update request failed: " + e.getMessage(), e);
-        }
+        bulkController.update(updateRequest);
         return this;
     }
 
     @Override
-    public ExtendedClient flushIngest() {
+    public boolean waitForResponses(long timeout, TimeUnit timeUnit) {
         ensureActive();
-        logger.debug("flushing bulk processor");
-        bulkProcessor.flush();
-        return this;
+        return bulkController.waitForResponses(timeout, timeUnit);
     }
 
     @Override
-    public boolean waitForResponses(String maxWaitTime) {
-        ensureActive();
-        long millis = TimeValue.parseTimeValue(maxWaitTime, TimeValue.timeValueMinutes(1),"millis").getMillis();
-        logger.debug("waiting for " + millis + " millis");
-        try {
-            return bulkProcessor.awaitFlush(millis, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.error("interrupted");
-            return false;
-        }
-    }
-
-    @Override
-    public boolean waitForRecovery(String index, String maxWaitTime) {
+    public boolean waitForRecovery(String index, long maxWaitTime, TimeUnit timeUnit) {
         ensureActive();
         ensureIndexGiven(index);
         RecoveryResponse response = client.execute(RecoveryAction.INSTANCE, new RecoveryRequest(index)).actionGet();
         int shards = response.getTotalShards();
-        TimeValue timeout = TimeValue.parseTimeValue(maxWaitTime, TimeValue.timeValueSeconds(10),
-                getClass().getSimpleName() + ".timeout");
+        TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
         ClusterHealthResponse healthResponse =
                 client.execute(ClusterHealthAction.INSTANCE, new ClusterHealthRequest(index)
                 .waitForActiveShards(shards).timeout(timeout)).actionGet();
@@ -566,26 +439,26 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     }
 
     @Override
-    public boolean waitForCluster(String statusString, String maxWaitTime) {
+    public boolean waitForCluster(String statusString, long maxWaitTime, TimeUnit timeUnit) {
         ensureActive();
         ClusterHealthStatus status = ClusterHealthStatus.fromString(statusString);
-        TimeValue timeout = TimeValue.parseTimeValue(maxWaitTime, TimeValue.timeValueSeconds(10),
-                getClass().getSimpleName() + ".timeout");
+        TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
         ClusterHealthResponse healthResponse = client.execute(ClusterHealthAction.INSTANCE,
                 new ClusterHealthRequest().timeout(timeout).waitForStatus(status)).actionGet();
         if (healthResponse != null && healthResponse.isTimedOut()) {
-            logger.error("timeout, cluster state is " + healthResponse.getStatus().name() + " and not " + status.name());
+            if (logger.isErrorEnabled()) {
+                logger.error("timeout, cluster state is " + healthResponse.getStatus().name() + " and not " + status.name());
+            }
             return false;
         }
         return true;
     }
 
     @Override
-    public String getHealthColor(String maxWaitTime) {
+    public String getHealthColor(long maxWaitTime, TimeUnit timeUnit) {
         ensureActive();
         try {
-            TimeValue timeout = TimeValue.parseTimeValue(maxWaitTime, TimeValue.timeValueSeconds(10),
-                    getClass().getSimpleName() + ".timeout");
+            TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
             ClusterHealthResponse healthResponse = client.execute(ClusterHealthAction.INSTANCE,
                     new ClusterHealthRequest().timeout(timeout)).actionGet();
             ClusterHealthStatus status = healthResponse.getStatus();
@@ -604,15 +477,16 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public ExtendedClient updateReplicaLevel(IndexDefinition indexDefinition, int level) throws IOException {
-        return updateReplicaLevel(indexDefinition.getFullIndexName(), level, indexDefinition.getMaxWaitTime());
+        return updateReplicaLevel(indexDefinition.getFullIndexName(), level,
+                indexDefinition.getMaxWaitTime(), indexDefinition.getMaxWaitTimeUnit());
     }
 
     @Override
-    public ExtendedClient updateReplicaLevel(String index, int level, String maxWaitTime) throws IOException {
-        waitForCluster("YELLOW", maxWaitTime); // let cluster settle down from critical operations
+    public ExtendedClient updateReplicaLevel(String index, int level, long maxWaitTime, TimeUnit timeUnit) throws IOException {
+        waitForCluster("YELLOW", maxWaitTime, timeUnit); // let cluster settle down from critical operations
         if (level > 0) {
             updateIndexSetting(index, "number_of_replicas", level);
-            waitForRecovery(index, maxWaitTime);
+            waitForRecovery(index, maxWaitTime, timeUnit);
         }
         return this;
     }
@@ -685,62 +559,55 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     }
 
     @Override
-    public Map<String, String> getAliasFilters(String alias) {
-        GetAliasesRequestBuilder getAliasesRequestBuilder = new GetAliasesRequestBuilder(client, GetAliasesAction.INSTANCE);
-        return getFilters(getAliasesRequestBuilder.setIndices(resolveAlias(alias)).execute().actionGet());
-    }
-
-    @Override
     public Map<String, String> getIndexFilters(String index) {
         GetAliasesRequestBuilder getAliasesRequestBuilder = new GetAliasesRequestBuilder(client, GetAliasesAction.INSTANCE);
         return getFilters(getAliasesRequestBuilder.setIndices(index).execute().actionGet());
     }
 
     @Override
-    public ExtendedClient switchIndex(IndexDefinition indexDefinition, List<String> extraAliases) {
-        return switchIndex(indexDefinition, extraAliases, null);
+    public IndexShiftResult shiftIndex(IndexDefinition indexDefinition, List<String> additionalAliases) {
+        return shiftIndex(indexDefinition, additionalAliases, null);
     }
 
-
     @Override
-    public ExtendedClient switchIndex(IndexDefinition indexDefinition,
-                            List<String> extraAliases, IndexAliasAdder indexAliasAdder) {
-        if (extraAliases == null) {
-            return this;
+    public IndexShiftResult shiftIndex(IndexDefinition indexDefinition,
+                                     List<String> additionalAliases, IndexAliasAdder indexAliasAdder) {
+        if (additionalAliases == null) {
+            return EMPTY_INDEX_SHIFT_RESULT;
         }
-        if (indexDefinition.isSwitchAliases()) {
-            switchIndex(indexDefinition.getIndex(),
-                    indexDefinition.getFullIndexName(), extraAliases.stream()
+        if (indexDefinition.isShiftEnabled()) {
+            return shiftIndex(indexDefinition.getIndex(),
+                    indexDefinition.getFullIndexName(), additionalAliases.stream()
                             .filter(a -> a != null && !a.isEmpty())
                             .collect(Collectors.toList()), indexAliasAdder);
         }
-        return this;
+        return EMPTY_INDEX_SHIFT_RESULT;
     }
 
     @Override
-    public ExtendedClient switchIndex(String index, String fullIndexName, List<String> extraAliases) {
-        return switchIndex(index, fullIndexName, extraAliases, null);
+    public IndexShiftResult shiftIndex(String index, String fullIndexName, List<String> additionalAliases) {
+        return shiftIndex(index, fullIndexName, additionalAliases, null);
     }
 
     @Override
-    public ExtendedClient switchIndex(String index, String fullIndexName,
-                            List<String> extraAliases, IndexAliasAdder adder) {
+    public IndexShiftResult shiftIndex(String index, String fullIndexName,
+                                     List<String> additionalAliases, IndexAliasAdder adder) {
         ensureActive();
         if (index.equals(fullIndexName)) {
-            return this; // nothing to switch to
+            return EMPTY_INDEX_SHIFT_RESULT; // nothing to shift to
         }
         // two situations: 1. there is a new alias 2. there is already an old index with the alias
         String oldIndex = resolveAlias(index);
         final Map<String, String> oldFilterMap = oldIndex.equals(index) ? null : getIndexFilters(oldIndex);
         final List<String> newAliases = new LinkedList<>();
-        final List<String> switchAliases = new LinkedList<>();
+        final List<String> moveAliases = new LinkedList<>();
         IndicesAliasesRequestBuilder requestBuilder = new IndicesAliasesRequestBuilder(client, IndicesAliasesAction.INSTANCE);
         if (oldFilterMap == null || !oldFilterMap.containsKey(index)) {
             // never apply a filter for trunk index name
             requestBuilder.addAlias(fullIndexName, index);
             newAliases.add(index);
         }
-        // switch existing aliases
+        // move existing aliases
         if (oldFilterMap != null) {
             for (Map.Entry<String, String> entry : oldFilterMap.entrySet()) {
                 String alias = entry.getKey();
@@ -751,12 +618,12 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
                 } else {
                     requestBuilder.addAlias(fullIndexName, alias);
                 }
-                switchAliases.add(alias);
+                moveAliases.add(alias);
             }
         }
         // a list of aliases that should be added, check if new or old
-        if (extraAliases != null) {
-            for (String extraAlias : extraAliases) {
+        if (additionalAliases != null) {
+            for (String extraAlias : additionalAliases) {
                 if (oldFilterMap == null || !oldFilterMap.containsKey(extraAlias)) {
                     // index alias adder only active on extra aliases, and if alias is new
                     if (adder != null) {
@@ -773,82 +640,72 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
                     } else {
                         requestBuilder.addAlias(fullIndexName, extraAlias);
                     }
-                    switchAliases.add(extraAlias);
+                    moveAliases.add(extraAlias);
                 }
             }
         }
-        if (!newAliases.isEmpty() || !switchAliases.isEmpty()) {
-            logger.info("new aliases = {}, switch aliases = {}", newAliases, switchAliases);
+        if (!newAliases.isEmpty() || !moveAliases.isEmpty()) {
+            logger.info("new aliases = {}, moved aliases = {}", newAliases, moveAliases);
             requestBuilder.execute().actionGet();
         }
-        return this;
+        return new SuccessIndexShiftResult(moveAliases, newAliases);
     }
 
     @Override
-    public void pruneIndex(IndexDefinition indexDefinition) {
-        pruneIndex(indexDefinition.getIndex(), indexDefinition.getFullIndexName(),
-                indexDefinition.getRetention().getDelta(), indexDefinition.getRetention().getMinToKeep());
+    public IndexPruneResult pruneIndex(IndexDefinition indexDefinition) {
+        return pruneIndex(indexDefinition.getIndex(), indexDefinition.getFullIndexName(),
+                indexDefinition.getRetention().getDelta(), indexDefinition.getRetention().getMinToKeep(), true);
     }
 
     @Override
-    public void pruneIndex(String index, String fullIndexName, int delta, int mintokeep) {
+    public IndexPruneResult pruneIndex(String index, String fullIndexName, int delta, int mintokeep, boolean perform) {
         if (delta == 0 && mintokeep == 0) {
-            return;
+            return EMPTY_INDEX_PRUNE_RESULT;
+        }
+        if (index.equals(fullIndexName)) {
+            return EMPTY_INDEX_PRUNE_RESULT;
         }
         ensureActive();
-        if (index.equals(fullIndexName)) {
-            return;
-        }
         GetIndexRequestBuilder getIndexRequestBuilder = new GetIndexRequestBuilder(client, GetIndexAction.INSTANCE);
         GetIndexResponse getIndexResponse = getIndexRequestBuilder.execute().actionGet();
         Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
-        Set<String> indices = new TreeSet<>();
         logger.info("{} indices", getIndexResponse.getIndices().length);
+        List<String> candidateIndices = new ArrayList<>();
         for (String s : getIndexResponse.getIndices()) {
             Matcher m = pattern.matcher(s);
             if (m.matches() && index.equals(m.group(1)) && !s.equals(fullIndexName)) {
-                indices.add(s);
+                candidateIndices.add(s);
             }
         }
-        if (indices.isEmpty()) {
-            logger.info("no indices found, retention policy skipped");
-            return;
+        if (candidateIndices.isEmpty()) {
+            return EMPTY_INDEX_PRUNE_RESULT;
         }
-        if (mintokeep > 0 && indices.size() <= mintokeep) {
-            logger.info("{} indices found, not enough for retention policy ({}),  skipped",
-                    indices.size(), mintokeep);
-            return;
-        } else {
-            logger.info("candidates for deletion = {}", indices);
+        if (mintokeep > 0 && candidateIndices.size() <= mintokeep) {
+            return new NothingToDoPruneResult(candidateIndices, Collections.emptyList());
         }
         List<String> indicesToDelete = new ArrayList<>();
-        // our index
         Matcher m1 = pattern.matcher(fullIndexName);
         if (m1.matches()) {
             Integer i1 = Integer.parseInt(m1.group(2));
-            for (String s : indices) {
+            for (String s : candidateIndices) {
                 Matcher m2 = pattern.matcher(s);
                 if (m2.matches()) {
                     Integer i2 = Integer.parseInt(m2.group(2));
-                    int kept = indices.size() - indicesToDelete.size();
+                    int kept = candidateIndices.size() - indicesToDelete.size();
                     if ((delta == 0 || (delta > 0 && i1 - i2 > delta)) && mintokeep <= kept) {
                         indicesToDelete.add(s);
                     }
                 }
             }
         }
-        logger.info("indices to delete = {}", indicesToDelete);
         if (indicesToDelete.isEmpty()) {
-            logger.info("not enough indices found to delete, retention policy complete");
-            return;
+            return new NothingToDoPruneResult(candidateIndices, indicesToDelete);
         }
         String[] s = new String[indicesToDelete.size()];
         DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest()
                 .indices(indicesToDelete.toArray(s));
         DeleteIndexResponse response = client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
-        if (!response.isAcknowledged()) {
-            logger.warn("retention delete index operation was not acknowledged");
-        }
+        return new SuccessPruneResult(candidateIndices, indicesToDelete, response);
     }
 
     @Override
@@ -875,15 +732,15 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     @Override
     public boolean forceMerge(IndexDefinition indexDefinition) {
         if (indexDefinition.hasForceMerge()) {
-            return forceMerge(indexDefinition.getFullIndexName(), indexDefinition.getMaxWaitTime());
+            return forceMerge(indexDefinition.getFullIndexName(), indexDefinition.getMaxWaitTime(),
+                    indexDefinition.getMaxWaitTimeUnit());
         }
         return false;
     }
 
     @Override
-    public boolean forceMerge(String index, String maxWaitTime) {
-        TimeValue timeout = TimeValue.parseTimeValue(maxWaitTime, TimeValue.timeValueSeconds(10),
-                getClass().getSimpleName() + ".timeout");
+    public boolean forceMerge(String index, long maxWaitTime, TimeUnit timeUnit) {
+        TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
         ForceMergeRequestBuilder forceMergeRequestBuilder =
                 new ForceMergeRequestBuilder(client, ForceMergeAction.INSTANCE);
         forceMergeRequestBuilder.setIndices(index);
@@ -909,44 +766,35 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
         String fullIndexName;
         String dateTimePattern = settings.get("dateTimePattern");
         if (dateTimePattern != null) {
-            fullIndexName = resolveAlias(indexName +
-                    DateTimeFormatter.ofPattern(dateTimePattern)
+            // check if index name with current date already exists, resolve to it
+            fullIndexName = resolveAlias(indexName + DateTimeFormatter.ofPattern(dateTimePattern)
                             .withZone(ZoneId.systemDefault()) // not GMT
                             .format(LocalDate.now()));
-            logger.info("index name {} resolved to full index name = {}", indexName, fullIndexName);
         } else {
+            // check if index name already exists, resolve to it
             fullIndexName = resolveMostRecentIndex(indexName);
-            logger.info("index name {} resolved to full index name = {}", indexName, fullIndexName);
         }
-        IndexRetention indexRetention = new IndexRetention()
+        IndexRetention indexRetention = new DefaultIndexRetention()
                 .setMinToKeep(settings.getAsInt("retention.mintokeep", 0))
                 .setDelta(settings.getAsInt("retention.delta", 0));
-
-        return new IndexDefinition()
+        return new DefaultIndexDefinition()
+                .setEnabled(isEnabled)
                 .setIndex(indexName)
                 .setFullIndexName(fullIndexName)
                 .setSettingsUrl(settings.get("settings"))
                 .setMappingsUrl(settings.get("mapping"))
                 .setDateTimePattern(dateTimePattern)
-                .setEnabled(isEnabled)
                 .setIgnoreErrors(settings.getAsBoolean("skiperrors", false))
-                .setSwitchAliases(settings.getAsBoolean("aliases", true))
+                .setShift(settings.getAsBoolean("shift", true))
                 .setReplicaLevel(settings.getAsInt("replica", 0))
-                .setMaxWaitTime(settings.get("timout", "30s"))
-                .setRetention(indexRetention);
+                .setMaxWaitTime(settings.getAsLong("timeout", 30L), TimeUnit.SECONDS)
+                .setRetention(indexRetention)
+                .setStartRefreshInterval(settings.getAsLong("bulk.startrefreshinterval", -1L))
+                .setStopRefreshInterval(settings.getAsLong("bulk.stoprefreshinterval", -1L));
     }
 
     @Override
-    public boolean hasThrowable() {
-        return throwable != null;
-    }
-
-    @Override
-    public Throwable getThrowable() {
-        return throwable;
-    }
-
-    private void updateIndexSetting(String index, String key, Object value) throws IOException {
+    public void updateIndexSetting(String index, String key, Object value) throws IOException {
         ensureActive();
         if (index == null) {
             throw new IOException("no index name given");
@@ -970,9 +818,6 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
         }
         if (client == null) {
             throw new IllegalStateException("no client");
-        }
-        if (closed) {
-            throw new ElasticsearchException("client is closed");
         }
     }
 
@@ -1095,5 +940,116 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
         map.entrySet().stream().sorted(Comparator.comparing(Map.Entry::getValue))
                 .forEachOrdered(e -> result.put(e.getKey(), e.getValue()));
         return result;
+    }
+
+    private static TimeValue toTimeValue(long timeValue, TimeUnit timeUnit) {
+        switch (timeUnit) {
+            case DAYS:
+                return TimeValue.timeValueHours(24 * timeValue);
+            case HOURS:
+                return TimeValue.timeValueHours(timeValue);
+            case MINUTES:
+                return TimeValue.timeValueMinutes(timeValue);
+            case SECONDS:
+                return TimeValue.timeValueSeconds(timeValue);
+            case MILLISECONDS:
+                return TimeValue.timeValueMillis(timeValue);
+            case MICROSECONDS:
+                return TimeValue.timeValueNanos(1000 * timeValue);
+            case NANOSECONDS:
+                return TimeValue.timeValueNanos(timeValue);
+            default:
+                throw new IllegalArgumentException("unknown time unit: " + timeUnit);
+        }
+    }
+
+    private static class SuccessIndexShiftResult implements IndexShiftResult {
+
+        List<String> movedAliases;
+
+        List<String> newAliases;
+
+        SuccessIndexShiftResult(List<String> movedAliases, List<String> newAliases) {
+            this.movedAliases = movedAliases;
+            this.newAliases = newAliases;
+        }
+
+        @Override
+        public List<String> getMovedAliases() {
+            return movedAliases;
+        }
+
+        @Override
+        public List<String> getNewAliases() {
+            return newAliases;
+        }
+    }
+
+    private static class SuccessPruneResult implements IndexPruneResult {
+
+        List<String> candidateIndices;
+
+        List<String> indicesToDelete;
+
+        DeleteIndexResponse response;
+
+        SuccessPruneResult(List<String> candidateIndices, List<String> indicesToDelete,
+                           DeleteIndexResponse response) {
+            this.candidateIndices = candidateIndices;
+            this.indicesToDelete = indicesToDelete;
+            this.response = response;
+        }
+
+        @Override
+        public IndexPruneResult.State getState() {
+            return IndexPruneResult.State.SUCCESS;
+        }
+
+        @Override
+        public List<String> getCandidateIndices() {
+            return candidateIndices;
+        }
+
+        @Override
+        public List<String> getDeletedIndices() {
+            return indicesToDelete;
+        }
+
+        @Override
+        public boolean isAcknowledged() {
+            return response.isAcknowledged();
+        }
+    }
+
+    private static class NothingToDoPruneResult implements IndexPruneResult {
+
+        List<String> candidateIndices;
+
+        List<String> indicesToDelete;
+
+        NothingToDoPruneResult(List<String> candidateIndices, List<String> indicesToDelete) {
+            this.candidateIndices = candidateIndices;
+            this.indicesToDelete = indicesToDelete;
+        }
+
+        @Override
+        public IndexPruneResult.State getState() {
+            return IndexPruneResult.State.SUCCESS;
+        }
+
+        @Override
+        public List<String> getCandidateIndices() {
+            return candidateIndices;
+        }
+
+        @Override
+        public List<String> getDeletedIndices() {
+            return indicesToDelete;
+        }
+
+        @Override
+        public boolean isAcknowledged() {
+            return false;
+        }
     }
 }
