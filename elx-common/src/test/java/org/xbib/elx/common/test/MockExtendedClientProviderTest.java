@@ -1,6 +1,9 @@
-package org.xbib.elx.common;
+package org.xbib.elx.common.test;
 
 import org.junit.Test;
+import org.xbib.elx.common.ClientBuilder;
+import org.xbib.elx.common.MockExtendedClient;
+import org.xbib.elx.common.MockExtendedClientProvider;
 
 import java.io.IOException;
 

@@ -6,10 +6,11 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Mock client, it does not perform any actions on a cluster. Useful for testing.
+ * A mocked client, it does not perform any actions on a cluster. Useful for testing.
  */
 public class MockExtendedClient extends AbstractExtendedClient {
 
@@ -26,6 +27,10 @@ public class MockExtendedClient extends AbstractExtendedClient {
     @Override
     protected ElasticsearchClient createClient(Settings settings) {
         return null;
+    }
+
+    @Override
+    protected void closeClient()  {
     }
 
     @Override

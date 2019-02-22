@@ -24,9 +24,9 @@ import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
-public class ReplicaTest extends NodeTestUtils {
+public class ReplicaTest extends TestBase {
 
-    private static final Logger logger = LogManager.getLogger(ReplicaTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(ReplicaTest.class.getName());
 
     @Test
     public void testReplicaLevel() throws Exception {
@@ -48,7 +48,7 @@ public class ReplicaTest extends NodeTestUtils {
 
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
-                .put(getSettings())
+                .put(getTransportSettings())
                 .build();
 
         try {
@@ -119,7 +119,7 @@ public class ReplicaTest extends NodeTestUtils {
 
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
-                .put(getSettings())
+                .put(getTransportSettings())
                 .build();
 
         Settings settings = Settings.settingsBuilder()

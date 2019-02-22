@@ -1,4 +1,4 @@
-package org.xbib.elx.node;
+package org.xbib.elx.node.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,6 +16,8 @@ import org.elasticsearch.index.indexing.IndexingStats;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.xbib.elx.common.ClientBuilder;
+import org.xbib.elx.node.ExtendedNodeClient;
+import org.xbib.elx.node.ExtendedNodeClientProvider;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -26,9 +28,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 @Ignore
-public class ReplicaTest extends NodeTestUtils {
+public class ReplicaTest extends TestBase {
 
-    private static final Logger logger = LogManager.getLogger(ReplicaTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(ReplicaTest.class.getName());
 
     @Test
     public void testReplicaLevel() throws Exception {

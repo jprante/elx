@@ -49,7 +49,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
         this.executionIdGen = new AtomicLong();
         this.closed = false;
         this.bulkActions = bulkActions;
-        this.bulkSize = bulkSize.bytes();
+        this.bulkSize = bulkSize.getBytes();
         this.bulkRequest = new BulkRequest();
         this.bulkRequestHandler = concurrentRequests == 0 ?
                 new SyncBulkRequestHandler(client, listener) :
@@ -133,7 +133,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
      * @return his bulk processor
      */
     @Override
-    public DefaultBulkProcessor add(ActionRequest<?> request) {
+    public DefaultBulkProcessor add(ActionRequest request) {
         return add(request, null);
     }
 
@@ -145,7 +145,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
      * @return his bulk processor
      */
     @Override
-    public DefaultBulkProcessor add(ActionRequest<?> request, Object payload) {
+    public DefaultBulkProcessor add(ActionRequest request, Object payload) {
         internalAdd(request, payload);
         return this;
     }
@@ -176,7 +176,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
     private void ensureOpen() {
         if (closed) {
-            throw new IllegalStateException("bulk process already closed");
+            throw new IllegalStateException("bulk processor already closed");
         }
     }
 

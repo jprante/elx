@@ -1,4 +1,4 @@
-package org.xbib.elx.common;
+package org.xbib.elx.common.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -15,7 +15,7 @@ public class NetworkTest {
 
     @Test
     public void testNetwork() throws Exception {
-        // walk very slowly over all interfaces
+        // walk over all found interfaces (this is slow - multicast/pings are performed)
         Enumeration<NetworkInterface> nets = NetworkInterface.getNetworkInterfaces();
         for (NetworkInterface netint : Collections.list(nets)) {
             System.out.println("checking network interface = " + netint.getName());

@@ -1,4 +1,4 @@
-package org.xbib.elx.node;
+package org.xbib.elx.node.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -7,15 +7,17 @@ import org.elasticsearch.common.settings.Settings;
 import org.junit.Test;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.api.IndexDefinition;
+import org.xbib.elx.node.ExtendedNodeClient;
+import org.xbib.elx.node.ExtendedNodeClientProvider;
 
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
-public class SmokeTest extends NodeTestUtils {
+public class SmokeTest extends TestBase {
 
-    private static final Logger logger = LogManager.getLogger(SmokeTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(SmokeTest.class.getName());
 
     @Test
     public void smokeTest() throws Exception {
@@ -28,7 +30,7 @@ public class SmokeTest extends NodeTestUtils {
             client.flush();
             client.waitForResponses(30, TimeUnit.SECONDS);
 
-            assertEquals(clusterName, client.getClusterName());
+            assertEquals(getClusterName(), client.getClusterName());
 
             client.checkMapping("test");
 

@@ -58,6 +58,15 @@ public class ExtendedTransportClient extends AbstractExtendedClient {
     }
 
     @Override
+    protected void closeClient() {
+        if (getClient() != null) {
+            TransportClient client = (TransportClient) getClient();
+            client.close();
+            client.threadPool().shutdown();
+        }
+    }
+
+    @Override
     public ExtendedTransportClient init(Settings settings) throws IOException {
         super.init(settings);
         // additional auto-connect
@@ -71,18 +80,6 @@ public class ExtendedTransportClient extends AbstractExtendedClient {
             logger.error(e.getMessage(), e);
         }
         return this;
-    }
-
-    @Override
-    public synchronized void close() throws IOException {
-        super.close();
-        logger.info("closing");
-        if (getClient() != null) {
-            TransportClient client = (TransportClient) getClient();
-            client.close();
-            client.threadPool().shutdown();
-        }
-        logger.info("close completed");
     }
 
     private Collection<InetSocketTransportAddress> findAddresses(Settings settings) throws IOException {

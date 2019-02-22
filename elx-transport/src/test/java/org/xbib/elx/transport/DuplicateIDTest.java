@@ -3,22 +3,23 @@ package org.xbib.elx.transport;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchAction;
-import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.Test;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.Parameters;
 
 import java.util.concurrent.TimeUnit;
 
-import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-public class DuplicateIDTest extends NodeTestUtils {
+public class DuplicateIDTest extends TestBase {
 
-    private final static Logger logger = LogManager.getLogger(DuplicateIDTest.class.getSimpleName());
+    private final static Logger logger = LogManager.getLogger(DuplicateIDTest.class.getName());
 
     private final static Long MAX_ACTIONS_PER_REQUEST = 1000L;
 
@@ -29,22 +30,24 @@ public class DuplicateIDTest extends NodeTestUtils {
         long numactions = ACTIONS;
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
-                .put(getSettings())
+                .put(getTransportSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .build();
         try {
             client.newIndex("test");
             for (int i = 0; i < ACTIONS; i++) {
-                client.index("test", randomString(1), false,  "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test", randomString(1), false, "{ \"name\" : \"" + randomString(32) + "\"}");
             }
             client.flush();
             client.waitForResponses(30L, TimeUnit.SECONDS);
             client.refreshIndex("test");
-            SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client.getClient(), SearchAction.INSTANCE)
-                    .setIndices("test")
-                    .setTypes("test")
-                    .setQuery(matchAllQuery());
-            long hits = searchRequestBuilder.execute().actionGet().getHits().getTotalHits();
+            SearchSourceBuilder builder = new SearchSourceBuilder();
+            builder.query(QueryBuilders.matchAllQuery());
+            SearchRequest searchRequest = new SearchRequest();
+            searchRequest.indices("test");
+            searchRequest.types("test");
+            searchRequest.source(builder);
+            long hits = client("1").execute(SearchAction.INSTANCE, searchRequest).actionGet().getHits().getTotalHits();
             logger.info("hits = {}", hits);
             assertTrue(hits < ACTIONS);
         } catch (NoNodeAvailableException e) {

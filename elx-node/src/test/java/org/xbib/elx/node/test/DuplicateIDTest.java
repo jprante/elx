@@ -1,23 +1,25 @@
-package org.xbib.elx.node;
+package org.xbib.elx.node.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchAction;
-import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
-import org.junit.Ignore;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.Test;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.Parameters;
+import org.xbib.elx.node.ExtendedNodeClient;
+import org.xbib.elx.node.ExtendedNodeClientProvider;
 
 import java.util.concurrent.TimeUnit;
 
-import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
 import static org.junit.Assert.*;
 
-public class DuplicateIDTest extends NodeTestUtils {
+public class DuplicateIDTest extends TestBase {
 
-    private static final Logger logger = LogManager.getLogger(DuplicateIDTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(DuplicateIDTest.class.getName());
 
     private static final Long MAX_ACTIONS_PER_REQUEST = 1000L;
 
@@ -38,11 +40,13 @@ public class DuplicateIDTest extends NodeTestUtils {
             client.flush();
             client.waitForResponses(30L, TimeUnit.SECONDS);
             client.refreshIndex("test");
-            SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client.getClient(), SearchAction.INSTANCE)
-                    .setIndices("test")
-                    .setTypes("test")
-                    .setQuery(matchAllQuery());
-            long hits = searchRequestBuilder.execute().actionGet().getHits().getTotalHits();
+            SearchSourceBuilder builder = new SearchSourceBuilder();
+            builder.query(QueryBuilders.matchAllQuery());
+            SearchRequest searchRequest = new SearchRequest();
+            searchRequest.indices("test");
+            searchRequest.types("test");
+            searchRequest.source(builder);
+            long hits = client("1").execute(SearchAction.INSTANCE, searchRequest).actionGet().getHits().getTotalHits();
             logger.info("hits = {}", hits);
             assertTrue(hits < ACTIONS);
         } catch (NoNodeAvailableException e) {

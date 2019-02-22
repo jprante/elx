@@ -1,4 +1,4 @@
-package org.xbib.elx.common;
+package org.xbib.elx.common.test;
 
 import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.bulk.BulkAction;
@@ -15,7 +15,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertTrue;
 
-public class SearchTest extends NodeTestUtils {
+public class SearchTest extends TestBase {
 
     @Test
     public void testSearch() throws Exception {
@@ -35,7 +35,8 @@ public class SearchTest extends NodeTestUtils {
                             .field("user8", "joerg")
                             .field("user9", "joerg")
                             .field("rowcount", i)
-                            .field("rs", 1234));
+                            .field("rs", 1234)
+                            .endObject());
             builder.add(indexRequest);
         }
         client.bulk(builder.request()).actionGet();

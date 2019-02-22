@@ -107,7 +107,8 @@ public class DefaultBulkController implements BulkController {
             startBulkRefreshIntervals.put(indexName, startRefreshIntervalInSeconds);
             stopBulkRefreshIntervals.put(indexName, stopRefreshIntervalInSeconds);
             if (startRefreshIntervalInSeconds != 0L) {
-                client.updateIndexSetting(indexName, "refresh_interval", startRefreshIntervalInSeconds + "s");
+                client.updateIndexSetting(indexName, "refresh_interval", startRefreshIntervalInSeconds + "s",
+                        30L, TimeUnit.SECONDS);
             }
         }
     }
@@ -193,7 +194,8 @@ public class DefaultBulkController implements BulkController {
             if (indexNames.contains(index)) {
                 Long secs = stopBulkRefreshIntervals.get(index);
                 if (secs != null && secs != 0L) {
-                    client.updateIndexSetting(index, "refresh_interval", secs + "s");
+                    client.updateIndexSetting(index, "refresh_interval", secs + "s",
+                            30L, TimeUnit.SECONDS);
                 }
                 indexNames.remove(index);
             }
@@ -214,7 +216,8 @@ public class DefaultBulkController implements BulkController {
             for (String index : indexNames) {
                 Long secs = stopBulkRefreshIntervals.get(index);
                 if (secs != null && secs != 0L)
-                client.updateIndexSetting(index, "refresh_interval", secs + "s");
+                client.updateIndexSetting(index, "refresh_interval", secs + "s",
+                        30L, TimeUnit.SECONDS);
             }
             indexNames.clear();
         }

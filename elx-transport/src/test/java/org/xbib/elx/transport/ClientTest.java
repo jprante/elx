@@ -28,9 +28,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-public class ClientTest extends NodeTestUtils {
+public class ClientTest extends TestBase {
 
-    private static final Logger logger = LogManager.getLogger(ClientTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(ClientTest.class.getName());
 
     private static final Long MAX_ACTIONS_PER_REQUEST = 1000L;
 
@@ -50,7 +50,7 @@ public class ClientTest extends NodeTestUtils {
     public void testClientIndexOp() throws Exception {
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
-                .put(getSettings())
+                .put(getTransportSettings())
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
                 .build();
         client.newIndex("test");
@@ -69,7 +69,7 @@ public class ClientTest extends NodeTestUtils {
     public void testSingleDoc() throws Exception {
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
-                .put(getSettings())
+                .put(getTransportSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
                 .build();
@@ -94,7 +94,7 @@ public class ClientTest extends NodeTestUtils {
     public void testMapping() throws Exception {
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
-                .put(getSettings())
+                .put(getTransportSettings())
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
                 .build();
         XContentBuilder builder = jsonBuilder()
@@ -121,7 +121,7 @@ public class ClientTest extends NodeTestUtils {
         long numactions = ACTIONS;
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
-                .put(getSettings())
+                .put(getTransportSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
                 .build();
@@ -157,7 +157,7 @@ public class ClientTest extends NodeTestUtils {
 
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
-                .put(getSettings())
+                .put(getTransportSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), maxactions)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
                 .build();

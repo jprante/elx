@@ -1,4 +1,4 @@
-package org.xbib.elx.transport;
+package org.xbib.elx.node.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -10,6 +10,8 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.Test;
 import org.xbib.elx.api.IndexShiftResult;
 import org.xbib.elx.common.ClientBuilder;
+import org.xbib.elx.node.ExtendedNodeClient;
+import org.xbib.elx.node.ExtendedNodeClientProvider;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -23,10 +25,10 @@ public class IndexShiftTest extends TestBase {
     private static final Logger logger = LogManager.getLogger(IndexShiftTest.class.getName());
 
     @Test
-    public void testIndexAlias() throws Exception {
-        final ExtendedTransportClient client = ClientBuilder.builder()
-                .provider(ExtendedTransportClientProvider.class)
-                .put(getTransportSettings()).build();
+    public void testIndexShift() throws Exception {
+        final ExtendedNodeClient client = ClientBuilder.builder(client("1"))
+                .provider(ExtendedNodeClientProvider.class)
+                .build();
         try {
             Settings settings = Settings.builder()
                     .put("index.number_of_shards", 1)
@@ -98,11 +100,12 @@ public class IndexShiftTest extends TestBase {
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
+            client.waitForResponses(30L, TimeUnit.SECONDS);
+            client.close();
             if (client.getBulkController().getLastBulkError() != null) {
                 logger.error("error", client.getBulkController().getLastBulkError());
             }
             assertNull(client.getBulkController().getLastBulkError());
-            client.close();
         }
     }
 }

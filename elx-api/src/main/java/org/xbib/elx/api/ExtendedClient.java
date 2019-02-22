@@ -174,6 +174,16 @@ public interface ExtendedClient extends Flushable, Closeable {
      *
      * @param index index
      * @param settings settings
+     * @return this
+     * @throws IOException if settings/mapping is invalid or index creation fails
+     */
+    ExtendedClient newIndex(String index, Settings settings) throws IOException;
+
+    /**
+     * Create a new index.
+     *
+     * @param index index
+     * @param settings settings
      * @param mapping mapping
      * @return this
      * @throws IOException if settings/mapping is invalid or index creation fails
@@ -364,9 +374,11 @@ public interface ExtendedClient extends Flushable, Closeable {
      * @param index the index
      * @param key the key of the value to be updated
      * @param value the new value
+     * @param timeout timeout
+     * @param timeUnit time unit
      * @throws IOException if update index setting failed
      */
-    void updateIndexSetting(String index, String key, Object value) throws IOException;
+    void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) throws IOException;
 
     /**
      * Resolve alias.
@@ -386,11 +398,11 @@ public interface ExtendedClient extends Flushable, Closeable {
     String resolveMostRecentIndex(String alias);
 
     /**
-     * Get all index filters.
+     * Get all aliases.
      * @param index the index
-     * @return map of index filters
+     * @return map of index aliases
      */
-    Map<String, String> getIndexFilters(String index);
+    Map<String, String> getAliases(String index);
 
     /**
      *  Shift from one index to another.

@@ -1,4 +1,4 @@
-package org.xbib.elx.node;
+package org.xbib.elx.node.test;
 
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.junit.Assert.assertEquals;
@@ -22,14 +22,16 @@ import org.junit.Before;
 import org.junit.Test;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.Parameters;
+import org.xbib.elx.node.ExtendedNodeClient;
+import org.xbib.elx.node.ExtendedNodeClientProvider;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-public class ClientTest extends NodeTestUtils {
+public class ClientTest extends TestBase {
 
-    private static final Logger logger = LogManager.getLogger(ClientTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(ClientTest.class.getName());
 
     private static final Long ACTIONS = 25000L;
 
@@ -144,7 +146,7 @@ public class ClientTest extends NodeTestUtils {
         logger.info("NodeClient max={} maxactions={} maxloop={}", maxthreads, maxActionsPerRequest, actions);
         final ExtendedNodeClient client = ClientBuilder.builder(client("1"))
                 .provider(ExtendedNodeClientProvider.class)
-                .put(Parameters.MAX_CONCURRENT_REQUESTS.name(), maxthreads * 2)
+                .put(Parameters.MAX_CONCURRENT_REQUESTS.name(), maxthreads)
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), maxActionsPerRequest)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
                 .build();

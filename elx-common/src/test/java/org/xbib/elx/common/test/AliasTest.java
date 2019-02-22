@@ -1,4 +1,4 @@
-package org.xbib.elx.common;
+package org.xbib.elx.common.test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -9,7 +9,6 @@ import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesAction;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
-import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequestBuilder;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.client.Client;
@@ -27,7 +26,7 @@ import java.util.regex.Pattern;
 /**
  *
  */
-public class AliasTest extends NodeTestUtils {
+public class AliasTest extends TestBase {
 
     private static final Logger logger = LogManager.getLogger(AliasTest.class.getName());
 
@@ -71,9 +70,9 @@ public class AliasTest extends NodeTestUtils {
         indicesAliasesRequest.addAliasAction(aliasAction);
         client.admin().indices().aliases(indicesAliasesRequest).actionGet();
 
-        GetAliasesRequestBuilder getAliasesRequestBuilder = new GetAliasesRequestBuilder(client,
-                GetAliasesAction.INSTANCE);
-        GetAliasesResponse getAliasesResponse = getAliasesRequestBuilder.setAliases(alias).execute().actionGet();
+        GetAliasesRequest getAliasesRequest = new GetAliasesRequest();
+        getAliasesRequest.aliases(alias);
+        GetAliasesResponse getAliasesResponse = client.execute(GetAliasesAction.INSTANCE, getAliasesRequest).actionGet();
         Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
         Set<String> result = new TreeSet<>(Collections.reverseOrder());
         for (ObjectCursor<String> indexName : getAliasesResponse.getAliases().keys()) {

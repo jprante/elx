@@ -1,4 +1,4 @@
-package org.xbib.elx.node;
+package org.xbib.elx.common.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -10,17 +10,16 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
-public class ClusterBlockTest extends NodeTestUtils {
+public class ClusterBlockTest extends TestBase {
 
     private static final Logger logger = LogManager.getLogger("test");
 
     @Before
     public void startNodes() {
         try {
-            setClusterName();
+            setClusterName("test-cluster" + System.getProperty("user.name"));
             startNode("1");
             // do not wait for green health state
             logger.info("ready");
