@@ -1,0 +1,12 @@
+org.xbib.elx.http.action.admin.cluster.node.info.HttpNodesInfoAction
+org.xbib.elx.http.action.admin.cluster.settings.HttpClusterUpdateSettingsAction
+org.xbib.elx.http.action.admin.indices.create.HttpCreateIndexAction
+org.xbib.elx.http.action.admin.indices.delete.HttpDeleteIndexAction
+org.xbib.elx.http.action.admin.indices.refresh.HttpRefreshIndexAction
+org.xbib.elx.http.action.admin.indices.settings.put.HttpUpdateSettingsAction
+org.xbib.elx.http.action.bulk.HttpBulkAction
+org.xbib.elx.http.action.index.HttpIndexAction
+org.xbib.elx.http.action.search.HttpSearchAction
+org.xbib.elx.http.action.main.HttpMainAction
+org.xbib.elx.http.action.get.HttpExistsAction
+org.xbib.elx.http.action.get.HttpGetAction

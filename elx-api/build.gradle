@@ -1,0 +1,4 @@
+dependencies {
+    compile "org.xbib:metrics:${project.property('xbib-metrics.version')}"
+    compile "org.xbib.elasticsearch:elasticsearch:${rootProject.property('elasticsearch-server.version')}"
+}

@@ -1,0 +1,5 @@
+dependencies {
+    compile project(':elx-common')
+    compile "org.xbib.elasticsearch:transport-netty4:${rootProject.property('elasticsearch-server.version')}"
+    testCompile "org.xbib.elasticsearch:elasticsearch-analysis-common:${rootProject.property('elasticsearch-server.version')}"
+}
