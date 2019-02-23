@@ -41,11 +41,19 @@ subprojects {
         testCompile "junit:junit:${project.property('junit.version')}"
         testCompile "org.apache.logging.log4j:log4j-core:${project.property('log4j.version')}"
         testCompile "org.apache.logging.log4j:log4j-slf4j-impl:${project.property('log4j.version')}"
+        asciidoclet "org.xbib:asciidoclet:${project.property('asciidoclet.version')}"
         wagon "org.apache.maven.wagon:wagon-ssh:${project.property('wagon.version')}"
     }
 
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
+    compileJava {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    compileTestJava {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
 
     tasks.withType(JavaCompile) {
         options.compilerArgs << "-Xlint:all"
@@ -57,6 +65,7 @@ subprojects {
     test {
         jvmArgs =[
                '--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED',
+               '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED',
                '--add-opens=java.base/java.nio=ALL-UNNAMED'
         ]
         systemProperty 'jna.debug_load', 'true'
@@ -78,7 +87,7 @@ subprojects {
         options.overview = "src/docs/asciidoclet/overview.adoc"
         options.addStringOption "-base-dir", "${projectDir}"
         options.addStringOption "-attribute",
-                "name=${project.name},version=${project.version},title-link=https://github.com/xbib/${project.name}"
+                "name=${project.name},version=${project.version},title-link=https://github.com/jprante/${project.name}"
         configure(options) {
             noTimestamp = true
         }

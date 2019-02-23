@@ -1,5 +1,5 @@
 dependencies {
-    compile "org.xbib:metrics:${project.property('xbib-metrics.version')}"
+    compile "org.xbib:metrics-common:${project.property('xbib-metrics.version')}"
     compile("org.elasticsearch:elasticsearch:${project.property('elasticsearch.version')}") {
         // exclude ES jackson yaml, cbor, smile versions
         exclude group: 'com.fasterxml.jackson.dataformat'

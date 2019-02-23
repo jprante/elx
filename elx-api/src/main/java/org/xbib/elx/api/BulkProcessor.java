@@ -10,10 +10,10 @@ import java.util.concurrent.TimeUnit;
 
 public interface BulkProcessor extends Closeable, Flushable {
 
-    @SuppressWarnings("rawtype")
+    @SuppressWarnings("rawtypes")
     BulkProcessor add(ActionRequest request);
 
-    @SuppressWarnings("rawtype")
+    @SuppressWarnings("rawtypes")
     BulkProcessor add(ActionRequest request, Object payload);
 
     boolean awaitFlush(long timeout, TimeUnit unit) throws InterruptedException;

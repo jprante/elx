@@ -132,6 +132,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
      * @param request request
      * @return his bulk processor
      */
+    @SuppressWarnings("rawtypes")
     @Override
     public DefaultBulkProcessor add(ActionRequest request) {
         return add(request, null);
@@ -144,6 +145,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
      * @param payload payload
      * @return his bulk processor
      */
+    @SuppressWarnings("rawtypes")
     @Override
     public DefaultBulkProcessor add(ActionRequest request, Object payload) {
         internalAdd(request, payload);

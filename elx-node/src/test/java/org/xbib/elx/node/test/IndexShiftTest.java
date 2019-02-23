@@ -100,7 +100,6 @@ public class IndexShiftTest extends TestBase {
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
-            client.waitForResponses(30L, TimeUnit.SECONDS);
             client.close();
             if (client.getBulkController().getLastBulkError() != null) {
                 logger.error("error", client.getBulkController().getLastBulkError());

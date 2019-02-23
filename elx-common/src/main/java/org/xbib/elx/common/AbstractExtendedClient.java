@@ -309,7 +309,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     }
 
     @Override
-    public ExtendedClient newIndex(String index, Settings settings, Map<String, Object> mapping) throws IOException {
+    public ExtendedClient newIndex(String index, Settings settings, Map<String, Object> mapping) {
         ensureActive();
         if (index == null) {
             logger.warn("no index name given to create index");
@@ -379,15 +379,15 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     }
 
     @Override
-    public ExtendedClient index(String index, String id, boolean create, BytesReference source) {
-        return index(new IndexRequest(index, TYPE_NAME, id).create(create)
-                .source(source));
-    }
-
-    @Override
     public ExtendedClient index(String index, String id, boolean create, String source) {
         return index(new IndexRequest(index, TYPE_NAME, id).create(create)
                 .source(source.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    @Override
+    public ExtendedClient index(String index, String id, boolean create, BytesReference source) {
+        return index(new IndexRequest(index, TYPE_NAME, id).create(create)
+                .source(source));
     }
 
     @Override
@@ -411,12 +411,14 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public ExtendedClient update(String index, String id, BytesReference source) {
-        return update(new UpdateRequest(index, TYPE_NAME, id).doc(source));
+        return update(new UpdateRequest(index, TYPE_NAME, id)
+                .doc(source));
     }
 
     @Override
     public ExtendedClient update(String index, String id, String source) {
-        return update(new UpdateRequest(index, TYPE_NAME, id).doc(source.getBytes(StandardCharsets.UTF_8)));
+        return update(new UpdateRequest(index, TYPE_NAME, id)
+                .doc(source.getBytes(StandardCharsets.UTF_8)));
     }
 
     @Override
@@ -439,18 +441,22 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
         RecoveryRequest recoveryRequest = new RecoveryRequest();
         recoveryRequest.indices(index);
         recoveryRequest.activeOnly(true);
-        RecoveryResponse response = client.execute(RecoveryAction.INSTANCE, recoveryRequest).actionGet();
-        int shards = response.getTotalShards();
-        TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
-        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
-                .indices(new String[]{index})
-                .waitForActiveShards(shards)
-                .timeout(timeout);
-        ClusterHealthResponse healthResponse =
-                client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
-        if (healthResponse != null && healthResponse.isTimedOut()) {
-            logger.error("timeout waiting for recovery");
-            return false;
+        RecoveryResponse recoveryResponse = client.execute(RecoveryAction.INSTANCE, recoveryRequest).actionGet();
+        if (recoveryResponse.hasRecoveries()) {
+            int shards = recoveryResponse.getTotalShards();
+            logger.info("shards = {}", shards);
+            logger.info(recoveryResponse.shardRecoveryStates());
+            TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
+            ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
+                    .indices(new String[]{index})
+                    .waitForActiveShards(shards)
+                    .timeout(timeout);
+            ClusterHealthResponse healthResponse =
+                    client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
+            if (healthResponse != null && healthResponse.isTimedOut()) {
+                logger.error("timeout waiting for recovery");
+                return false;
+            }
         }
         return true;
     }
@@ -641,10 +647,10 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
                         oldIndex, alias));
                 if (filter != null) {
                     indicesAliasesRequest.addAliasAction(new IndicesAliasesRequest.AliasActions(AliasAction.Type.ADD,
-                            fullIndexName, index).filter(filter));
+                            fullIndexName, alias).filter(filter));
                 } else {
                     indicesAliasesRequest.addAliasAction(new IndicesAliasesRequest.AliasActions(AliasAction.Type.ADD,
-                            fullIndexName, index));
+                            fullIndexName, alias));
                 }
                 moveAliases.add(alias);
             }
@@ -733,7 +739,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
                 if (m2.matches()) {
                     Integer i2 = Integer.parseInt(m2.group(2));
                     int kept = candidateIndices.size() - indicesToDelete.size();
-                    if ((delta == 0 || (delta > 0 && i1 - i2 > delta)) && mintokeep <= kept) {
+                    if ((delta == 0 || (delta > 0 && i1 - i2 >= delta)) && mintokeep <= kept) {
                         indicesToDelete.add(s);
                     }
                 }
