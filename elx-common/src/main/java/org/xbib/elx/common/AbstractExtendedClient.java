@@ -438,14 +438,11 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     public boolean waitForRecovery(String index, long maxWaitTime, TimeUnit timeUnit) {
         ensureActive();
         ensureIndexGiven(index);
-        RecoveryRequest recoveryRequest = new RecoveryRequest();
-        recoveryRequest.indices(index);
-        recoveryRequest.activeOnly(true);
-        RecoveryResponse recoveryResponse = client.execute(RecoveryAction.INSTANCE, recoveryRequest).actionGet();
-        if (recoveryResponse.hasRecoveries()) {
-            int shards = recoveryResponse.getTotalShards();
-            logger.info("shards = {}", shards);
-            logger.info(recoveryResponse.shardRecoveryStates());
+        GetSettingsRequest settingsRequest = new GetSettingsRequest();
+        settingsRequest.indices(index);
+        GetSettingsResponse settingsResponse = client.execute(GetSettingsAction.INSTANCE, settingsRequest).actionGet();
+        int shards = settingsResponse.getIndexToSettings().get(index).getAsInt("index.number_of_shards", -1);
+        if (shards > 0) {
             TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
             ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
                     .indices(new String[]{index})
