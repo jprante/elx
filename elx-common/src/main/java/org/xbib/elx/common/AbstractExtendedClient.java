@@ -46,7 +46,7 @@ import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchAction;
-import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.ElasticsearchClient;
@@ -70,6 +70,7 @@ import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
@@ -445,20 +446,21 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     public boolean waitForRecovery(String index, long maxWaitTime, TimeUnit timeUnit) {
         ensureActive();
         ensureIndexGiven(index);
-        RecoveryRequest recoveryRequest = new RecoveryRequest();
-        recoveryRequest.indices(index);
-        recoveryRequest.activeOnly(true);
-        RecoveryResponse response = client.execute(RecoveryAction.INSTANCE, recoveryRequest).actionGet();
-        int shards = response.getTotalShards();
-        TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
-        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
-                .indices(index)
-                .waitForActiveShards(shards).timeout(timeout);
-        ClusterHealthResponse healthResponse =
-                client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
-        if (healthResponse != null && healthResponse.isTimedOut()) {
-            logger.error("timeout waiting for recovery");
-            return false;
+        GetSettingsRequest settingsRequest = new GetSettingsRequest();
+        settingsRequest.indices(index);
+        GetSettingsResponse settingsResponse = client.execute(GetSettingsAction.INSTANCE, settingsRequest).actionGet();
+        int shards = settingsResponse.getIndexToSettings().get(index).getAsInt("index.number_of_shards", -1);
+        if (shards > 0) {
+            TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
+            ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
+                    .indices(index)
+                    .waitForActiveShards(shards).timeout(timeout);
+            ClusterHealthResponse healthResponse =
+                    client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
+            if (healthResponse != null && healthResponse.isTimedOut()) {
+                logger.error("timeout waiting for recovery");
+                return false;
+            }
         }
         return true;
     }
@@ -736,7 +738,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
                 if (m2.matches()) {
                     Integer i2 = Integer.parseInt(m2.group(2));
                     int kept = candidateIndices.size() - indicesToDelete.size();
-                    if ((delta == 0 || (delta > 0 && i1 - i2 > delta)) && mintokeep <= kept) {
+                    if ((delta == 0 || (delta > 0 && i1 - i2 >= delta)) && mintokeep <= kept) {
                         indicesToDelete.add(s);
                     }
                 }
@@ -755,13 +757,16 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     @Override
     public Long mostRecentDocument(String index, String timestampfieldname) {
         ensureActive();
-        SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE);
         SortBuilder<?> sort = SortBuilders.fieldSort(timestampfieldname).order(SortOrder.DESC);
-        SearchResponse searchResponse = searchRequestBuilder.setIndices(index)
-                .addStoredField(timestampfieldname)
-                .setSize(1)
-                .addSort(sort)
-                .execute().actionGet();
+        SearchSourceBuilder builder = new SearchSourceBuilder();
+        builder.sort(sort);
+        builder.storedField(timestampfieldname);
+        builder.size(1);
+        SearchRequest searchRequest = new SearchRequest();
+        searchRequest.indices(index);
+        searchRequest.source(builder);
+        SearchResponse searchResponse =
+                client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
         if (searchResponse.getHits().getHits().length == 1) {
             SearchHit hit = searchResponse.getHits().getHits()[0];
             if (hit.getFields().get(timestampfieldname) != null) {
@@ -903,13 +908,15 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     private void checkMapping(String index, String type, MappingMetaData mappingMetaData) {
         try {
-            SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE);
-            SearchResponse searchResponse = searchRequestBuilder.setSize(0)
-                    .setIndices(index)
-                    .setTypes(type)
-                    .setQuery(QueryBuilders.matchAllQuery())
-                    .execute()
-                    .actionGet();
+            SearchSourceBuilder builder = new SearchSourceBuilder();
+            builder.query(QueryBuilders.matchAllQuery());
+            builder.size(0);
+            SearchRequest searchRequest = new SearchRequest();
+            searchRequest.indices(index);
+            searchRequest.types(type);
+            searchRequest.source(builder);
+            SearchResponse searchResponse =
+                    client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
             long total = searchResponse.getHits().getTotalHits();
             if (total > 0L) {
                 Map<String, Long> fields = new TreeMap<>();
@@ -965,13 +972,15 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
             } else if ("type".equals(key)) {
                 QueryBuilder filterBuilder = QueryBuilders.existsQuery(path);
                 QueryBuilder queryBuilder = QueryBuilders.constantScoreQuery(filterBuilder);
-                SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE);
-                SearchResponse searchResponse = searchRequestBuilder.setSize(0)
-                        .setIndices(index)
-                        .setTypes(type)
-                        .setQuery(queryBuilder)
-                        .execute()
-                        .actionGet();
+                SearchSourceBuilder builder = new SearchSourceBuilder();
+                builder.query(queryBuilder);
+                builder.size(0);
+                SearchRequest searchRequest = new SearchRequest();
+                searchRequest.indices(index);
+                searchRequest.types(type);
+                searchRequest.source(builder);
+                SearchResponse searchResponse =
+                        client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
                 fields.put(path, searchResponse.getHits().getTotalHits());
             }
         }

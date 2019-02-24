@@ -17,7 +17,7 @@ import static org.junit.Assert.assertNull;
 
 public class SmokeTest extends TestBase {
 
-    private static final Logger logger = LogManager.getLogger(SmokeTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(SmokeTest.class.getName());
 
     @Test
     public void smokeTest() throws Exception {
@@ -27,21 +27,14 @@ public class SmokeTest extends TestBase {
                 .put(getTransportSettings())
                 .build();
         try {
+            assertEquals(getClusterName(), client.getClusterName());
             client.newIndex("test");
             client.index("test", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
+            client.update("test", "1", "{ \"name\" : \"Another name\"}");
+            client.delete("test", "1");
             client.flush();
             client.waitForResponses(30, TimeUnit.SECONDS);
-
-            assertEquals(getClusterName(), client.getClusterName());
-
             client.checkMapping("test");
-
-            client.update("test", "1", "{ \"name\" : \"Another name\"}");
-            client.flush();
-
-            client.waitForRecovery("test", 10L, TimeUnit.SECONDS);
-
-            client.delete("test", "1");
             client.deleteIndex("test");
 
             IndexDefinition indexDefinition = client.buildIndexDefinitionFromSettings("test", Settings.builder()
@@ -50,8 +43,8 @@ public class SmokeTest extends TestBase {
             client.newIndex(indexDefinition);
             client.index(indexDefinition.getFullIndexName(), "1", true, "{ \"name\" : \"Hello World\"}");
             client.flush();
+            client.waitForResponses(30, TimeUnit.SECONDS);
             client.updateReplicaLevel(indexDefinition, 2);
-
             int replica = client.getReplicaLevel(indexDefinition);
             assertEquals(2, replica);
 

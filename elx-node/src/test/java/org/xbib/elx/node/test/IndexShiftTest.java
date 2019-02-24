@@ -21,7 +21,7 @@ import static org.junit.Assert.assertTrue;
 
 public class IndexShiftTest extends TestBase {
 
-    private static final Logger logger = LogManager.getLogger(IndexShiftTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(IndexShiftTest.class.getName());
 
     @Test
     public void testIndexShift() throws Exception {

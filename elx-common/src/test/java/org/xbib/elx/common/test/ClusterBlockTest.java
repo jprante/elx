@@ -21,7 +21,7 @@ public class ClusterBlockTest extends TestBase {
     @Before
     public void startNodes() {
         try {
-            setClusterName("test-cluster");
+            setClusterName("test-cluster-" + System.getProperty("user.name"));
             startNode("1");
             // do not wait for green health state
             logger.info("ready");

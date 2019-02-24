@@ -6,7 +6,7 @@ plugins {
     id "org.xbib.gradle.plugin.asciidoctor" version "1.6.0.1"
 }
 
-printf "Host: %s\nOS: %s %s %s\nJava: %s %s %s %s\nGradle: %s Groovy: %s Java: %s\n" +
+printf "Host: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGradle: %s Groovy: %s Java: %s\n" +
         "Build: group: ${project.group} name: ${project.name} version: ${project.version}\n",
         InetAddress.getLocalHost(),
         System.getProperty("os.name"),
@@ -16,8 +16,9 @@ printf "Host: %s\nOS: %s %s %s\nJava: %s %s %s %s\nGradle: %s Groovy: %s Java: %
         System.getProperty("java.vm.version"),
         System.getProperty("java.vm.vendor"),
         System.getProperty("java.vm.name"),
-        gradle.gradleVersion, GroovySystem.getVersion(), JavaVersion.current()
-
+        gradle.gradleVersion, 
+        GroovySystem.getVersion(), 
+        JavaVersion.current()
 
 if (JavaVersion.current() < JavaVersion.VERSION_11) {
     throw new GradleException("This build must be run with java 11 or higher")
@@ -90,24 +91,6 @@ subprojects {
         configure(options) {
             noTimestamp = true
         }
-    }*/
-
-    /*task javadocJar(type: Jar, dependsOn: classes) {
-        baseName "${rootProject.name}-${project.name}"
-        from javadoc
-        into "build/tmp"
-        classifier 'javadoc'
-    }
-
-    task sourcesJar(type: Jar, dependsOn: classes) {
-        baseName "${rootProject.name}-${project.name}"
-        from sourceSets.main.allSource
-        into "build/tmp"
-        classifier 'sources'
-    }
-
-    artifacts {
-        archives javadocJar, sourcesJar
     }*/
 
     task javadocJar(type: Jar, dependsOn: javadoc) {

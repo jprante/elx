@@ -36,8 +36,7 @@ public class SearchTest extends TestBase {
                             .field("user9", "joerg")
                             .field("rowcount", i)
                             .field("rs", 1234)
-                            .endObject()
-                    );
+                            .endObject());
             builder.add(indexRequest);
         }
         client.bulk(builder.request()).actionGet();

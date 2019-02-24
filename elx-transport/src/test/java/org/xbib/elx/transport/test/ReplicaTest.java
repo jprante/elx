@@ -6,13 +6,16 @@ import org.elasticsearch.action.admin.indices.stats.CommonStats;
 import org.elasticsearch.action.admin.indices.stats.IndexShardStats;
 import org.elasticsearch.action.admin.indices.stats.IndexStats;
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsAction;
-import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequestBuilder;
+import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequest;
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse;
 import org.elasticsearch.action.search.SearchAction;
-import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.shard.IndexingStats;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.xbib.elx.common.ClientBuilder;
@@ -23,14 +26,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 @Ignore
 public class ReplicaTest extends TestBase {
 
-    private static final Logger logger = LogManager.getLogger(ReplicaTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(ReplicaTest.class.getName());
 
     @Test
     public void testReplicaLevel() throws Exception {
@@ -73,15 +75,21 @@ public class ReplicaTest extends TestBase {
             logger.info("refreshing");
             client.refreshIndex("test1");
             client.refreshIndex("test2");
-            SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client.getClient(), SearchAction.INSTANCE)
-                    .setIndices("test1", "test2")
-                    .setQuery(matchAllQuery());
-            long hits = searchRequestBuilder.execute().actionGet().getHits().getTotalHits();
+            SearchSourceBuilder builder = new SearchSourceBuilder();
+            builder.query(QueryBuilders.matchAllQuery());
+            builder.size(0);
+            SearchRequest searchRequest = new SearchRequest();
+            searchRequest.indices("test1", "test2");
+            searchRequest.source(builder);
+            SearchResponse searchResponse =
+                    client.getClient().execute(SearchAction.INSTANCE, searchRequest).actionGet();
+            long hits = searchResponse.getHits().getTotalHits();
             logger.info("query total hits={}", hits);
             assertEquals(2468, hits);
-            IndicesStatsRequestBuilder indicesStatsRequestBuilder = new IndicesStatsRequestBuilder(client.getClient(), IndicesStatsAction.INSTANCE)
-                    .all();
-            IndicesStatsResponse response = indicesStatsRequestBuilder.execute().actionGet();
+            IndicesStatsRequest indicesStatsRequest = new IndicesStatsRequest();
+            indicesStatsRequest.all();
+            IndicesStatsResponse response =
+                    client.getClient().execute(IndicesStatsAction.INSTANCE, indicesStatsRequest).actionGet();
             for (Map.Entry<String, IndexStats> m : response.getIndices().entrySet()) {
                 IndexStats indexStats = m.getValue();
                 CommonStats commonStats = indexStats.getTotal();

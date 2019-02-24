@@ -30,7 +30,7 @@ import static org.junit.Assert.assertNull;
 @Ignore
 public class ReplicaTest extends TestBase {
 
-    private static final Logger logger = LogManager.getLogger(ReplicaTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(ReplicaTest.class.getName());
 
     @Test
     public void testReplicaLevel() throws Exception {

@@ -1,6 +1,5 @@
 package org.xbib.elx.node;
 
-import io.netty.util.Version;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.client.ElasticsearchClient;
@@ -12,7 +11,6 @@ import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.plugins.Plugin;
-import org.elasticsearch.transport.netty4.Netty4Utils;
 import org.xbib.elx.common.AbstractExtendedClient;
 
 import java.io.IOException;

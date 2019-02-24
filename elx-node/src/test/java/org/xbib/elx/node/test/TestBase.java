@@ -9,7 +9,7 @@ import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoRequest;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoResponse;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
-import org.elasticsearch.action.admin.cluster.state.ClusterStateRequestBuilder;
+import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.analysis.common.CommonAnalysisPlugin;
 import org.elasticsearch.client.support.AbstractClient;
@@ -36,7 +36,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class TestBase {
 
@@ -50,8 +49,6 @@ public class TestBase {
 
     private Map<String, AbstractClient> clients = new HashMap<>();
 
-    private AtomicInteger counter = new AtomicInteger();
-
     private String cluster;
 
     private String host;
@@ -62,7 +59,7 @@ public class TestBase {
     public void startNodes() {
         try {
             logger.info("starting");
-            this.cluster = "test-cluster-" + counter.incrementAndGet();
+            this.cluster = "test-cluster-" + System.getProperty("user.name");
             startNode("1");
             findNodeAddress();
             try {
@@ -76,9 +73,10 @@ public class TestBase {
             } catch (ElasticsearchTimeoutException e) {
                 throw new IOException("cluster does not respond to health request, cowardly refusing to continue");
             }
-            ClusterStateRequestBuilder clusterStateRequestBuilder =
-                    new ClusterStateRequestBuilder(client("1"), ClusterStateAction.INSTANCE).all();
-            ClusterStateResponse clusterStateResponse = clusterStateRequestBuilder.execute().actionGet();
+            ClusterStateRequest clusterStateRequest = new ClusterStateRequest();
+            clusterStateRequest.all();
+            ClusterStateResponse clusterStateResponse =
+                    client("1").execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
             logger.info("cluster name = {}", clusterStateResponse.getClusterName().value());
             logger.info("host = {} port = {}", host, port);
         } catch (Throwable t) {

@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 public class ClientTest extends TestBase {
 
-    private static final Logger logger = LogManager.getLogger(ClientTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(ClientTest.class.getName());
 
     private static final Long ACTIONS = 25000L;
 
@@ -124,8 +124,6 @@ public class ClientTest extends TestBase {
             client.waitForResponses(30L, TimeUnit.SECONDS);
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
-        } catch (Exception e) {
-            logger.error(e.getMessage(), e);
         } finally {
             assertEquals(numactions, client.getBulkMetric().getSucceeded().getCount());
             if (client.getBulkController().getLastBulkError() != null) {
@@ -149,7 +147,7 @@ public class ClientTest extends TestBase {
         logger.info("maxthreads={} maxactions={} maxloop={}", maxthreads, maxActionsPerRequest, actions);
         final ExtendedNodeClient client = ClientBuilder.builder(client("1"))
                 .provider(ExtendedNodeClientProvider.class)
-                .put(Parameters.MAX_CONCURRENT_REQUESTS.name(), maxthreads * 2)
+                .put(Parameters.MAX_CONCURRENT_REQUESTS.name(), maxthreads)
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), maxActionsPerRequest)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
                 .build();
@@ -187,8 +185,6 @@ public class ClientTest extends TestBase {
             assertEquals(maxthreads * actions, client.getBulkMetric().getSucceeded().getCount());
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
-        } catch (Exception e) {
-            logger.error(e.getMessage(), e);
         } finally {
             if (client.getBulkController().getLastBulkError() != null) {
                 logger.error("error", client.getBulkController().getLastBulkError());

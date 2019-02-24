@@ -108,7 +108,6 @@ public class ExtendedTransportClient extends AbstractExtendedClient {
                 addresses.add(address);
             }
         }
-        logger.info("configured addresses = {}", addresses);
         return addresses;
     }
 
@@ -116,7 +115,6 @@ public class ExtendedTransportClient extends AbstractExtendedClient {
         if (getClient() == null) {
             throw new IllegalStateException("no client present");
         }
-        logger.debug("trying to connect to {}", addresses);
         TransportClient transportClient = (TransportClient) getClient();
         for (TransportAddress address : addresses) {
             transportClient.addTransportAddresses(address);

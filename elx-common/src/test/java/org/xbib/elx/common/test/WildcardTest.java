@@ -1,11 +1,16 @@
 package org.xbib.elx.common.test;
 
+import org.elasticsearch.action.admin.indices.refresh.RefreshAction;
 import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
+import org.elasticsearch.action.index.IndexAction;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.search.SearchAction;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -31,16 +36,20 @@ public class WildcardTest extends TestBase {
     }
 
     private void index(Client client, String id, String fieldValue) throws IOException {
-        client.index(new IndexRequest("index", "type", id)
+        client.execute(IndexAction.INSTANCE, new IndexRequest("index", "type", id)
                 .source(XContentFactory.jsonBuilder().startObject().field("field", fieldValue).endObject()))
                 .actionGet();
-        client.admin().indices().refresh(new RefreshRequest()).actionGet();
+        client.execute(RefreshAction.INSTANCE, new RefreshRequest()).actionGet();
     }
 
     private long count(Client client, QueryBuilder queryBuilder) {
-        return client.prepareSearch("index").setTypes("type")
-                .setQuery(queryBuilder)
-                .execute().actionGet().getHits().getTotalHits();
+        SearchSourceBuilder builder = new SearchSourceBuilder();
+        builder.query(queryBuilder);
+        SearchRequest searchRequest = new SearchRequest();
+        searchRequest.indices("index");
+        searchRequest.types("type");
+        searchRequest.source(builder);
+        return client.execute(SearchAction.INSTANCE, searchRequest).actionGet().getHits().getTotalHits();
     }
 
     private void validateCount(Client client, QueryBuilder queryBuilder, long expectedHits) {

@@ -6,13 +6,15 @@ import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsAction;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
 import org.elasticsearch.action.search.SearchAction;
-import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.Before;
 import org.junit.Test;
 import org.xbib.elx.common.ClientBuilder;
@@ -32,7 +34,7 @@ import static org.junit.Assert.assertTrue;
 
 public class ClientTest extends TestBase {
 
-    private static final Logger logger = LogManager.getLogger(ClientTest.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(ClientTest.class.getName());
 
     private static final Long ACTIONS = 25000L;
 
@@ -137,10 +139,14 @@ public class ClientTest extends TestBase {
             }
             assertNull(client.getBulkController().getLastBulkError());
             client.refreshIndex("test");
-            SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client.getClient(), SearchAction.INSTANCE)
-                    .setQuery(QueryBuilders.matchAllQuery()).setSize(0);
-            assertEquals(numactions,
-                    searchRequestBuilder.execute().actionGet().getHits().getTotalHits());
+            SearchSourceBuilder builder = new SearchSourceBuilder();
+            builder.query(QueryBuilders.matchAllQuery());
+            builder.size(0);
+            SearchRequest searchRequest = new SearchRequest();
+            searchRequest.indices("test");
+            searchRequest.source(builder);
+            SearchResponse searchResponse = client.getClient().execute(SearchAction.INSTANCE, searchRequest).actionGet();
+            assertEquals(numactions, searchResponse.getHits().getTotalHits());
             client.close();
         }
     }
@@ -200,10 +206,14 @@ public class ClientTest extends TestBase {
             }
             assertNull(client.getBulkController().getLastBulkError());
             client.refreshIndex("test");
-            SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client.getClient(), SearchAction.INSTANCE)
-                    .setQuery(QueryBuilders.matchAllQuery()).setSize(0);
-            assertEquals(maxthreads * actions,
-                    searchRequestBuilder.execute().actionGet().getHits().getTotalHits());
+            SearchSourceBuilder builder = new SearchSourceBuilder();
+            builder.query(QueryBuilders.matchAllQuery());
+            builder.size(0);
+            SearchRequest searchRequest = new SearchRequest();
+            searchRequest.indices("test");
+            searchRequest.source(builder);
+            SearchResponse searchResponse = client.getClient().execute(SearchAction.INSTANCE, searchRequest).actionGet();
+            assertEquals(maxthreads * actions, searchResponse.getHits().getTotalHits());
             client.close();
         }
     }

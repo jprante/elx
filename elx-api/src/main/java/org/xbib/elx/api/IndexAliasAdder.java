@@ -5,5 +5,5 @@ import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 @FunctionalInterface
 public interface IndexAliasAdder {
 
-    void addIndexAlias(IndicesAliasesRequest requwst, String index, String alias);
+    void addIndexAlias(IndicesAliasesRequest request, String index, String alias);
 }
