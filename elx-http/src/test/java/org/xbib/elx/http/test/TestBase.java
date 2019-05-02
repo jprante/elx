@@ -1,4 +1,4 @@
-package org.xbib.elx.common.test;
+package org.xbib.elx.http.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -6,6 +6,7 @@ import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.elasticsearch.action.admin.cluster.node.info.NodeInfo;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoRequest;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoResponse;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
@@ -15,6 +16,7 @@ import org.elasticsearch.client.support.AbstractClient;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.node.Node;
 import org.junit.After;
@@ -47,9 +49,11 @@ public class TestBase {
 
     private String cluster;
 
-    private String host;
+    protected String host;
 
-    private int port;
+    protected int port;
+
+    protected int httpPort;
 
     @Before
     public void startNodes() {
@@ -60,7 +64,7 @@ public class TestBase {
             findNodeAddress();
             try {
                 ClusterHealthResponse healthResponse = client("1").execute(ClusterHealthAction.INSTANCE,
-                        new ClusterHealthRequest().waitForStatus(ClusterHealthStatus.GREEN)
+                        new ClusterHealthRequest().waitForStatus(ClusterHealthStatus.YELLOW)
                                 .timeout(TimeValue.timeValueSeconds(30))).actionGet();
                 if (healthResponse != null && healthResponse.isTimedOut()) {
                     throw new IOException("cluster state is " + healthResponse.getStatus().name()
@@ -119,14 +123,6 @@ public class TestBase {
     protected Settings getNodeSettings() {
         return settingsBuilder()
                 .put("cluster.name", cluster)
-                //.put("cluster.routing.schedule", "50ms")
-                //.put("cluster.routing.allocation.disk.threshold_enabled", false)
-                //.put("discovery.zen.multicast.enabled", true)
-                //.put("discovery.zen.multicast.ping_timeout", "5s")
-                //.put("http.enabled", true)
-                //.put("threadpool.bulk.size", Runtime.getRuntime().availableProcessors())
-                //.put("threadpool.bulk.queue_size", 16 * Runtime.getRuntime().availableProcessors()) // default is 50, too low
-                //.put("index.number_of_replicas", 0)
                 .put("path.home", getHome())
                 .build();
     }
@@ -146,12 +142,18 @@ public class TestBase {
     protected void findNodeAddress() {
         NodesInfoRequest nodesInfoRequest = new NodesInfoRequest().transport(true);
         NodesInfoResponse response = client("1").admin().cluster().nodesInfo(nodesInfoRequest).actionGet();
-        Object obj = response.iterator().next().getTransport().getAddress()
-                .publishAddress();
-        if (obj instanceof InetSocketTransportAddress) {
-            InetSocketTransportAddress address = (InetSocketTransportAddress) obj;
-            host = address.address().getHostName();
-            port = address.address().getPort();
+        for (NodeInfo nodeInfo : response) {
+            TransportAddress transportAddress = nodeInfo.getTransport().getAddress().publishAddress();
+            if (transportAddress instanceof InetSocketTransportAddress) {
+                InetSocketTransportAddress address = (InetSocketTransportAddress) transportAddress;
+                host = address.address().getHostName();
+                port = address.address().getPort();
+            }
+            transportAddress = nodeInfo.getHttp().getAddress().publishAddress();
+            if (transportAddress instanceof InetSocketTransportAddress) {
+                InetSocketTransportAddress address = (InetSocketTransportAddress) transportAddress;
+                httpPort = address.address().getPort();
+            }
         }
     }
 

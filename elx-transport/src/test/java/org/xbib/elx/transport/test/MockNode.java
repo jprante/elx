@@ -1,4 +1,4 @@
-package org.xbib.elx.transport;
+package org.xbib.elx.transport.test;
 
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.node.Node;

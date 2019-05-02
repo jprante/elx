@@ -1,4 +1,4 @@
-package org.xbib.elx.transport;
+package org.xbib.elx.transport.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -7,26 +7,36 @@ import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.cluster.metadata.AliasAction;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexShiftResult;
 import org.xbib.elx.common.ClientBuilder;
+import org.xbib.elx.transport.ExtendedTransportClient;
+import org.xbib.elx.transport.ExtendedTransportClientProvider;
 
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class IndexShiftTest extends TestBase {
+@ExtendWith(TestExtension.class)
+class IndexShiftTest {
 
     private static final Logger logger = LogManager.getLogger(IndexShiftTest.class.getName());
 
+    private final TestExtension.Helper helper;
+
+    IndexShiftTest(TestExtension.Helper helper) {
+        this.helper = helper;
+    }
+
     @Test
-    public void testIndexAlias() throws Exception {
+    void testIndexAlias() throws Exception {
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
-                .put(getTransportSettings()).build();
+                .put(helper.getTransportSettings()).build();
         try {
             Settings settings = Settings.builder()
                     .put("index.number_of_shards", 1)
@@ -34,13 +44,14 @@ public class IndexShiftTest extends TestBase {
                     .build();
             client.newIndex("test1234", settings);
             for (int i = 0; i < 1; i++) {
-                client.index("test1234", randomString(1), false, "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test1234", helper.randomString(1), false,
+                        "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             client.flush();
             client.waitForResponses(30L, TimeUnit.SECONDS);
 
             IndexShiftResult indexShiftResult =
-                    client.shiftIndex("test", "test1234", Arrays.asList("a", "b", "c"));
+                    client.shiftIndex("test_shift", "test1234", Arrays.asList("a", "b", "c"));
 
             assertTrue(indexShiftResult.getNewAliases().contains("a"));
             assertTrue(indexShiftResult.getNewAliases().contains("b"));
@@ -51,23 +62,24 @@ public class IndexShiftTest extends TestBase {
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
-            assertTrue(aliases.containsKey("test"));
+            assertTrue(aliases.containsKey("test_shift"));
 
-            String resolved = client.resolveAlias("test");
+            String resolved = client.resolveAlias("test_shift");
             aliases = client.getAliases(resolved);
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
-            assertTrue(aliases.containsKey("test"));
+            assertTrue(aliases.containsKey("test_shift"));
 
             client.newIndex("test5678", settings);
             for (int i = 0; i < 1; i++) {
-                client.index("test5678", randomString(1), false, "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test5678", helper.randomString(1), false,
+                        "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             client.flush();
             client.waitForResponses(30L, TimeUnit.SECONDS);
 
-            indexShiftResult = client.shiftIndex("test", "test5678", Arrays.asList("d", "e", "f"),
+            indexShiftResult = client.shiftIndex("test_shift", "test5678", Arrays.asList("d", "e", "f"),
                     (request, index, alias) -> request.addAliasAction(new IndicesAliasesRequest.AliasActions(AliasAction.Type.ADD,
                             index, alias).filter(QueryBuilders.termQuery("my_key", alias)))
             );
@@ -86,7 +98,7 @@ public class IndexShiftTest extends TestBase {
             assertTrue(aliases.containsKey("e"));
             assertTrue(aliases.containsKey("f"));
 
-            resolved = client.resolveAlias("test");
+            resolved = client.resolveAlias("test_shift");
             aliases = client.getAliases(resolved);
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
@@ -98,11 +110,11 @@ public class IndexShiftTest extends TestBase {
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
+            client.close();
             if (client.getBulkController().getLastBulkError() != null) {
                 logger.error("error", client.getBulkController().getLastBulkError());
             }
             assertNull(client.getBulkController().getLastBulkError());
-            client.close();
         }
     }
 }

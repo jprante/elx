@@ -1,27 +1,38 @@
 package org.xbib.elx.common.test;
 
+import org.elasticsearch.action.admin.indices.refresh.RefreshAction;
 import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.bulk.BulkAction;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchAction;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.Client;
+import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class SearchTest extends TestBase {
+@ExtendWith(TestExtension.class)
+class SearchTest {
+
+    private final TestExtension.Helper helper;
+
+    SearchTest(TestExtension.Helper helper) {
+        this.helper = helper;
+    }
 
     @Test
-    public void testSearch() throws Exception {
-        Client client = client("1");
+    void testSearch() throws Exception {
+        ElasticsearchClient client = helper.client("1");
         BulkRequestBuilder builder = new BulkRequestBuilder(client, BulkAction.INSTANCE);
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 1; i++) {
             IndexRequest indexRequest = new IndexRequest("pages", "row")
                     .source(XContentFactory.jsonBuilder()
                             .startObject()
@@ -39,18 +50,20 @@ public class SearchTest extends TestBase {
                             .endObject());
             builder.add(indexRequest);
         }
-        client.bulk(builder.request()).actionGet();
-        client.admin().indices().refresh(new RefreshRequest()).actionGet();
-
-        for (int i = 0; i < 100; i++) {
+        client.execute(BulkAction.INSTANCE, builder.request()).actionGet();
+        client.execute(RefreshAction.INSTANCE, new RefreshRequest()).actionGet();
+        for (int i = 0; i < 1; i++) {
             QueryBuilder queryStringBuilder = QueryBuilders.queryStringQuery("rs:" + 1234);
-            SearchRequestBuilder requestBuilder = client.prepareSearch()
-                    .setIndices("pages")
-                    .setTypes("row")
-                    .setQuery(queryStringBuilder)
-                    .addSort("rowcount", SortOrder.DESC)
-                    .setFrom(i * 10).setSize(10);
-            SearchResponse searchResponse = requestBuilder.execute().actionGet();
+            SearchSourceBuilder searchSource = new SearchSourceBuilder();
+            searchSource.query(queryStringBuilder);
+            searchSource.sort("rowcount", SortOrder.DESC);
+            searchSource.from(i * 10);
+            searchSource.size(10);
+            SearchRequest searchRequest = new SearchRequest();
+            searchRequest.indices("pages");
+            searchRequest.types("row");
+            searchRequest.source(searchSource);
+            SearchResponse searchResponse = client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
             assertTrue(searchResponse.getHits().getTotalHits() > 0);
         }
     }
