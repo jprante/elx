@@ -454,7 +454,8 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
             TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
             ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
                     .indices(index)
-                    .waitForActiveShards(shards).timeout(timeout);
+                    .waitForActiveShards(shards)
+                    .timeout(timeout);
             ClusterHealthResponse healthResponse =
                     client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
             if (healthResponse != null && healthResponse.isTimedOut()) {

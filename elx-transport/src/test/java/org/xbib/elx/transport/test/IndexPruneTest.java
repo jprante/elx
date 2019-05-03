@@ -7,7 +7,8 @@ import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsReques
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.common.settings.Settings;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexPruneResult;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.transport.ExtendedTransportClient;
@@ -19,19 +20,26 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class IndexPruneTest extends TestBase {
+@ExtendWith(TestExtension.class)
+class IndexPruneTest {
 
     private static final Logger logger = LogManager.getLogger(IndexShiftTest.class.getName());
 
+    private final TestExtension.Helper helper;
+
+    IndexPruneTest(TestExtension.Helper helper) {
+        this.helper = helper;
+    }
+
     @Test
-    public void testPrune() throws IOException {
+    void testPrune() throws IOException {
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
-                .put(getTransportSettings())
+                .put(helper.getTransportSettings())
                 .build();
         try {
             Settings settings = Settings.builder()
@@ -46,15 +54,12 @@ public class IndexPruneTest extends TestBase {
             client.shiftIndex("test", "test3", Collections.emptyList());
             client.newIndex("test4", settings);
             client.shiftIndex("test", "test4", Collections.emptyList());
-
             IndexPruneResult indexPruneResult =
                     client.pruneIndex("test", "test4", 2, 2, true);
-
             assertTrue(indexPruneResult.getDeletedIndices().contains("test1"));
             assertTrue(indexPruneResult.getDeletedIndices().contains("test2"));
             assertFalse(indexPruneResult.getDeletedIndices().contains("test3"));
             assertFalse(indexPruneResult.getDeletedIndices().contains("test4"));
-
             List<Boolean> list = new ArrayList<>();
             for (String index : Arrays.asList("test1", "test2", "test3", "test4")) {
                 IndicesExistsRequest indicesExistsRequest = new IndicesExistsRequest();

@@ -16,12 +16,12 @@ printf "Host: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGradle: %s Groovy: %s Java: %s
         System.getProperty("java.vm.version"),
         System.getProperty("java.vm.vendor"),
         System.getProperty("java.vm.name"),
-        gradle.gradleVersion, 
-        GroovySystem.getVersion(), 
+        gradle.gradleVersion,
+        GroovySystem.getVersion(),
         JavaVersion.current()
 
 if (JavaVersion.current() < JavaVersion.VERSION_11) {
-    throw new GradleException("This build must be run with java 11 or higher")
+    throw new GradleException("This build must be run with java 11")
 }
 
 subprojects {
@@ -39,9 +39,11 @@ subprojects {
     }
 
     dependencies {
-        testCompile "junit:junit:${project.property('junit.version')}"
-        testCompile "org.apache.logging.log4j:log4j-core:${project.property('log4j.version')}"
-        testCompile "org.apache.logging.log4j:log4j-slf4j-impl:${project.property('log4j.version')}"
+        testImplementation "org.junit.jupiter:junit-jupiter-api:${project.property('junit.version')}"
+        testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${project.property('junit.version')}"
+        testImplementation "org.apache.logging.log4j:log4j-core:${project.property('log4j.version')}"
+        testImplementation "org.apache.logging.log4j:log4j-jul:${project.property('log4j.version')}"
+        testImplementation "org.apache.logging.log4j:log4j-slf4j-impl:${project.property('log4j.version')}"
         asciidoclet "org.xbib:asciidoclet:${project.property('asciidoclet.version')}"
         wagon "org.apache.maven.wagon:wagon-ssh:${project.property('wagon.version')}"
     }
@@ -63,21 +65,35 @@ subprojects {
     }
 
     test {
-        jvmArgs =[
-                '--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED',
-                '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED',
-                '--add-opens=java.base/java.nio=ALL-UNNAMED'
-        ]
+        enabled = true
+        useJUnitPlatform()
+        // we MUST use this hack because of Elasticsearch 2.2.1 Lucene 5.4.1 MMapDirectory unmap() hackery
+        doFirst {
+
+            jvmArgs = [
+                    '--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED',
+                    '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED',
+                    '--add-opens=java.base/java.nio=ALL-UNNAMED'
+            ]
+        }
+        systemProperty 'java.util.logging.manager', 'org.apache.logging.log4j.jul.LogManager'
+        systemProperty 'path.home', "${project.buildDir}"
         systemProperty 'jna.debug_load', 'true'
         testLogging {
-            showStandardStreams = true
-            exceptionFormat = 'full'
+            events 'PASSED', 'FAILED', 'SKIPPED'
+        }
+        afterSuite { desc, result ->
+            if (!desc.parent) {
+                println "\nTest result: ${result.resultType}"
+                println "Test summary: ${result.testCount} tests, " +
+                        "${result.successfulTestCount} succeeded, " +
+                        "${result.failedTestCount} failed, " +
+                        "${result.skippedTestCount} skipped"
+            }
         }
     }
     
     clean {
-        delete "data"
-        delete "logs"
         delete "out"
     }
     
@@ -94,18 +110,18 @@ subprojects {
     }*/
 
     task javadocJar(type: Jar, dependsOn: javadoc) {
-        classifier 'javadoc'
+        archiveClassifier.set('javadoc')
     }
 
     task sourcesJar(type: Jar, dependsOn: classes) {
         from sourceSets.main.allSource
-        classifier 'sources'
+        archiveClassifier.set('sources')
     }
 
     artifacts {
         archives javadocJar, sourcesJar
     }
-    
+
     if (project.hasProperty('signing.keyId')) {
         signing {
             sign configurations.archives
@@ -164,35 +180,3 @@ subprojects {
         }
     }
 }
-
-/*asciidoctor {
-    attributes toc: 'left',
-            doctype: 'book',
-            icons: 'font',
-            encoding: 'utf-8',
-            sectlink: true,
-            sectanchors: true,
-            linkattrs: true,
-            imagesdir: 'img',
-            'source-highlighter': 'coderay'
-}*/
-
-/*
-task aggregatedJavadoc(type: Javadoc) {
-    group = 'aggregation'
-    description = 'Generates aggregated Javadoc API documentation.'
-    title = "$description $version API"
-    destinationDir = file("$buildDir/docs/javadoc")
-    def sourceProjects = subprojects.findAll {
-        it.plugins.hasPlugin('java') || it.plugins.hasPlugin('groovy')
-    }
-    source sourceProjects.collect {
-        it.sourceSets.main.allJava
-    }
-    classpath = files(sourceProjects.collect {
-        it.sourceSets.main.runtimeClasspath
-    })
-    //options.overview = 'gradle/api/overview.html'
-    options.showFromProtected()
-}
-*/

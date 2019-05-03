@@ -1,4 +1,4 @@
-package org.xbib.elx.node.test;
+package org.xbib.elx.http.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -7,12 +7,13 @@ import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsReques
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.common.settings.Settings;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexPruneResult;
 import org.xbib.elx.common.ClientBuilder;
-import org.xbib.elx.node.ExtendedNodeClient;
-import org.xbib.elx.node.ExtendedNodeClientProvider;
+import org.xbib.elx.http.ExtendedHttpClient;
+import org.xbib.elx.http.ExtendedHttpClientProvider;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Disabled
 @ExtendWith(TestExtension.class)
 class IndexPruneTest {
 
@@ -37,8 +39,9 @@ class IndexPruneTest {
 
     @Test
     void testPrune() throws IOException {
-        final ExtendedNodeClient client = ClientBuilder.builder(helper.client("1"))
-                .provider(ExtendedNodeClientProvider.class)
+        final ExtendedHttpClient client = ClientBuilder.builder(helper.client("1"))
+                .put(helper.getHttpSettings())
+                .provider(ExtendedHttpClientProvider.class)
                 .build();
         try {
             Settings settings = Settings.builder()

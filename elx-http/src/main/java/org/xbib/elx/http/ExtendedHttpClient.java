@@ -15,7 +15,9 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.xbib.elx.common.AbstractExtendedClient;
+import org.xbib.net.URL;
 import org.xbib.netty.http.client.Client;
+import org.xbib.netty.http.client.ClientBuilder;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -59,14 +61,26 @@ public class ExtendedHttpClient extends AbstractExtendedClient implements Elasti
         if (settings == null) {
             return null;
         }
-        this.url = settings.get("url");
+        if (settings.hasValue("url")) {
+            this.url = settings.get("url");
+        } else if (settings.hasValue("host")) {
+            this.url = URL.http()
+                    .host(settings.get("host")).port(settings.getAsInt("port", 9200))
+                    .build()
+                    .toExternalForm();
+        }
         ServiceLoader<HttpAction> httpActionServiceLoader = ServiceLoader.load(HttpAction.class, classLoader);
         for (HttpAction<? extends ActionRequest, ? extends ActionResponse> httpAction : httpActionServiceLoader) {
             httpAction.setSettings(settings);
             actionMap.put(httpAction.getActionInstance(), httpAction);
         }
-        this.nettyHttpClient = Client.builder().enableDebug().build();
-        logger.info("extended HTTP client initialized with {} actions", actionMap.size());
+        ClientBuilder clientBuilder = Client.builder();
+        if (settings.hasValue("debug")) {
+            clientBuilder.enableDebug();
+        }
+        this.nettyHttpClient = clientBuilder.build();
+        logger.info("extended HTTP client initialized, settings = {}, url = {}, {} actions",
+                settings, url, actionMap.size());
         return this;
     }
 
@@ -102,7 +116,6 @@ public class ExtendedHttpClient extends AbstractExtendedClient implements Elasti
             RequestBuilder extends ActionRequestBuilder<Request, Response, RequestBuilder>> ActionFuture<Response>
     execute(Action<Request, Response, RequestBuilder> action, Request request) {
         PlainActionFuture<Response> actionFuture = PlainActionFuture.newFuture();
-        logger.info("plain action future = " + actionFuture);
         execute(action, request, actionFuture);
         return actionFuture;
     }

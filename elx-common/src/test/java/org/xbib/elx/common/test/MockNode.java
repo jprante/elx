@@ -7,9 +7,9 @@ import org.elasticsearch.plugins.Plugin;
 
 import java.util.List;
 
-public class MockNode extends Node {
+class MockNode extends Node {
 
-    public MockNode(Settings settings, List<Class<? extends Plugin>> classpathPlugins) {
+    MockNode(Settings settings, List<Class<? extends Plugin>> classpathPlugins) {
         super(InternalSettingsPreparer.prepareEnvironment(settings, null), classpathPlugins);
     }
 }

@@ -398,9 +398,9 @@ public interface ExtendedClient extends Flushable, Closeable {
     String resolveMostRecentIndex(String alias);
 
     /**
-     * Get all index filters.
+     * Get all index aliases.
      * @param index the index
-     * @return map of index filters
+     * @return map of index aliases
      */
     Map<String, String> getAliases(String index);
 

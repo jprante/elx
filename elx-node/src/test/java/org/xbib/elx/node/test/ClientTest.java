@@ -1,10 +1,5 @@
 package org.xbib.elx.node.test;
 
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsAction;
@@ -17,9 +12,10 @@ import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.Parameters;
 import org.xbib.elx.node.ExtendedNodeClient;
@@ -30,27 +26,28 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class ClientTest extends TestBase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@ExtendWith(TestExtension.class)
+class ClientTest {
 
     private static final Logger logger = LogManager.getLogger(ClientTest.class.getName());
 
-    private static final Long ACTIONS = 25000L;
+    private static final Long ACTIONS = 1000L;
 
-    private static final Long MAX_ACTIONS_PER_REQUEST = 1000L;
+    private static final Long MAX_ACTIONS_PER_REQUEST = 100L;
 
-    @Before
-    public void startNodes() {
-        try {
-            super.startNodes();
-            startNode("2");
-        } catch (Throwable t) {
-            logger.error("startNodes failed", t);
-        }
+    private final TestExtension.Helper helper;
+
+    ClientTest(TestExtension.Helper helper) {
+        this.helper = helper;
     }
 
     @Test
-    public void testSingleDoc() throws Exception {
-        final ExtendedNodeClient client = ClientBuilder.builder(client("1"))
+    void testSingleDoc() throws Exception {
+        final ExtendedNodeClient client = ClientBuilder.builder(helper.client("1"))
                 .provider(ExtendedNodeClientProvider.class)
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(30))
@@ -73,8 +70,8 @@ public class ClientTest extends TestBase {
     }
 
     @Test
-    public void testNewIndex() throws Exception {
-        final ExtendedNodeClient client = ClientBuilder.builder(client("1"))
+    void testNewIndex() throws Exception {
+        final ExtendedNodeClient client = ClientBuilder.builder(helper.client("1"))
                 .provider(ExtendedNodeClientProvider.class)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
                 .build();
@@ -83,12 +80,12 @@ public class ClientTest extends TestBase {
     }
 
     @Test
-    public void testMapping() throws Exception {
-        final ExtendedNodeClient client = ClientBuilder.builder(client("1"))
+    void testMapping() throws Exception {
+        final ExtendedNodeClient client = ClientBuilder.builder(helper.client("1"))
                 .provider(ExtendedNodeClientProvider.class)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
                 .build();
-        XContentBuilder builder = jsonBuilder()
+        XContentBuilder builder = JsonXContent.contentBuilder()
                 .startObject()
                 .startObject("doc")
                 .startObject("properties")
@@ -108,9 +105,9 @@ public class ClientTest extends TestBase {
     }
 
     @Test
-    public void testRandomDocs() throws Exception {
+    void testRandomDocs() throws Exception {
         long numactions = ACTIONS;
-        final ExtendedNodeClient client = ClientBuilder.builder(client("1"))
+        final ExtendedNodeClient client = ClientBuilder.builder(helper.client("1"))
                 .provider(ExtendedNodeClientProvider.class)
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
@@ -118,7 +115,8 @@ public class ClientTest extends TestBase {
         try {
             client.newIndex("test");
             for (int i = 0; i < ACTIONS; i++) {
-                client.index("test", null, false, "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test", null, false,
+                        "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             client.flush();
             client.waitForResponses(30L, TimeUnit.SECONDS);
@@ -140,12 +138,12 @@ public class ClientTest extends TestBase {
     }
 
     @Test
-    public void testThreadedRandomDocs() throws Exception {
+    void testThreadedRandomDocs() throws Exception {
         int maxthreads = Runtime.getRuntime().availableProcessors();
         Long maxActionsPerRequest = MAX_ACTIONS_PER_REQUEST;
         final Long actions = ACTIONS;
         logger.info("maxthreads={} maxactions={} maxloop={}", maxthreads, maxActionsPerRequest, actions);
-        final ExtendedNodeClient client = ClientBuilder.builder(client("1"))
+        final ExtendedNodeClient client = ClientBuilder.builder(helper.client("1"))
                 .provider(ExtendedNodeClientProvider.class)
                 .put(Parameters.MAX_CONCURRENT_REQUESTS.name(), maxthreads)
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), maxActionsPerRequest)
@@ -164,7 +162,8 @@ public class ClientTest extends TestBase {
             for (int i = 0; i < maxthreads; i++) {
                 executorService.execute(() -> {
                     for (int i1 = 0; i1 < actions; i1++) {
-                        client.index("test", null, false,"{ \"name\" : \"" + randomString(32) + "\"}");
+                        client.index("test", null, false,
+                                "{ \"name\" : \"" + helper.randomString(32) + "\"}");
                     }
                     latch.countDown();
                 });

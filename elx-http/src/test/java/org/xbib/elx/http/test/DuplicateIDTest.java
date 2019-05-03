@@ -5,8 +5,9 @@ import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.Parameters;
 import org.xbib.elx.http.ExtendedHttpClient;
@@ -15,12 +16,13 @@ import org.xbib.elx.http.ExtendedHttpClientProvider;
 import java.util.concurrent.TimeUnit;
 
 import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@Ignore
-public class DuplicateIDTest extends TestBase {
+@Disabled
+@ExtendWith(TestExtension.class)
+class DuplicateIDTest {
 
     private static final Logger logger = LogManager.getLogger(DuplicateIDTest.class.getSimpleName());
 
@@ -28,17 +30,25 @@ public class DuplicateIDTest extends TestBase {
 
     private static final Long ACTIONS = 12345L;
 
+    private final TestExtension.Helper helper;
+
+    DuplicateIDTest(TestExtension.Helper helper) {
+        this.helper = helper;
+    }
+
     @Test
-    public void testDuplicateDocIDs() throws Exception {
+    void testDuplicateDocIDs() throws Exception {
         long numactions = ACTIONS;
         final ExtendedHttpClient client = ClientBuilder.builder()
                 .provider(ExtendedHttpClientProvider.class)
+                .put(helper.getHttpSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .build();
         try {
             client.newIndex("test");
             for (int i = 0; i < ACTIONS; i++) {
-                client.index("test", randomString(1), false, "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test", helper.randomString(1), false,
+                        "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             client.flush();
             client.waitForResponses(30L, TimeUnit.SECONDS);

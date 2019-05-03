@@ -8,7 +8,6 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
@@ -83,12 +82,12 @@ public class DefaultBulkController implements BulkController {
                     maxActionsPerRequest, maxConcurrentRequests, flushIngestInterval, maxVolumePerRequest);
         }
         this.bulkListener = new BulkListener();
-        DefaultBulkProcessor.Builder builder = DefaultBulkProcessor.builder((Client) client.getClient(), bulkListener)
+        this.bulkProcessor = DefaultBulkProcessor.builder(client.getClient(), bulkListener)
                 .setBulkActions(maxActionsPerRequest)
                 .setConcurrentRequests(maxConcurrentRequests)
                 .setFlushInterval(flushIngestInterval)
-                .setBulkSize(maxVolumePerRequest);
-        this.bulkProcessor = builder.build();
+                .setBulkSize(maxVolumePerRequest)
+                .build();
         this.active.set(true);
     }
 
@@ -115,9 +114,7 @@ public class DefaultBulkController implements BulkController {
 
     @Override
     public void index(IndexRequest indexRequest) {
-        if (!active.get()) {
-            throw new IllegalStateException("inactive");
-        }
+        ensureActiveAndBulk();
         try {
             if (bulkMetric != null) {
                 bulkMetric.getCurrentIngest().inc(indexRequest.index(), indexRequest.type(), indexRequest.id());
@@ -223,6 +220,18 @@ public class DefaultBulkController implements BulkController {
         }
         if (bulkProcessor != null) {
             bulkProcessor.close();
+        }
+    }
+
+    private void ensureActiveAndBulk() {
+        if (!active.get()) {
+            throw new IllegalStateException("inactive");
+        }
+        if (bulkProcessor == null) {
+            throw new UnsupportedOperationException("bulk processor not present");
+        }
+        if (bulkListener == null) {
+            throw new UnsupportedOperationException("bulk listener not present");
         }
     }
 

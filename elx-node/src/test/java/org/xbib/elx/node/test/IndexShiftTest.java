@@ -6,7 +6,8 @@ import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexShiftResult;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.node.ExtendedNodeClient;
@@ -16,16 +17,23 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class IndexShiftTest extends TestBase {
+@ExtendWith(TestExtension.class)
+class IndexShiftTest {
 
     private static final Logger logger = LogManager.getLogger(IndexShiftTest.class.getName());
 
+    private final TestExtension.Helper helper;
+
+    IndexShiftTest(TestExtension.Helper helper) {
+        this.helper = helper;
+    }
+
     @Test
-    public void testIndexShift() throws Exception {
-        final ExtendedNodeClient client = ClientBuilder.builder(client("1"))
+    void testIndexShift() throws Exception {
+        final ExtendedNodeClient client = ClientBuilder.builder(helper.client("1"))
                 .provider(ExtendedNodeClientProvider.class)
                 .build();
         try {
@@ -35,14 +43,13 @@ public class IndexShiftTest extends TestBase {
                     .build();
             client.newIndex("test1234", settings);
             for (int i = 0; i < 1; i++) {
-                client.index("test1234", randomString(1), false, "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test1234", helper.randomString(1), false,
+                        "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             client.flush();
             client.waitForResponses(30L, TimeUnit.SECONDS);
-
             IndexShiftResult indexShiftResult =
                     client.shiftIndex("test", "test1234", Arrays.asList("a", "b", "c"));
-
             assertTrue(indexShiftResult.getNewAliases().contains("a"));
             assertTrue(indexShiftResult.getNewAliases().contains("b"));
             assertTrue(indexShiftResult.getNewAliases().contains("c"));
@@ -63,7 +70,8 @@ public class IndexShiftTest extends TestBase {
 
             client.newIndex("test5678", settings);
             for (int i = 0; i < 1; i++) {
-                client.index("test5678", randomString(1), false, "{ \"name\" : \"" + randomString(32) + "\"}");
+                client.index("test5678", helper.randomString(1), false,
+                        "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             client.flush();
             client.waitForResponses(30L, TimeUnit.SECONDS);
