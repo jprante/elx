@@ -25,9 +25,9 @@ class DuplicateIDTest {
 
     private final static Logger logger = LogManager.getLogger(DuplicateIDTest.class.getName());
 
-    private final static Long MAX_ACTIONS_PER_REQUEST = 10L;
+    private final static Long MAX_ACTIONS_PER_REQUEST = 100L;
 
-    private final static Long ACTIONS = 5L;
+    private final static Long ACTIONS = 50L;
 
     private final TestExtension.Helper helper;
 

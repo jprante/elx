@@ -45,7 +45,7 @@ class SmokeTest extends TestExtension {
             client.waitForRecovery("test_smoke", 10L, TimeUnit.SECONDS);
             client.delete("test_smoke", "1");
             client.deleteIndex("test_smoke");
-            IndexDefinition indexDefinition = client.buildIndexDefinitionFromSettings("test2", Settings.settingsBuilder()
+            IndexDefinition indexDefinition = client.buildIndexDefinitionFromSettings("test_smoke_2", Settings.settingsBuilder()
                     .build());
             assertEquals(0, indexDefinition.getReplicaLevel());
             client.newIndex(indexDefinition);

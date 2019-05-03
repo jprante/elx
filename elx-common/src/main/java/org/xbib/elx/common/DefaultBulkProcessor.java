@@ -20,8 +20,6 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * A bulk processor is a thread safe bulk processing class, allowing to easily set when to "flush" a new bulk request
@@ -30,8 +28,6 @@ import java.util.logging.Logger;
  * In order to create a new bulk processor, use the {@link Builder}.
  */
 public class DefaultBulkProcessor implements BulkProcessor {
-
-    private static final Logger logger = Logger.getLogger(DefaultBulkProcessor.class.getName());
 
     private final int bulkActions;
 
@@ -56,9 +52,6 @@ public class DefaultBulkProcessor implements BulkProcessor {
         this.bulkActions = bulkActions;
         this.bulkSize = bulkSize.getBytes();
         this.bulkRequest = new BulkRequest();
-        if (listener == null) {
-            throw new IllegalArgumentException();
-        }
         this.bulkRequestHandler = concurrentRequests == 0 ?
                 new SyncBulkRequestHandler(client, listener) :
                 new AsyncBulkRequestHandler(client, listener, concurrentRequests);
@@ -76,9 +69,8 @@ public class DefaultBulkProcessor implements BulkProcessor {
     }
 
     public static Builder builder(ElasticsearchClient client, Listener listener) {
-        if (client == null) {
-            throw new NullPointerException("The client you specified while building a BulkProcessor is null");
-        }
+        Objects.requireNonNull(client, "The client you specified while building a BulkProcessor is null");
+        Objects.requireNonNull(listener, "A listener for the BulkProcessor is required but null");
         return new Builder(client, listener);
     }
 
@@ -91,6 +83,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
      */
     @Override
     public synchronized boolean awaitFlush(long timeout, TimeUnit unit) throws InterruptedException {
+        Objects.requireNonNull(unit, "A time unit is required for awaitFlush() but null");
         if (closed) {
             return true;
         }
@@ -99,7 +92,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
             execute();
         }
         // wait for all bulk responses
-        return this.bulkRequestHandler.close(timeout, unit);
+        return bulkRequestHandler.close(timeout, unit);
     }
 
     /**
@@ -119,18 +112,19 @@ public class DefaultBulkProcessor implements BulkProcessor {
      */
     @Override
     public synchronized boolean awaitClose(long timeout, TimeUnit unit) throws InterruptedException {
+        Objects.requireNonNull(unit, "A time unit is required for awaitCLose() but null");
         if (closed) {
             return true;
         }
         closed = true;
-        if (this.scheduledFuture != null) {
-            FutureUtils.cancel(this.scheduledFuture);
-            this.scheduler.shutdown();
+        if (scheduledFuture != null) {
+            FutureUtils.cancel(scheduledFuture);
+            scheduler.shutdown();
         }
         if (bulkRequest.numberOfActions() > 0) {
             execute();
         }
-        return this.bulkRequestHandler.close(timeout, unit);
+        return bulkRequestHandler.close(timeout, unit);
     }
 
     /**
@@ -213,8 +207,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
     private boolean isOverTheLimit() {
         return bulkActions != -1 &&
                 bulkRequest.numberOfActions() >= bulkActions ||
-                bulkSize != -1 &&
-                        bulkRequest.estimatedSizeInBytes() >= bulkSize;
+                bulkSize != -1 && bulkRequest.estimatedSizeInBytes() >= bulkSize;
     }
 
     /**
@@ -342,6 +335,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
         private final DefaultBulkProcessor.Listener listener;
 
         SyncBulkRequestHandler(ElasticsearchClient client, DefaultBulkProcessor.Listener listener) {
+            Objects.requireNonNull(listener, "A listener is required for SyncBulkRequestHandler but null");
             this.client = client;
             this.listener = listener;
         }
@@ -378,6 +372,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
         private final int concurrentRequests;
 
         private AsyncBulkRequestHandler(ElasticsearchClient client, DefaultBulkProcessor.Listener listener, int concurrentRequests) {
+            Objects.requireNonNull(listener, "A listener is required for AsyncBulkRequestHandler but null");
             this.client = client;
             this.listener = listener;
             this.concurrentRequests = concurrentRequests;
@@ -426,10 +421,6 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
         @Override
         public boolean close(long timeout, TimeUnit unit) throws InterruptedException {
-            logger.log(Level.INFO, "semaphore=" + semaphore +
-                    " concurrentRequests=" + concurrentRequests +
-                    " timeout=" + timeout +
-                    " unit=" + unit);
             if (semaphore.tryAcquire(concurrentRequests, timeout, unit)) {
                 semaphore.release(concurrentRequests);
                 return true;

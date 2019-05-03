@@ -65,7 +65,7 @@ subprojects {
     }
 
     test {
-        enabled = false
+        enabled = true
         useJUnitPlatform()
         // we MUST use this hack because of Elasticsearch 2.2.1 Lucene 5.4.1 MMapDirectory unmap() hackery
         doFirst {

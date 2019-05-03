@@ -19,8 +19,8 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.node.Node;
-import org.junit.jupiter.api.extension.AfterAllCallback;
-import org.junit.jupiter.api.extension.BeforeAllCallback;
+import org.junit.jupiter.api.extension.AfterEachCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
@@ -39,7 +39,7 @@ import java.util.Random;
 
 import static org.elasticsearch.common.settings.Settings.settingsBuilder;
 
-public class TestExtension implements ParameterResolver, BeforeAllCallback, AfterAllCallback {
+public class TestExtension implements ParameterResolver, BeforeEachCallback, AfterEachCallback {
 
     private static final Logger logger = LogManager.getLogger("test");
 
@@ -59,7 +59,7 @@ public class TestExtension implements ParameterResolver, BeforeAllCallback, Afte
 
     private int port;
 
-    private static final String key = "es-instance";
+    private static final String key = "es-test-instance";
 
     private static final ExtensionContext.Namespace ns =
             ExtensionContext.Namespace.create(TestExtension.class);
@@ -73,17 +73,14 @@ public class TestExtension implements ParameterResolver, BeforeAllCallback, Afte
     @Override
     public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext)
             throws ParameterResolutionException {
-        return extensionContext.getParent().get().getStore(ns).getOrComputeIfAbsent(key, key -> create());
+        setHome(System.getProperty("path.home") + "/" + getRandomString(8));
+        setClusterName("test-cluster-" + System.getProperty("user.name"));
+        return extensionContext.getParent().get().getStore(ns).getOrComputeIfAbsent(key, key -> create(), Helper.class);
     }
 
     @Override
-    public void beforeAll(ExtensionContext context) throws Exception {
-        Helper helper = context.getParent().get().getStore(ns).getOrComputeIfAbsent(key, key -> create(), Helper.class);
-        setHome(System.getProperty("path.home") + "/" + helper.randomString(8));
-        setClusterName("test-cluster-" + System.getProperty("user.name"));
-        deleteFiles(Paths.get(getHome() + "/data"));
-        logger.info("data files wiped: " + getHome());
-        Thread.sleep(2000L); // let OS commit changes
+    public void beforeEach(ExtensionContext extensionContext) throws Exception {
+        Helper helper = extensionContext.getParent().get().getStore(ns).getOrComputeIfAbsent(key, key -> create(), Helper.class);
         logger.info("starting cluster");
         helper.startNode("1");
         NodesInfoRequest nodesInfoRequest = new NodesInfoRequest().transport(true);
@@ -114,10 +111,11 @@ public class TestExtension implements ParameterResolver, BeforeAllCallback, Afte
     }
 
     @Override
-    public void afterAll(ExtensionContext context) throws Exception {
+    public void afterEach(ExtensionContext context) throws Exception {
         closeNodes();
         deleteFiles(Paths.get(getHome() + "/data"));
-        logger.info("cluster stopped");
+        logger.info("data files wiped: " + getHome());
+        Thread.sleep(2000L); // let OS commit changes
     }
 
     private void setClusterName(String cluster) {
@@ -170,6 +168,15 @@ public class TestExtension implements ParameterResolver, BeforeAllCallback, Afte
         }
     }
 
+    private String getRandomString(int len) {
+        final char[] buf = new char[len];
+        final int n = numbersAndLetters.length - 1;
+        for (int i = 0; i < buf.length; i++) {
+            buf[i] = numbersAndLetters[random.nextInt(n)];
+        }
+        return new String(buf);
+    }
+
     private Helper create() {
         return new Helper();
     }
@@ -196,6 +203,18 @@ public class TestExtension implements ParameterResolver, BeforeAllCallback, Afte
             buildNode(id).start();
         }
 
+        ElasticsearchClient client(String id) {
+            return clients.get(id);
+        }
+
+        String getCluster() {
+            return getClusterName();
+        }
+
+        String randomString(int n) {
+            return getRandomString(n);
+        }
+
         private Node buildNode(String id) {
             Settings nodeSettings = settingsBuilder()
                     .put(getNodeSettings())
@@ -207,23 +226,6 @@ public class TestExtension implements ParameterResolver, BeforeAllCallback, Afte
             clients.put(id, client);
             logger.info("clients={}", clients);
             return node;
-        }
-
-        String randomString(int len) {
-            final char[] buf = new char[len];
-            final int n = numbersAndLetters.length - 1;
-            for (int i = 0; i < buf.length; i++) {
-                buf[i] = numbersAndLetters[random.nextInt(n)];
-            }
-            return new String(buf);
-        }
-
-        ElasticsearchClient client(String id) {
-            return clients.get(id);
-        }
-
-        String getCluster() {
-            return getClusterName();
         }
     }
 }

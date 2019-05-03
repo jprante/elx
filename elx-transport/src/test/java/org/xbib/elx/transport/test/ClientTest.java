@@ -13,7 +13,6 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.common.ClientBuilder;
@@ -43,7 +42,6 @@ class ClientTest {
 
     ClientTest(TestExtension.Helper helper) {
         this.helper = helper;
-        helper.startNode("2");
     }
 
     @Test
@@ -145,7 +143,6 @@ class ClientTest {
     }
 
     @Test
-    @Disabled
     void testThreadedRandomDocs() throws Exception {
         int maxthreads = Runtime.getRuntime().availableProcessors();
         long maxactions = MAX_ACTIONS_PER_REQUEST;

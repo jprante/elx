@@ -33,7 +33,7 @@ class IndexShiftTest {
     }
 
     @Test
-    void testIndexAlias() throws Exception {
+    void testIndexShift() throws Exception {
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
                 .put(helper.getTransportSettings()).build();
