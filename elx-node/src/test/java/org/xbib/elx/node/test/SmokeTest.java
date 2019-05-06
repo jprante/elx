@@ -36,6 +36,9 @@ class SmokeTest {
             assertEquals(helper.getClusterName(), client.getClusterName());
             client.newIndex("test");
             client.index("test", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
+            client.flush();
+            client.waitForResponses(30, TimeUnit.SECONDS);
+            client.checkMapping("test");
             client.update("test", "1", "{ \"name\" : \"Another name\"}");
             client.delete("test", "1");
             client.flush();
@@ -43,13 +46,11 @@ class SmokeTest {
             client.waitForRecovery("test", 10L, TimeUnit.SECONDS);
             client.delete("test", "1");
             client.flush();
-            client.checkMapping("test");
             client.deleteIndex("test");
             IndexDefinition indexDefinition = client.buildIndexDefinitionFromSettings("test", Settings.builder()
                     .build());
             assertEquals(0, indexDefinition.getReplicaLevel());
             client.newIndex(indexDefinition);
-            client.waitForRecovery(indexDefinition.getFullIndexName(), 30L, TimeUnit.SECONDS);
             client.index(indexDefinition.getFullIndexName(), "1", true, "{ \"name\" : \"Hello World\"}");
             client.flush();
             client.waitForResponses(30, TimeUnit.SECONDS);

@@ -54,6 +54,7 @@ class SmokeTest {
             client.newIndex(indexDefinition);
             client.index(indexDefinition.getFullIndexName(), "1", true, "{ \"name\" : \"Hello World\"}");
             client.flush();
+            client.waitForResponses(30, TimeUnit.SECONDS);
             client.updateReplicaLevel(indexDefinition, 2);
             int replica = client.getReplicaLevel(indexDefinition);
             assertEquals(2, replica);
