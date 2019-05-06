@@ -5,7 +5,6 @@ import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.common.ClientBuilder;
@@ -20,15 +19,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@Disabled
 @ExtendWith(TestExtension.class)
 class DuplicateIDTest {
 
     private static final Logger logger = LogManager.getLogger(DuplicateIDTest.class.getSimpleName());
 
-    private static final Long MAX_ACTIONS_PER_REQUEST = 1000L;
+    private static final Long MAX_ACTIONS_PER_REQUEST = 10L;
 
-    private static final Long ACTIONS = 12345L;
+    private static final Long ACTIONS = 50L;
 
     private final TestExtension.Helper helper;
 

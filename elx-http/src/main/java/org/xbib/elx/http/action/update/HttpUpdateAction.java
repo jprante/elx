@@ -15,8 +15,6 @@ import org.xbib.netty.http.client.RequestBuilder;
 
 import java.io.IOException;
 
-/**
- */
 public class HttpUpdateAction extends HttpAction<UpdateRequest, UpdateResponse> {
 
     @Override
@@ -49,7 +47,7 @@ public class HttpUpdateAction extends HttpAction<UpdateRequest, UpdateResponse> 
             }
             BytesReference source = XContentHelper.toXContent(updateRequest, xContentType, false);
             return newPostRequest(url,
-                    updateRequest.index() + "/" + updateRequest.type() + "/" + updateRequest.id() + "/_update",
+                    "/" + updateRequest.index() + "/" + updateRequest.type() + "/" + updateRequest.id() + "/_update",
                     source);
         } catch (IOException e) {
             logger.error(e.getMessage(), e);
@@ -60,5 +58,10 @@ public class HttpUpdateAction extends HttpAction<UpdateRequest, UpdateResponse> 
     @Override
     protected CheckedFunction<XContentParser, UpdateResponse, IOException> entityParser() {
         return UpdateResponse::fromXContent;
+    }
+
+    @Override
+    protected UpdateResponse emptyResponse() {
+        return new UpdateResponse();
     }
 }

@@ -4,7 +4,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.common.settings.Settings;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
@@ -17,7 +16,6 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-@Disabled
 @ExtendWith(TestExtension.class)
 class SmokeTest {
 
@@ -36,16 +34,19 @@ class SmokeTest {
                 .put(helper.getHttpSettings())
                 .build();
         try {
+            assertEquals(helper.getClusterName(), client.getClusterName());
             client.newIndex("test");
             client.index("test", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
             client.flush();
             client.waitForResponses(30, TimeUnit.SECONDS);
-            assertEquals(helper.getClusterName(), client.getClusterName());
             client.checkMapping("test");
             client.update("test", "1", "{ \"name\" : \"Another name\"}");
+            client.delete("test", "1");
             client.flush();
+            client.waitForResponses(30, TimeUnit.SECONDS);
             client.waitForRecovery("test", 10L, TimeUnit.SECONDS);
             client.delete("test", "1");
+            client.flush();
             client.deleteIndex("test");
             IndexDefinition indexDefinition = client.buildIndexDefinitionFromSettings("test", Settings.builder()
                     .build());
@@ -58,7 +59,7 @@ class SmokeTest {
             assertEquals(2, replica);
             client.deleteIndex(indexDefinition);
             assertEquals(0, client.getBulkMetric().getFailed().getCount());
-            assertEquals(4, client.getBulkMetric().getSucceeded().getCount());
+            assertEquals(5, client.getBulkMetric().getSucceeded().getCount());
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {

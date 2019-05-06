@@ -27,7 +27,7 @@ class DuplicateIDTest {
 
     private static final Long MAX_ACTIONS_PER_REQUEST = 10L;
 
-    private static final Long ACTIONS = 5L;
+    private static final Long ACTIONS = 50L;
 
     private final TestExtension.Helper helper;
 

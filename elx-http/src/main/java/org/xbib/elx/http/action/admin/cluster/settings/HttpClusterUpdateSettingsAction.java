@@ -43,4 +43,9 @@ public class HttpClusterUpdateSettingsAction extends HttpAction<ClusterUpdateSet
     protected CheckedFunction<XContentParser, ClusterUpdateSettingsResponse, IOException> entityParser() {
         return ClusterUpdateSettingsResponse::fromXContent;
     }
+
+    @Override
+    protected ClusterUpdateSettingsResponse emptyResponse() {
+        return new ClusterUpdateSettingsResponse();
+    }
 }

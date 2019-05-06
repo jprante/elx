@@ -11,8 +11,6 @@ import org.xbib.netty.http.client.RequestBuilder;
 
 import java.io.IOException;
 
-/**
- */
 public class HttpGetAction extends HttpAction<GetRequest, GetResponse> {
 
     @Override
@@ -22,11 +20,16 @@ public class HttpGetAction extends HttpAction<GetRequest, GetResponse> {
 
     @Override
     protected RequestBuilder createHttpRequest(String url, GetRequest request) {
-        return newGetRequest(url, request.index() + "/" + request.type() + "/" + request.id());
+        return newGetRequest(url, "/" + request.index() + "/" + request.type() + "/" + request.id());
     }
 
     @Override
     protected CheckedFunction<XContentParser, GetResponse, IOException> entityParser() {
         return GetResponse::fromXContent;
+    }
+
+    @Override
+    protected GetResponse emptyResponse() {
+        return new GetResponse();
     }
 }

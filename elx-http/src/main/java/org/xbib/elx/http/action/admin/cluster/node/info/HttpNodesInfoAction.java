@@ -99,10 +99,14 @@ public class HttpNodesInfoAction extends HttpAction<NodesInfoRequest, NodesInfoR
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    protected NodesInfoResponse emptyResponse() {
+        return new NodesInfoResponse();
+    }
+
     @SuppressWarnings("unchecked")
     protected NodesInfoResponse createResponse(HttpActionContext<NodesInfoRequest, NodesInfoResponse> httpContext) {
         Map<String, Object> map = null;
-
         String string = (String)map.get("cluster_name");
         ClusterName clusterName = new ClusterName(string);
         List<NodeInfo> nodeInfoList = new LinkedList<>();

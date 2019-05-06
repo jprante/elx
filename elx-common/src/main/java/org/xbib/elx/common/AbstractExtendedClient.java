@@ -33,9 +33,6 @@ import org.elasticsearch.action.admin.indices.get.GetIndexResponse;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsAction;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
-import org.elasticsearch.action.admin.indices.recovery.RecoveryAction;
-import org.elasticsearch.action.admin.indices.recovery.RecoveryRequest;
-import org.elasticsearch.action.admin.indices.recovery.RecoveryResponse;
 import org.elasticsearch.action.admin.indices.refresh.RefreshAction;
 import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.admin.indices.settings.get.GetSettingsAction;
@@ -238,7 +235,8 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     public String getClusterName() {
         ensureActive();
         try {
-            ClusterStateRequest clusterStateRequest = new ClusterStateRequest().all();
+            ClusterStateRequest clusterStateRequest = new ClusterStateRequest();
+            clusterStateRequest.clear();
             ClusterStateResponse clusterStateResponse =
                     client.execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
             return clusterStateResponse.getClusterName().value();
@@ -588,7 +586,11 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     public String resolveAlias(String alias) {
         ensureActive();
         ClusterStateRequest clusterStateRequest = new ClusterStateRequest();
+        clusterStateRequest.blocks(false);
         clusterStateRequest.metaData(true);
+        clusterStateRequest.nodes(false);
+        clusterStateRequest.routingTable(false);
+        clusterStateRequest.customs(false);
         ClusterStateResponse clusterStateResponse =
                 client.execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
         SortedMap<String, AliasOrIndex> map = clusterStateResponse.getState().getMetaData().getAliasAndIndexLookup();

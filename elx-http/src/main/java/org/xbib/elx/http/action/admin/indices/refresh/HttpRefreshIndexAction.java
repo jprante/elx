@@ -19,12 +19,17 @@ public class HttpRefreshIndexAction extends HttpAction<RefreshRequest, RefreshRe
 
     @Override
     protected RequestBuilder createHttpRequest(String url, RefreshRequest request) {
-        String index = request.indices() != null ? "/" + String.join(",", request.indices()) : "";
-        return newPostRequest(url, index + "/_refresh");
+        String index = request.indices() != null ? String.join(",", request.indices()) + "/" : "";
+        return newPostRequest(url, "/" + index + "_refresh");
     }
 
     @Override
     protected CheckedFunction<XContentParser, RefreshResponse, IOException> entityParser() {
         return RefreshResponse::fromXContent;
+    }
+
+    @Override
+    protected RefreshResponse emptyResponse() {
+        return new RefreshResponse();
     }
 }

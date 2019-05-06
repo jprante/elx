@@ -19,11 +19,16 @@ public class HttpDeleteIndexAction extends HttpAction<DeleteIndexRequest, Delete
 
     @Override
     protected RequestBuilder createHttpRequest(String url, DeleteIndexRequest deleteIndexRequest) {
-        return newPutRequest(url, "/" + String.join(",", deleteIndexRequest.indices()));
+        return newDeleteRequest(url, "/" + String.join(",", deleteIndexRequest.indices()));
     }
 
     @Override
     protected CheckedFunction<XContentParser, DeleteIndexResponse, IOException> entityParser() {
         return DeleteIndexResponse::fromXContent;
+    }
+
+    @Override
+    protected DeleteIndexResponse emptyResponse() {
+        return new DeleteIndexResponse();
     }
 }

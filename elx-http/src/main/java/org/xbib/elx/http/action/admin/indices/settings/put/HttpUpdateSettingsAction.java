@@ -15,7 +15,6 @@ import org.xbib.netty.http.client.RequestBuilder;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
-
 public class HttpUpdateSettingsAction extends HttpAction<UpdateSettingsRequest, UpdateSettingsResponse> {
 
     @Override
@@ -30,8 +29,8 @@ public class HttpUpdateSettingsAction extends HttpAction<UpdateSettingsRequest, 
             builder.startObject();
             request.settings().toXContent(builder, ToXContent.EMPTY_PARAMS);
             builder.endObject();
-            String index = request.indices() != null ? "/" + String.join(",", request.indices()) : "";
-            return newPutRequest(url, index + "/_settings", BytesReference.bytes(builder));
+            String index = request.indices() != null ? String.join(",", request.indices()) + "/" : "";
+            return newPutRequest(url, "/" + index + "_settings", BytesReference.bytes(builder));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -40,5 +39,10 @@ public class HttpUpdateSettingsAction extends HttpAction<UpdateSettingsRequest, 
     @Override
     protected CheckedFunction<XContentParser, UpdateSettingsResponse, IOException> entityParser() {
         return UpdateSettingsResponse::fromXContent;
+    }
+
+    @Override
+    protected UpdateSettingsResponse emptyResponse() {
+        return new UpdateSettingsResponse();
     }
 }

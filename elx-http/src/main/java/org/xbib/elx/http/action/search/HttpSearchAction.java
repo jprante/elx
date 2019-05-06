@@ -19,12 +19,18 @@ public class HttpSearchAction extends HttpAction<SearchRequest, SearchResponse> 
 
     @Override
     protected RequestBuilder createHttpRequest(String url, SearchRequest request) {
-        String index = request.indices() != null ? "/" + String.join(",", request.indices()) : "";
-        return newPostRequest(url, index + "/_search", request.source().toString());
+        // request.indices() always empty array
+        String index = request.indices() != null ? String.join(",", request.indices()) + "/" : "";
+        return newPostRequest(url, index + "_search", request.source().toString());
     }
 
     @Override
     protected CheckedFunction<XContentParser, SearchResponse, IOException> entityParser() {
         return SearchResponse::fromXContent;
+    }
+
+    @Override
+    protected SearchResponse emptyResponse() {
+        return new SearchResponse();
     }
 }

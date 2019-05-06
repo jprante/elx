@@ -40,6 +40,9 @@ class SmokeTest {
             client.delete("test", "1");
             client.flush();
             client.waitForResponses(30, TimeUnit.SECONDS);
+            client.waitForRecovery("test", 10L, TimeUnit.SECONDS);
+            client.delete("test", "1");
+            client.flush();
             client.checkMapping("test");
             client.deleteIndex("test");
             IndexDefinition indexDefinition = client.buildIndexDefinitionFromSettings("test", Settings.builder()
@@ -55,7 +58,7 @@ class SmokeTest {
             assertEquals(2, replica);
             client.deleteIndex(indexDefinition);
             assertEquals(0, client.getBulkMetric().getFailed().getCount());
-            assertEquals(4, client.getBulkMetric().getSucceeded().getCount());
+            assertEquals(5, client.getBulkMetric().getSucceeded().getCount());
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {

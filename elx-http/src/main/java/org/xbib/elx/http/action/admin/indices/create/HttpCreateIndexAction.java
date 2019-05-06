@@ -32,4 +32,9 @@ public class HttpCreateIndexAction extends HttpAction<CreateIndexRequest, Create
     protected CheckedFunction<XContentParser, CreateIndexResponse, IOException> entityParser() {
         return CreateIndexResponse::fromXContent;
     }
+
+    @Override
+    protected CreateIndexResponse emptyResponse() {
+        return new CreateIndexResponse();
+    }
 }

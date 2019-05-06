@@ -11,8 +11,6 @@ import org.xbib.netty.http.client.RequestBuilder;
 
 import java.io.IOException;
 
-/**
- */
 public class HttpIndexAction extends HttpAction<IndexRequest, IndexResponse> {
 
     @Override
@@ -22,12 +20,17 @@ public class HttpIndexAction extends HttpAction<IndexRequest, IndexResponse> {
 
     @Override
     protected RequestBuilder createHttpRequest(String url, IndexRequest request) {
-        return newPutRequest(url, request.index() + "/" + request.type() + "/" + request.id(),
+        return newPutRequest(url, "/" + request.index() + "/" + request.type() + "/" + request.id(),
                 request.source());
     }
 
     @Override
     protected CheckedFunction<XContentParser, IndexResponse, IOException> entityParser() {
         return IndexResponse::fromXContent;
+    }
+
+    @Override
+    protected IndexResponse emptyResponse() {
+        return new IndexResponse();
     }
 }

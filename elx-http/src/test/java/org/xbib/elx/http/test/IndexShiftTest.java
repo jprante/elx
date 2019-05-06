@@ -1,5 +1,6 @@
 package org.xbib.elx.http.test;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
@@ -21,7 +22,6 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@Disabled
 @ExtendWith(TestExtension.class)
 class IndexShiftTest {
 
@@ -61,13 +61,16 @@ class IndexShiftTest {
             assertTrue(indexShiftResult.getMovedAliases().isEmpty());
 
             Map<String, String> aliases = client.getAliases("test1234");
+            logger.log(Level.DEBUG, "aliases = " + aliases);
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
             assertTrue(aliases.containsKey("test"));
 
             String resolved = client.resolveAlias("test");
+            logger.log(Level.DEBUG, "resolved = " + resolved);
             aliases = client.getAliases(resolved);
+            logger.log(Level.DEBUG, "aliases = " + aliases);
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));

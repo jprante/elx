@@ -27,4 +27,9 @@ public class HttpMainAction extends HttpAction<MainRequest, MainResponse> {
     protected CheckedFunction<XContentParser, MainResponse, IOException> entityParser() {
         return MainResponse::fromXContent;
     }
+
+    @Override
+    protected MainResponse emptyResponse() {
+        return new MainResponse();
+    }
 }

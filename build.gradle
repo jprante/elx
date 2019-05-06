@@ -95,6 +95,7 @@ subprojects {
     
     clean {
         delete "out"
+        delete "null"
     }
     
     /*javadoc {

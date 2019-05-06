@@ -1,5 +1,6 @@
 package org.xbib.elx.http;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.Action;
@@ -79,7 +80,7 @@ public class ExtendedHttpClient extends AbstractExtendedClient implements Elasti
             clientBuilder.enableDebug();
         }
         this.nettyHttpClient = clientBuilder.build();
-        logger.info("extended HTTP client initialized, settings = {}, url = {}, {} actions",
+        logger.log(Level.DEBUG, "extended HTTP client initialized, settings = {}, url = {}, {} actions",
                 settings, url, actionMap.size());
         return this;
     }
@@ -136,7 +137,7 @@ public class ExtendedHttpClient extends AbstractExtendedClient implements Elasti
 
     @Override
     public ThreadPool threadPool() {
-        logger.info("returning null for threadPool() request");
+        logger.log(Level.DEBUG, "returning null for threadPool() request");
         return null;
     }
 
@@ -149,8 +150,8 @@ public class ExtendedHttpClient extends AbstractExtendedClient implements Elasti
         }
         try {
             HttpActionContext httpActionContext = new HttpActionContext(this, request, url);
+            logger.log(Level.DEBUG, "url = " + url);
             httpAction.execute(httpActionContext, listener);
-            logger.debug("submitted to URL {}", url);
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
         }
