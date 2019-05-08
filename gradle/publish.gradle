@@ -5,22 +5,6 @@ ext {
     scmDeveloperConnection = 'scm:git:git://github.com/jprante/elx.git'
 }
 
-task xbibUpload(type: Upload, dependsOn: build) {
-    group = 'publish'
-    configuration = configurations.archives
-    uploadDescriptor = true
-    repositories {
-        if (project.hasProperty("xbibUsername")) {
-            mavenDeployer {
-                configuration = configurations.wagon
-                repository(url: uri(project.property('xbibUrl'))) {
-                    authentication(userName: xbibUsername, privateKey: xbibPrivateKey)
-                }
-            }
-        }
-    }
-}
-
 task sonaTypeUpload(type: Upload, dependsOn: build) {
     group = 'publish'
     configuration = configurations.archives

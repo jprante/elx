@@ -49,13 +49,6 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
 
     public abstract GenericAction<R, T> getActionInstance();
 
-    /*public final ActionFuture<T> execute(HttpActionContext<R, T> httpActionContext) {
-        PlainActionFuture<T> future = PlainActionFuture.newFuture();
-        //HttpActionFuture<T, T> future = new HttpActionFuture<>();
-        execute(httpActionContext, future);
-        return future;
-    }*/
-
     final void execute(HttpActionContext<R, T> httpActionContext, ActionListener<T> listener) throws IOException {
         try {
             ActionRequestValidationException validationException = httpActionContext.getRequest().validate();
@@ -66,11 +59,12 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
             RequestBuilder httpRequestBuilder =
                     createHttpRequest(httpActionContext.getUrl(), httpActionContext.getRequest());
             Request httpRequest = httpRequestBuilder.build();
-            logger.log(Level.DEBUG, "action = {} request = {}", this.getClass().getName(), httpRequest.toString());
             httpRequest.setResponseListener(fullHttpResponse -> {
-                logger.log(Level.DEBUG, "got response: " + fullHttpResponse.status().code() +
-                        " headers = " + fullHttpResponse.headers().entries() +
-                        " content = " + fullHttpResponse.content().toString(StandardCharsets.UTF_8));
+                if (logger.isDebugEnabled()) {
+                    logger.log(Level.DEBUG, "got response: " + fullHttpResponse.status().code() +
+                            " headers = " + fullHttpResponse.headers().entries() +
+                            " content = " + fullHttpResponse.content().toString(StandardCharsets.UTF_8));
+                }
                 httpActionContext.setHttpResponse(fullHttpResponse);
                 if (fullHttpResponse.status().equals(HttpResponseStatus.OK)) {
                     listener.onResponse(parseToResponse(httpActionContext));

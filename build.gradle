@@ -35,17 +35,15 @@ subprojects {
 
     configurations {
         asciidoclet
-        wagon
     }
 
     dependencies {
         testImplementation "org.junit.jupiter:junit-jupiter-api:${project.property('junit.version')}"
-        testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${project.property('junit.version')}"
         testImplementation "org.apache.logging.log4j:log4j-core:${project.property('log4j.version')}"
         testImplementation "org.apache.logging.log4j:log4j-jul:${project.property('log4j.version')}"
         testImplementation "org.apache.logging.log4j:log4j-slf4j-impl:${project.property('log4j.version')}"
+        testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${project.property('junit.version')}"
         asciidoclet "org.xbib:asciidoclet:${project.property('asciidoclet.version')}"
-        wagon "org.apache.maven.wagon:wagon-ssh:${project.property('wagon.version')}"
     }
 
     compileJava {
