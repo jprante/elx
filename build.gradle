@@ -109,13 +109,7 @@ subprojects {
     artifacts {
         archives javadocJar, sourcesJar
     }
-
-    if (project.hasProperty('signing.keyId')) {
-        signing {
-            sign configurations.archives
-        }
-    }
-
+    
     apply from: "${rootProject.projectDir}/gradle/publish.gradle"
 
     spotbugs {
