@@ -6,7 +6,6 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 
-import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 /**

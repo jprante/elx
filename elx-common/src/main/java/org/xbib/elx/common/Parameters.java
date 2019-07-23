@@ -2,6 +2,8 @@ package org.xbib.elx.common;
 
 public enum Parameters {
 
+    ENABLE_BULK_LOGGING(false),
+
     DEFAULT_MAX_ACTIONS_PER_REQUEST(1000),
 
     DEFAULT_MAX_CONCURRENT_REQUESTS(Runtime.getRuntime().availableProcessors()),
@@ -18,9 +20,15 @@ public enum Parameters {
 
     FLUSH_INTERVAL("flush_interval");
 
+    boolean flag;
+
     int num;
 
     String string;
+
+    Parameters(boolean flag) {
+        this.flag = flag;
+    }
 
     Parameters(int num) {
         this.num = num;
@@ -28,6 +36,10 @@ public enum Parameters {
 
     Parameters(String string) {
         this.string = string;
+    }
+
+    boolean getValue() {
+        return flag;
     }
 
     int getNum() {

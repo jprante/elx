@@ -31,7 +31,7 @@ public interface BulkProcessor extends Closeable, Flushable {
     /**
      * A listener for the execution.
      */
-    public interface Listener {
+    interface Listener {
 
         /**
          * Callback before the bulk is executed.
