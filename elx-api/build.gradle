@@ -17,4 +17,6 @@ dependencies {
     compile "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${project.property('jackson.version')}"
     // not used, but maybe in other projects
     compile "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${project.property('jackson.version')}"
+    // lift guava
+    compile "com.google.guava:guava:${project.property('guava.version')}"
 }

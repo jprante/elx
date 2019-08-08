@@ -547,10 +547,10 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public String resolveMostRecentIndex(String alias) {
-        ensureActive();
         if (alias == null) {
             return null;
         }
+        ensureActive();
         GetAliasesRequest getAliasesRequest = new GetAliasesRequest().aliases(alias);
         GetAliasesResponse getAliasesResponse = client.execute(GetAliasesAction.INSTANCE, getAliasesRequest).actionGet();
         Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
