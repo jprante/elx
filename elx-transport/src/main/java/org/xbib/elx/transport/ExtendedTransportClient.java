@@ -1,5 +1,6 @@
 package org.xbib.elx.transport;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.Version;
@@ -48,11 +49,11 @@ public class ExtendedTransportClient extends AbstractExtendedClient {
                     + " " + System.getProperty("java.vm.version")
                     + " Elasticsearch " + Version.CURRENT.toString();
             Settings transportClientSettings = getTransportClientSettings(settings);
-            XContentBuilder settingsBuilder = XContentFactory.jsonBuilder().startObject();
+            //XContentBuilder settingsBuilder = XContentFactory.jsonBuilder().startObject();
             XContentBuilder effectiveSettingsBuilder = XContentFactory.jsonBuilder().startObject();
-            logger.info("creating transport client on {} with custom settings {} and effective settings {}",
+            logger.log(Level.INFO, "creating transport client on {} with settings {}",
                     systemIdentifier,
-                    Strings.toString(settings.toXContent(settingsBuilder, ToXContent.EMPTY_PARAMS).endObject()),
+                    //Strings.toString(settings.toXContent(settingsBuilder, ToXContent.EMPTY_PARAMS).endObject()),
                     Strings.toString(transportClientSettings.toXContent(effectiveSettingsBuilder,
                             ToXContent.EMPTY_PARAMS).endObject()));
             return new MyTransportClient(transportClientSettings, Collections.singletonList(Netty4Plugin.class));
@@ -138,11 +139,14 @@ public class ExtendedTransportClient extends AbstractExtendedClient {
 
     private Settings getTransportClientSettings(Settings settings) {
         return Settings.builder()
+                // "cluster.name"
                 .put(ClusterName.CLUSTER_NAME_SETTING.getKey(),
                         settings.get(ClusterName.CLUSTER_NAME_SETTING.getKey()))
+                // "processors"
                 .put(EsExecutors.PROCESSORS_SETTING.getKey(),
                         settings.get(EsExecutors.PROCESSORS_SETTING.getKey(),
                                 String.valueOf(Runtime.getRuntime().availableProcessors())))
+                // "transport.type"
                 .put(NetworkModule.TRANSPORT_TYPE_KEY,
                         Netty4Plugin.NETTY_TRANSPORT_NAME)
                 .build();
@@ -154,7 +158,7 @@ public class ExtendedTransportClient extends AbstractExtendedClient {
         }
     }
 
-    class MyTransportClient extends TransportClient {
+    static class MyTransportClient extends TransportClient {
 
         MyTransportClient(Settings settings, Collection<Class<? extends Plugin>> plugins) {
             super(settings, plugins);

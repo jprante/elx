@@ -42,38 +42,38 @@ class IndexShiftTest {
                     .put("index.number_of_shards", 1)
                     .put("index.number_of_replicas", 0)
                     .build();
-            client.newIndex("test1234", settings);
+            client.newIndex("test_shift1234", settings);
             for (int i = 0; i < 1; i++) {
-                client.index("test1234", helper.randomString(1), false,
+                client.index("test_shift1234", helper.randomString(1), false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             client.flush();
             client.waitForResponses(30L, TimeUnit.SECONDS);
             IndexShiftResult indexShiftResult =
-                    client.shiftIndex("test", "test1234", Arrays.asList("a", "b", "c"));
+                    client.shiftIndex("test_shift", "test_shift1234", Arrays.asList("a", "b", "c"));
             assertTrue(indexShiftResult.getNewAliases().contains("a"));
             assertTrue(indexShiftResult.getNewAliases().contains("b"));
             assertTrue(indexShiftResult.getNewAliases().contains("c"));
             assertTrue(indexShiftResult.getMovedAliases().isEmpty());
-            Map<String, String> aliases = client.getAliases("test1234");
+            Map<String, String> aliases = client.getAliases("test_shift1234");
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
-            assertTrue(aliases.containsKey("test"));
-            String resolved = client.resolveAlias("test");
+            assertTrue(aliases.containsKey("test_shift"));
+            String resolved = client.resolveAlias("test_shift");
             aliases = client.getAliases(resolved);
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
-            assertTrue(aliases.containsKey("test"));
-            client.newIndex("test5678", settings);
+            assertTrue(aliases.containsKey("test_shift"));
+            client.newIndex("test_shift5678", settings);
             for (int i = 0; i < 1; i++) {
-                client.index("test5678", helper.randomString(1), false,
+                client.index("test_shift5678", helper.randomString(1), false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             client.flush();
             client.waitForResponses(30L, TimeUnit.SECONDS);
-            indexShiftResult = client.shiftIndex("test", "test5678", Arrays.asList("d", "e", "f"),
+            indexShiftResult = client.shiftIndex("test_shift", "test_shift5678", Arrays.asList("d", "e", "f"),
                     (request, index, alias) -> request.addAliasAction(IndicesAliasesRequest.AliasActions.add()
                             .index(index).alias(alias).filter(QueryBuilders.termQuery("my_key", alias)))
             );
@@ -83,14 +83,14 @@ class IndexShiftTest {
             assertTrue(indexShiftResult.getMovedAliases().contains("a"));
             assertTrue(indexShiftResult.getMovedAliases().contains("b"));
             assertTrue(indexShiftResult.getMovedAliases().contains("c"));
-            aliases = client.getAliases("test5678");
+            aliases = client.getAliases("test_shift5678");
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
             assertTrue(aliases.containsKey("d"));
             assertTrue(aliases.containsKey("e"));
             assertTrue(aliases.containsKey("f"));
-            resolved = client.resolveAlias("test");
+            resolved = client.resolveAlias("test_shift");
             aliases = client.getAliases(resolved);
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));

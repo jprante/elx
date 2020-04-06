@@ -141,7 +141,7 @@ class ClientTest {
     void testThreadedRandomDocs() throws Exception {
         int maxthreads = Runtime.getRuntime().availableProcessors();
         Long maxActionsPerRequest = MAX_ACTIONS_PER_REQUEST;
-        final Long actions = ACTIONS;
+        final long actions = ACTIONS;
         logger.info("maxthreads={} maxactions={} maxloop={}", maxthreads, maxActionsPerRequest, actions);
         final ExtendedNodeClient client = ClientBuilder.builder(helper.client("1"))
                 .provider(ExtendedNodeClientProvider.class)
@@ -169,13 +169,13 @@ class ClientTest {
                 });
             }
             logger.info("waiting for latch...");
-            if (latch.await(60L, TimeUnit.SECONDS)) {
+            if (latch.await(30L, TimeUnit.SECONDS)) {
                 logger.info("flush...");
                 client.flush();
-                client.waitForResponses(60L, TimeUnit.SECONDS);
+                client.waitForResponses(30L, TimeUnit.SECONDS);
                 logger.info("got all responses, executor service shutdown...");
                 executorService.shutdown();
-                executorService.awaitTermination(60L, TimeUnit.SECONDS);
+                executorService.awaitTermination(30L, TimeUnit.SECONDS);
                 logger.info("pool is shut down");
             } else {
                 logger.warn("latch timeout");

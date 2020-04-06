@@ -2,6 +2,7 @@ package org.xbib.elx.common;
 
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchTimeoutException;
@@ -194,16 +195,17 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public AbstractExtendedClient init(Settings settings) throws IOException {
+        logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
         if (client == null) {
             client = createClient(settings);
         }
         if (bulkMetric == null) {
-            this.bulkMetric = new DefaultBulkMetric();
-            this.bulkMetric.init(settings);
+            bulkMetric = new DefaultBulkMetric();
+            bulkMetric.init(settings);
         }
         if (bulkController == null) {
-            this.bulkController = new DefaultBulkController(this, bulkMetric);
-            this.bulkController.init(settings);
+            bulkController = new DefaultBulkController(this, bulkMetric);
+            bulkController.init(settings);
         }
         return this;
     }
@@ -235,8 +237,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     public String getClusterName() {
         ensureActive();
         try {
-            ClusterStateRequest clusterStateRequest = new ClusterStateRequest();
-            clusterStateRequest.clear();
+            ClusterStateRequest clusterStateRequest = new ClusterStateRequest().clear();
             ClusterStateResponse clusterStateResponse =
                     client.execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
             return clusterStateResponse.getClusterName().value();

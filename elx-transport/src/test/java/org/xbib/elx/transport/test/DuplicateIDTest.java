@@ -45,20 +45,20 @@ class DuplicateIDTest {
                 .put(helper.getTransportSettings())
                 .build();
         try {
-            client.newIndex("test");
+            client.newIndex("test_dup");
             for (int i = 0; i < ACTIONS; i++) {
-                client.index("test", helper.randomString(1), false,
+                client.index("test_dup", helper.randomString(1), false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             client.flush();
             client.waitForResponses(30L, TimeUnit.SECONDS);
-            client.refreshIndex("test");
+            client.refreshIndex("test_dup");
             SearchSourceBuilder builder = new SearchSourceBuilder();
             builder.query(QueryBuilders.matchAllQuery());
             builder.size(0);
             SearchRequest searchRequest = new SearchRequest();
-            searchRequest.indices("test");
-            searchRequest.types("test");
+            searchRequest.indices("test_dup");
+            searchRequest.types("test_dup");
             searchRequest.source(builder);
             SearchResponse searchResponse =
                     helper.client("1").execute(SearchAction.INSTANCE, searchRequest).actionGet();

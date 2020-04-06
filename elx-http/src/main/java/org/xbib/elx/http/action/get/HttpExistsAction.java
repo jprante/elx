@@ -7,7 +7,7 @@ import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.RequestBuilder;
+import org.xbib.netty.http.client.api.Request;
 
 import java.io.IOException;
 
@@ -19,7 +19,7 @@ public class HttpExistsAction extends HttpAction<GetRequest, GetResponse> {
     }
 
     @Override
-    protected RequestBuilder createHttpRequest(String url, GetRequest request) {
+    protected Request.Builder createHttpRequest(String url, GetRequest request) {
         return newHeadRequest(url, "/" + request.index() + "/" + request.type() + "/" + request.id());
     }
 

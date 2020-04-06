@@ -9,7 +9,7 @@ import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.RequestBuilder;
+import org.xbib.netty.http.client.api.Request;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -20,7 +20,7 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
 public class HttpGetAliasAction extends HttpAction<GetAliasesRequest, GetAliasesResponse> {
 
     @Override
-    protected RequestBuilder createHttpRequest(String url, GetAliasesRequest request) {
+    protected Request.Builder createHttpRequest(String url, GetAliasesRequest request) {
         // beware of this inconsistency, request.indices() always return empty array
         String index = request.indices() != null ? String.join(",", request.indices()) + "/" : "";
         String aliases = request.aliases() != null ? String.join(",", request.aliases()) + "/" : "";

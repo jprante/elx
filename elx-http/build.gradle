@@ -1,6 +1,15 @@
+import org.apache.tools.ant.taskdefs.condition.Os
+
 dependencies{
     compile project(':elx-common')
     compile "org.xbib.elasticsearch:transport-netty4:${rootProject.property('elasticsearch-server.version')}"
     compile "org.xbib:netty-http-client:${project.property('xbib-netty-http.version')}"
+    runtime "org.bouncycastle:bcpkix-jdk15on:${project.property('bouncycastle.version')}"
+    if (Os.isFamily(Os.FAMILY_MAC)) {
+        runtime "io.netty:netty-tcnative-boringssl-static:${project.property('tcnative-legacy-macosx.version')}"
+    } else if (Os.isFamily(Os.FAMILY_UNIX)) {
+        runtime "io.netty:netty-tcnative-boringssl-static:${project.property('tcnative.version')}"
+        runtime "org.xbib:netty-http-epoll:${project.property('xbib-netty-http.version')}"
+    }
     testCompile "org.xbib.elasticsearch:elasticsearch-analysis-common:${rootProject.property('elasticsearch-server.version')}"
 }

@@ -6,7 +6,7 @@ import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.RequestBuilder;
+import org.xbib.netty.http.client.api.Request;
 
 import java.io.IOException;
 
@@ -18,7 +18,7 @@ public class HttpClusterHealthAction extends HttpAction<ClusterHealthRequest, Cl
     }
 
     @Override
-    protected RequestBuilder createHttpRequest(String url, ClusterHealthRequest request) {
+    protected Request.Builder createHttpRequest(String url, ClusterHealthRequest request) {
         return newGetRequest(url, "/_cluster/health");
     }
 

@@ -22,9 +22,9 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestStatus;
-import org.xbib.netty.http.client.Request;
-import org.xbib.netty.http.client.RequestBuilder;
-import org.xbib.netty.http.client.transport.Transport;
+import org.xbib.net.URL;
+import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.client.api.Transport;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -56,17 +56,17 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
                 listener.onFailure(validationException);
                 return;
             }
-            RequestBuilder httpRequestBuilder =
+            Request.Builder httpRequestBuilder =
                     createHttpRequest(httpActionContext.getUrl(), httpActionContext.getRequest());
             Request httpRequest = httpRequestBuilder.build();
             httpRequest.setResponseListener(fullHttpResponse -> {
                 if (logger.isDebugEnabled()) {
-                    logger.log(Level.DEBUG, "got response: " + fullHttpResponse.status().code() +
-                            " headers = " + fullHttpResponse.headers().entries() +
-                            " content = " + fullHttpResponse.content().toString(StandardCharsets.UTF_8));
+                    logger.log(Level.DEBUG, "got response: " + fullHttpResponse.getStatus().getCode() +
+                            " headers = " + fullHttpResponse.getHeaders() +
+                            " content = " + fullHttpResponse.getBody().toString(StandardCharsets.UTF_8));
                 }
                 httpActionContext.setHttpResponse(fullHttpResponse);
-                if (fullHttpResponse.status().equals(HttpResponseStatus.OK)) {
+                if (fullHttpResponse.getStatus().getCode() == HttpResponseStatus.OK.code()) {
                     listener.onResponse(parseToResponse(httpActionContext));
                 } else {
                     ElasticsearchStatusException statusException = parseToError(httpActionContext);
@@ -88,68 +88,68 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
         }
     }
 
-    protected RequestBuilder newGetRequest(String url, String path) {
+    protected Request.Builder newGetRequest(String url, String path) {
         return newRequest(HttpMethod.GET, url, path);
     }
 
-    protected RequestBuilder newGetRequest(String url, String path, BytesReference content) {
+    protected Request.Builder newGetRequest(String url, String path, BytesReference content) {
         return newRequest(HttpMethod.GET, url, path, content);
     }
 
-    protected RequestBuilder newHeadRequest(String url, String path) {
+    protected Request.Builder newHeadRequest(String url, String path) {
         return newRequest(HttpMethod.HEAD, url, path);
     }
 
-    protected RequestBuilder newPostRequest(String url, String path) {
+    protected Request.Builder newPostRequest(String url, String path) {
         return newRequest(HttpMethod.POST, url, path);
     }
 
-    protected RequestBuilder newPostRequest(String url, String path, BytesReference content) {
+    protected Request.Builder newPostRequest(String url, String path, BytesReference content) {
         return newRequest(HttpMethod.POST, url, path, content);
     }
 
-    protected RequestBuilder newPostRequest(String url, String path, String content) {
+    protected Request.Builder newPostRequest(String url, String path, String content) {
         return newRequest(HttpMethod.POST, url, path, content);
     }
 
-    protected RequestBuilder newPutRequest(String url, String path) {
+    protected Request.Builder newPutRequest(String url, String path) {
         return newRequest(HttpMethod.PUT, url, path);
     }
 
-    protected RequestBuilder newPutRequest(String url, String path, String content) {
+    protected Request.Builder newPutRequest(String url, String path, String content) {
         return newRequest(HttpMethod.PUT, url, path, content);
     }
 
-    protected RequestBuilder newPutRequest(String url, String path, BytesReference content) {
+    protected Request.Builder newPutRequest(String url, String path, BytesReference content) {
         return newRequest(HttpMethod.PUT, url, path, content);
     }
 
-    protected RequestBuilder newDeleteRequest(String url, String path) {
+    protected Request.Builder newDeleteRequest(String url, String path) {
         return newRequest(HttpMethod.DELETE, url, path);
     }
 
-    protected RequestBuilder newDeleteRequest(String url, String path, BytesReference content) {
+    protected Request.Builder newDeleteRequest(String url, String path, BytesReference content) {
         return newRequest(HttpMethod.DELETE, url, path, content);
     }
 
-    protected RequestBuilder newRequest(HttpMethod method, String baseUrl, String path) {
-        return Request.builder(method).url(baseUrl).uri(path);
+    protected Request.Builder newRequest(HttpMethod method, String baseUrl, String path) {
+        return Request.builder(method).url(URL.from(baseUrl).resolve(path));
     }
 
-    protected RequestBuilder newRequest(HttpMethod method, String baseUrl, String path, BytesReference content) {
-        return Request.builder(method).url(baseUrl).uri(path).content(content.toBytesRef().bytes, APPLICATION_JSON);
+    protected Request.Builder newRequest(HttpMethod method, String baseUrl, String path, BytesReference content) {
+        return Request.builder(method).url(URL.from(baseUrl).resolve(path)).content(content.toBytesRef().bytes, APPLICATION_JSON);
     }
 
-    protected RequestBuilder newRequest(HttpMethod method, String baseUrl, String path, String content) {
-        return Request.builder(method).url(baseUrl).uri(path).content(content, APPLICATION_JSON);
+    protected Request.Builder newRequest(HttpMethod method, String baseUrl, String path, String content) {
+        return Request.builder(method).url(URL.from(baseUrl).resolve(path)).content(content, APPLICATION_JSON);
     }
 
-    protected RequestBuilder newRequest(HttpMethod method, String baseUrl, String path, ByteBuf byteBuf) {
-        return Request.builder(method).url(baseUrl).uri(path).content(byteBuf, APPLICATION_JSON);
+    protected Request.Builder newRequest(HttpMethod method, String baseUrl, String path, ByteBuf byteBuf) {
+        return Request.builder(method).url(URL.from(baseUrl).resolve(path)).content(byteBuf, APPLICATION_JSON);
     }
 
     protected T parseToResponse(HttpActionContext<R, T> httpActionContext) {
-        String mediaType = httpActionContext.getHttpResponse().headers().get(HttpHeaderNames.CONTENT_TYPE);
+        String mediaType = httpActionContext.getHttpResponse().getHeaders().getHeader(HttpHeaderNames.CONTENT_TYPE);
         XContentType xContentType = XContentType.fromMediaTypeOrFormat(mediaType);
         if (xContentType == null) {
             throw new IllegalStateException("unsupported content-type: " + mediaType);
@@ -157,7 +157,7 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
         try (XContentParser parser = xContentType.xContent()
                 .createParser(httpActionContext.getExtendedHttpClient().getRegistry(),
                 DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                httpActionContext.getHttpResponse().content().toString(StandardCharsets.UTF_8))) {
+                httpActionContext.getHttpResponse().getBody().toString(StandardCharsets.UTF_8))) {
             return entityParser().apply(parser);
         } catch (IOException e) {
             logger.error(e.getMessage(), e);
@@ -169,7 +169,7 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
         try (XContentParser parser = XContentFactory.xContent(XContentType.JSON)
                 .createParser(httpActionContext.getExtendedHttpClient().getRegistry(),
                         DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                        httpActionContext.getHttpResponse().content().toString(StandardCharsets.UTF_8))) {
+                        httpActionContext.getHttpResponse().getBody().toString(StandardCharsets.UTF_8))) {
             return errorParser().apply(parser);
         } catch (IOException e) {
             logger.error(e.getMessage(), e);
@@ -181,7 +181,7 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
         return BytesRestResponse::errorFromXContent;
     }
 
-    protected abstract RequestBuilder createHttpRequest(String baseUrl, R request) throws IOException;
+    protected abstract Request.Builder createHttpRequest(String baseUrl, R request) throws IOException;
 
     protected abstract CheckedFunction<XContentParser, T, IOException> entityParser();
 

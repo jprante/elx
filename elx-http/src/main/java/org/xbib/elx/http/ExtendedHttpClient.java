@@ -18,7 +18,6 @@ import org.elasticsearch.threadpool.ThreadPool;
 import org.xbib.elx.common.AbstractExtendedClient;
 import org.xbib.net.URL;
 import org.xbib.netty.http.client.Client;
-import org.xbib.netty.http.client.ClientBuilder;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -75,7 +74,7 @@ public class ExtendedHttpClient extends AbstractExtendedClient implements Elasti
             httpAction.setSettings(settings);
             actionMap.put(httpAction.getActionInstance(), httpAction);
         }
-        ClientBuilder clientBuilder = Client.builder();
+        Client.Builder clientBuilder = Client.builder();
         if (settings.hasValue("debug")) {
             clientBuilder.enableDebug();
         }

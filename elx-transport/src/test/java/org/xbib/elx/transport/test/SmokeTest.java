@@ -35,15 +35,15 @@ class SmokeTest {
                 .build();
         try {
             assertEquals(helper.getClusterName(), client.getClusterName());
-            client.newIndex("test");
-            client.index("test", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
-            client.update("test", "1", "{ \"name\" : \"Another name\"}");
-            client.delete("test", "1");
+            client.newIndex("test_smoke");
+            client.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
+            client.update("test_smoke", "1", "{ \"name\" : \"Another name\"}");
+            client.delete("test_smoke", "1");
             client.flush();
             client.waitForResponses(30, TimeUnit.SECONDS);
-            client.checkMapping("test");
-            client.deleteIndex("test");
-            IndexDefinition indexDefinition = client.buildIndexDefinitionFromSettings("test", Settings.builder()
+            client.checkMapping("test_smoke");
+            client.deleteIndex("test_smoke");
+            IndexDefinition indexDefinition = client.buildIndexDefinitionFromSettings("test_smoke", Settings.builder()
                     .build());
             assertEquals(0, indexDefinition.getReplicaLevel());
             client.newIndex(indexDefinition);

@@ -71,15 +71,14 @@ class AliasTest {
         indexRequest = new CreateIndexRequest("test20160103");
         client.execute(CreateIndexAction.INSTANCE, indexRequest).actionGet();
         IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
-        String[] indices = new String[]{"test20160101", "test20160102", "test20160103"};
-        String[] aliases = new String[]{alias};
+        String[] indices = new String[] { "test20160101", "test20160102", "test20160103" };
+        String[] aliases = new String[] { alias };
         IndicesAliasesRequest.AliasActions aliasAction =
                 new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.ADD)
                 .indices(indices)
                 .aliases(aliases);
         indicesAliasesRequest.addAliasAction(aliasAction);
         client.execute(IndicesAliasesAction.INSTANCE, indicesAliasesRequest).actionGet();
-
         GetAliasesRequest getAliasesRequest = new GetAliasesRequest();
         getAliasesRequest.aliases(alias);
         GetAliasesResponse getAliasesResponse =

@@ -157,7 +157,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         return helper;
     }
 
-    class Helper {
+    static class Helper {
 
         String home;
 

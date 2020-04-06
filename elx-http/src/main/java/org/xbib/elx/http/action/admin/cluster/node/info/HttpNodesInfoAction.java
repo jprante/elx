@@ -23,7 +23,7 @@ import org.elasticsearch.threadpool.ThreadPoolInfo;
 import org.elasticsearch.transport.TransportInfo;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.elx.http.HttpActionContext;
-import org.xbib.netty.http.client.RequestBuilder;
+import org.xbib.netty.http.client.api.Request;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -53,7 +53,7 @@ public class HttpNodesInfoAction extends HttpAction<NodesInfoRequest, NodesInfoR
      * @return HTTP request
      */
     @Override
-    protected RequestBuilder createHttpRequest(String url, NodesInfoRequest request) {
+    protected Request.Builder createHttpRequest(String url, NodesInfoRequest request) {
         StringBuilder path = new StringBuilder("/_nodes");
         if (request.nodesIds() != null) {
             String nodeIds = String.join(",", request.nodesIds());
@@ -104,13 +104,17 @@ public class HttpNodesInfoAction extends HttpAction<NodesInfoRequest, NodesInfoR
         return new NodesInfoResponse();
     }
 
+    /**
+     * Broken.
+     */
     @SuppressWarnings("unchecked")
     protected NodesInfoResponse createResponse(HttpActionContext<NodesInfoRequest, NodesInfoResponse> httpContext) {
         Map<String, Object> map = null;
-        String string = (String)map.get("cluster_name");
-        ClusterName clusterName = new ClusterName(string);
+        //String string = (String)map.get("cluster_name");
+        ClusterName clusterName = new ClusterName("");
         List<NodeInfo> nodeInfoList = new LinkedList<>();
-        map = (Map<String, Object>)map.get("nodes");
+        //map = (Map<String, Object>)map.get("nodes");
+
         for (Map.Entry<String, Object> entry : map.entrySet()) {
             String nodeId = entry.getKey();
             String ephemeralId = null;

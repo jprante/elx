@@ -124,7 +124,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
         closed = true;
         if (scheduledFuture != null) {
             FutureUtils.cancel(scheduledFuture);
-            this.scheduler.shutdown();
+            scheduler.shutdown();
         }
         if (bulkRequest.numberOfActions() > 0) {
             execute();

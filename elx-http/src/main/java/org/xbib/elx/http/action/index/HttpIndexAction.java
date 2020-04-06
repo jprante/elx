@@ -7,7 +7,7 @@ import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.RequestBuilder;
+import org.xbib.netty.http.client.api.Request;
 
 import java.io.IOException;
 
@@ -19,7 +19,7 @@ public class HttpIndexAction extends HttpAction<IndexRequest, IndexResponse> {
     }
 
     @Override
-    protected RequestBuilder createHttpRequest(String url, IndexRequest request) {
+    protected Request.Builder createHttpRequest(String url, IndexRequest request) {
         return newPutRequest(url, "/" + request.index() + "/" + request.type() + "/" + request.id(),
                 request.source());
     }

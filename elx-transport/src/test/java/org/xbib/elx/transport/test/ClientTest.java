@@ -1,5 +1,6 @@
 package org.xbib.elx.transport.test;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsAction;
@@ -37,9 +38,9 @@ class ClientTest {
 
     private static final Logger logger = LogManager.getLogger(ClientTest.class.getName());
 
-    private static final Long ACTIONS = 1000L;
+    private static final Long ACTIONS = 10000L;
 
-    private static final Long MAX_ACTIONS_PER_REQUEST = 100L;
+    private static final Long MAX_ACTIONS_PER_REQUEST = 10000L;
 
     private final TestExtension.Helper helper;
 
@@ -51,9 +52,9 @@ class ClientTest {
     void testSingleDoc() throws Exception {
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
+                .put(helper.getTransportSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(30))
-                .put(helper.getTransportSettings())
                 .build();
         try {
             client.newIndex("test");
@@ -76,8 +77,8 @@ class ClientTest {
     void testNewIndex() throws Exception {
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
-                .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
                 .put(helper.getTransportSettings())
+                .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
                 .build();
         client.newIndex("test");
         client.close();
@@ -87,8 +88,8 @@ class ClientTest {
     void testMapping() throws Exception {
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
-                .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
                 .put(helper.getTransportSettings())
+                .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
                 .build();
         XContentBuilder builder = JsonXContent.contentBuilder()
                 .startObject()
@@ -114,9 +115,9 @@ class ClientTest {
         long numactions = ACTIONS;
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
+                .put(helper.getTransportSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
-                .put(helper.getTransportSettings())
                 .build();
         try {
             client.newIndex("test");
@@ -144,6 +145,7 @@ class ClientTest {
             searchRequest.indices("test");
             searchRequest.source(builder);
             SearchResponse searchResponse = client.getClient().execute(SearchAction.INSTANCE, searchRequest).actionGet();
+            logger.log(Level.INFO, searchResponse.toString());
             assertEquals(numactions, searchResponse.getHits().getTotalHits());
             client.close();
         }
@@ -153,14 +155,15 @@ class ClientTest {
     void testThreadedRandomDocs() throws Exception {
         int maxthreads = Runtime.getRuntime().availableProcessors();
         Long maxActionsPerRequest = MAX_ACTIONS_PER_REQUEST;
-        final Long actions = ACTIONS;
+        final long actions = ACTIONS;
         logger.info("maxthreads={} maxactions={} maxloop={}", maxthreads, maxActionsPerRequest, actions);
         final ExtendedTransportClient client = ClientBuilder.builder()
                 .provider(ExtendedTransportClientProvider.class)
+                .put(helper.getTransportSettings())
                 .put(Parameters.MAX_CONCURRENT_REQUESTS.name(), maxthreads * 2)
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), maxActionsPerRequest)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
-                .put(helper.getTransportSettings())
+                .put(Parameters.ENABLE_BULK_LOGGING.name(), "true")
                 .build();
         try {
             Settings settings = Settings.builder()
@@ -182,13 +185,13 @@ class ClientTest {
                 });
             }
             logger.info("waiting for latch...");
-            if (latch.await(60L, TimeUnit.SECONDS)) {
+            if (latch.await(30L, TimeUnit.SECONDS)) {
                 logger.info("flush...");
                 client.flush();
-                client.waitForResponses(60L, TimeUnit.SECONDS);
+                client.waitForResponses(30L, TimeUnit.SECONDS);
                 logger.info("got all responses, executor service shutdown...");
                 executorService.shutdown();
-                executorService.awaitTermination(60L, TimeUnit.SECONDS);
+                executorService.awaitTermination(30L, TimeUnit.SECONDS);
                 logger.info("pool is shut down");
             } else {
                 logger.warn("latch timeout");
@@ -212,6 +215,7 @@ class ClientTest {
             searchRequest.indices("test");
             searchRequest.source(builder);
             SearchResponse searchResponse = client.getClient().execute(SearchAction.INSTANCE, searchRequest).actionGet();
+            logger.log(Level.INFO, searchResponse.toString());
             assertEquals(maxthreads * actions, searchResponse.getHits().getTotalHits());
             client.close();
         }

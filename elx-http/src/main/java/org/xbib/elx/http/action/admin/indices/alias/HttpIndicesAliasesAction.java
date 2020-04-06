@@ -11,7 +11,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.RequestBuilder;
+import org.xbib.netty.http.client.api.Request;
 
 import java.io.IOException;
 
@@ -23,7 +23,7 @@ public class HttpIndicesAliasesAction extends HttpAction<IndicesAliasesRequest, 
     }
 
     @Override
-    protected RequestBuilder createHttpRequest(String url, IndicesAliasesRequest request) {
+    protected Request.Builder createHttpRequest(String url, IndicesAliasesRequest request) {
         try {
             XContentBuilder builder = JsonXContent.contentBuilder();
             request.toXContent(builder, ToXContent.EMPTY_PARAMS);

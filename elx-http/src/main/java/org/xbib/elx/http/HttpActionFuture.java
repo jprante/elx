@@ -7,7 +7,7 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.BaseFuture;
 import org.elasticsearch.common.util.concurrent.UncategorizedExecutionException;
-import org.xbib.netty.http.client.transport.Transport;
+import org.xbib.netty.http.client.api.Transport;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;

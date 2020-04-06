@@ -9,7 +9,7 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.rest.RestStatus;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.elx.http.HttpActionContext;
-import org.xbib.netty.http.client.RequestBuilder;
+import org.xbib.netty.http.client.api.Request;
 
 import java.io.IOException;
 
@@ -21,7 +21,7 @@ public class HttpIndicesExistsAction extends HttpAction<IndicesExistsRequest, In
     }
 
     @Override
-    protected RequestBuilder createHttpRequest(String url, IndicesExistsRequest request) {
+    protected Request.Builder createHttpRequest(String url, IndicesExistsRequest request) {
         String index = String.join(",", request.indices());
         return newHeadRequest(url, index);
     }

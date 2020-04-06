@@ -10,7 +10,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.RequestBuilder;
+import org.xbib.netty.http.client.api.Request;
 
 import java.io.IOException;
 
@@ -22,7 +22,7 @@ public class HttpCreateIndexAction extends HttpAction<CreateIndexRequest, Create
     }
 
     @Override
-    protected RequestBuilder createHttpRequest(String url, CreateIndexRequest createIndexRequest) throws IOException {
+    protected Request.Builder createHttpRequest(String url, CreateIndexRequest createIndexRequest) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder = createIndexRequest.toXContent(builder, ToXContent.EMPTY_PARAMS);
         return newPutRequest(url, "/" + createIndexRequest.index(), BytesReference.bytes(builder));

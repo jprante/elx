@@ -317,7 +317,7 @@ public interface ExtendedClient extends Flushable, Closeable {
 
     /**
      * Force segment merge of an index.
-     * @param indexDefinition th eindex definition
+     * @param indexDefinition the index definition
      * @return this
      */
     boolean forceMerge(IndexDefinition indexDefinition);

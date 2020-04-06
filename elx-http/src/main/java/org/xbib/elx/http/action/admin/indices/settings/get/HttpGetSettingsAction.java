@@ -9,7 +9,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentParserUtils;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.RequestBuilder;
+import org.xbib.netty.http.client.api.Request;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -23,7 +23,7 @@ public class HttpGetSettingsAction extends HttpAction<GetSettingsRequest, GetSet
     }
 
     @Override
-    protected RequestBuilder createHttpRequest(String url, GetSettingsRequest request) {
+    protected Request.Builder createHttpRequest(String url, GetSettingsRequest request) {
         // beware, request.indices() is always an empty array
         String index = request.indices() != null ? String.join(",", request.indices()) + "/" : "";
         return newGetRequest(url, index + "_settings");

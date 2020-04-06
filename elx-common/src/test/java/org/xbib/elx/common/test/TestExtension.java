@@ -86,7 +86,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         logger.info("starting cluster with helper " + helper + " at " + helper.getHome());
         helper.startNode("1");
         NodesInfoRequest nodesInfoRequest = new NodesInfoRequest().transport(true);
-        NodesInfoResponse response = helper.client("1"). execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
+        NodesInfoResponse response = helper.client("1").execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
         TransportAddress address = response.getNodes().get(0).getTransport().getAddress().publishAddress();
         String host = address.address().getHostName();
         int port = address.address().getPort();
@@ -158,7 +158,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         return helper;
     }
 
-    class Helper {
+    static class Helper {
 
         String home;
 

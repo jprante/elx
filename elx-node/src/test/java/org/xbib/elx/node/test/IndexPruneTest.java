@@ -45,22 +45,22 @@ class IndexPruneTest {
                     .put("index.number_of_shards", 1)
                     .put("index.number_of_replicas", 0)
                     .build();
-            client.newIndex("test1", settings);
-            client.shiftIndex("test", "test1", Collections.emptyList());
-            client.newIndex("test2", settings);
-            client.shiftIndex("test", "test2", Collections.emptyList());
-            client.newIndex("test3", settings);
-            client.shiftIndex("test", "test3", Collections.emptyList());
-            client.newIndex("test4", settings);
-            client.shiftIndex("test", "test4", Collections.emptyList());
+            client.newIndex("test_prune1", settings);
+            client.shiftIndex("test_prune", "test_prune1", Collections.emptyList());
+            client.newIndex("test_prune2", settings);
+            client.shiftIndex("test_prune", "test_prune2", Collections.emptyList());
+            client.newIndex("test_prune3", settings);
+            client.shiftIndex("test_prune", "test_prune3", Collections.emptyList());
+            client.newIndex("test_prune4", settings);
+            client.shiftIndex("test_prune", "test_prune4", Collections.emptyList());
             IndexPruneResult indexPruneResult =
-                    client.pruneIndex("test", "test4", 2, 2, true);
-            assertTrue(indexPruneResult.getDeletedIndices().contains("test1"));
-            assertTrue(indexPruneResult.getDeletedIndices().contains("test2"));
-            assertFalse(indexPruneResult.getDeletedIndices().contains("test3"));
-            assertFalse(indexPruneResult.getDeletedIndices().contains("test4"));
+                    client.pruneIndex("test_prune", "test_prune4", 2, 2, true);
+            assertTrue(indexPruneResult.getDeletedIndices().contains("test_prune1"));
+            assertTrue(indexPruneResult.getDeletedIndices().contains("test_prune2"));
+            assertFalse(indexPruneResult.getDeletedIndices().contains("test_prune3"));
+            assertFalse(indexPruneResult.getDeletedIndices().contains("test_prune4"));
             List<Boolean> list = new ArrayList<>();
-            for (String index : Arrays.asList("test1", "test2", "test3", "test4")) {
+            for (String index : Arrays.asList("test_prune1", "test_prune2", "test_prune3", "test_prune4")) {
                 IndicesExistsRequest indicesExistsRequest = new IndicesExistsRequest();
                 indicesExistsRequest.indices(index);
                 IndicesExistsResponse indicesExistsResponse =

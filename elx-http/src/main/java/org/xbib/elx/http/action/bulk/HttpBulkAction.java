@@ -13,7 +13,7 @@ import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.RequestBuilder;
+import org.xbib.netty.http.client.api.Request;
 
 import java.io.IOException;
 
@@ -25,7 +25,7 @@ public class HttpBulkAction extends HttpAction<BulkRequest, BulkResponse> {
     }
 
     @Override
-    protected RequestBuilder createHttpRequest(String url, BulkRequest request) throws IOException {
+    protected Request.Builder createHttpRequest(String url, BulkRequest request) throws IOException {
         StringBuilder bulkContent = new StringBuilder();
         for (DocWriteRequest<?> actionRequest : request.requests()) {
             if (actionRequest instanceof IndexRequest) {

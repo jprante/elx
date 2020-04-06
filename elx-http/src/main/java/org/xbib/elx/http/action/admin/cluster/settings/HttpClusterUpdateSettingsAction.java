@@ -9,7 +9,7 @@ import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.RequestBuilder;
+import org.xbib.netty.http.client.api.Request;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -24,7 +24,7 @@ public class HttpClusterUpdateSettingsAction extends HttpAction<ClusterUpdateSet
     }
 
     @Override
-    protected RequestBuilder createHttpRequest(String url, ClusterUpdateSettingsRequest request) {
+    protected Request.Builder createHttpRequest(String url, ClusterUpdateSettingsRequest request) {
         try {
             XContentBuilder builder = jsonBuilder();
             builder.startObject().startObject("persistent");
