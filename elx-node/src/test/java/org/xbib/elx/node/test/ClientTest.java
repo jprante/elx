@@ -35,9 +35,9 @@ class ClientTest {
 
     private static final Logger logger = LogManager.getLogger(ClientTest.class.getName());
 
-    private static final Long ACTIONS = 1000L;
+    private static final Long ACTIONS = 10000L;
 
-    private static final Long MAX_ACTIONS_PER_REQUEST = 100L;
+    private static final Long MAX_ACTIONS_PER_REQUEST = 10000L;
 
     private final TestExtension.Helper helper;
 

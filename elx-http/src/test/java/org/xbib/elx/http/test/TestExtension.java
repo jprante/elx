@@ -151,7 +151,8 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
 
     private Helper create() {
         Helper helper = new Helper();
-        helper.setHome(System.getProperty("path.home") + "/" + helper.randomString(8));
+        String home = System.getProperty("path.home", "build/elxhttp/");
+        helper.setHome(home + helper.randomString(8));
         helper.setClusterName("test-cluster-" + helper.randomString(8));
         logger.info("cluster: " + helper.getClusterName() + " home: " + helper.getHome());
         return helper;
@@ -191,6 +192,8 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return Settings.builder()
                     .put("cluster.name", getClusterName())
                     .put("path.home", getHome())
+                    .put("discovery.zen.master_election.ignore_non_master_pings", "true")
+                    .put("transport.netty.epoll", "false")
                     .build();
         }
 

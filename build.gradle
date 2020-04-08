@@ -58,7 +58,7 @@ subprojects {
             ]
         }
         systemProperty 'java.util.logging.manager', 'org.apache.logging.log4j.jul.LogManager'
-        systemProperty 'path.home', "${project.buildDir}"
+        systemProperty 'path.home', "${project.buildDir}/"
         systemProperty 'jna.debug_load', 'true'
         failFast = true
         testLogging {
@@ -77,7 +77,6 @@ subprojects {
     
     clean {
         delete "out"
-        delete "null"
     }
     
     /*javadoc {

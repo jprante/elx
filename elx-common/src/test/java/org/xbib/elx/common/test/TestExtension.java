@@ -188,6 +188,8 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return Settings.builder()
                     .put("cluster.name", getClusterName())
                     .put("path.home", getHome())
+                    .put("discovery.zen.master_election.ignore_non_master_pings", "true")
+                    .put("transport.netty.epoll", "false")
                     .build();
         }
 

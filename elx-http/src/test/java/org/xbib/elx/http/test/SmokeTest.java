@@ -35,20 +35,21 @@ class SmokeTest {
                 .build();
         try {
             assertEquals(helper.getClusterName(), client.getClusterName());
-            client.newIndex("test");
-            client.index("test", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
+            client.newIndex("test_smoke");
+            client.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
             client.flush();
             client.waitForResponses(30, TimeUnit.SECONDS);
-            client.checkMapping("test");
-            client.update("test", "1", "{ \"name\" : \"Another name\"}");
-            client.delete("test", "1");
+            client.checkMapping("test_smoke");
+            client.update("test_smoke", "1", "{ \"name\" : \"Another name\"}");
+            client.delete("test_smoke", "1");
             client.flush();
             client.waitForResponses(30, TimeUnit.SECONDS);
-            client.waitForRecovery("test", 10L, TimeUnit.SECONDS);
-            client.delete("test", "1");
+            client.waitForRecovery("test_smoke", 10L, TimeUnit.SECONDS);
+            client.delete("test_smoke", "1");
+            client.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}");
             client.flush();
-            client.deleteIndex("test");
-            IndexDefinition indexDefinition = client.buildIndexDefinitionFromSettings("test", Settings.builder()
+            client.deleteIndex("test_smoke");
+            IndexDefinition indexDefinition = client.buildIndexDefinitionFromSettings("test_smoke", Settings.builder()
                     .build());
             assertEquals(0, indexDefinition.getReplicaLevel());
             client.newIndex(indexDefinition);
@@ -60,7 +61,7 @@ class SmokeTest {
             assertEquals(2, replica);
             client.deleteIndex(indexDefinition);
             assertEquals(0, client.getBulkMetric().getFailed().getCount());
-            assertEquals(5, client.getBulkMetric().getSucceeded().getCount());
+            assertEquals(6, client.getBulkMetric().getSucceeded().getCount());
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {

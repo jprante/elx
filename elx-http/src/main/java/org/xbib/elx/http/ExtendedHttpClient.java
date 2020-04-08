@@ -58,9 +58,6 @@ public class ExtendedHttpClient extends AbstractExtendedClient implements Elasti
     @SuppressWarnings({"unchecked", "rawtypes"})
     public ExtendedHttpClient init(Settings settings) throws IOException {
         super.init(settings);
-        if (settings == null) {
-            return null;
-        }
         if (settings.hasValue("url")) {
             this.url = settings.get("url");
         } else if (settings.hasValue("host")) {

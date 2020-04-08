@@ -104,11 +104,9 @@ public class HttpNodesInfoAction extends HttpAction<NodesInfoRequest, NodesInfoR
         return new NodesInfoResponse();
     }
 
-    /**
-     * Broken.
-     */
     @SuppressWarnings("unchecked")
     protected NodesInfoResponse createResponse(HttpActionContext<NodesInfoRequest, NodesInfoResponse> httpContext) {
+        // BROKEN
         Map<String, Object> map = null;
         //String string = (String)map.get("cluster_name");
         ClusterName clusterName = new ClusterName("");
