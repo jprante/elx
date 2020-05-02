@@ -9,7 +9,6 @@ dependencies{
         runtime "io.netty:netty-tcnative-boringssl-static:${project.property('tcnative-legacy-macosx.version')}"
     } else if (Os.isFamily(Os.FAMILY_UNIX)) {
         runtime "io.netty:netty-tcnative-boringssl-static:${project.property('tcnative.version')}"
-        runtime "org.xbib:netty-http-epoll:${project.property('xbib-netty-http.version')}"
     }
     testCompile "org.xbib.elasticsearch:elasticsearch-analysis-common:${rootProject.property('elasticsearch-server.version')}"
 }
