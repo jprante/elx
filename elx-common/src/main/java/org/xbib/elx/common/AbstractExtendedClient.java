@@ -5,6 +5,7 @@ import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
@@ -14,7 +15,6 @@ import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesAction;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
-import org.elasticsearch.action.admin.indices.alias.IndicesAliasesResponse;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesAction;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesResponse;
@@ -23,7 +23,6 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexAction;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.admin.indices.flush.FlushAction;
 import org.elasticsearch.action.admin.indices.flush.FlushRequest;
 import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeAction;
@@ -46,6 +45,7 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
@@ -53,7 +53,6 @@ import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.cluster.metadata.AliasMetaData;
 import org.elasticsearch.cluster.metadata.AliasOrIndex;
 import org.elasticsearch.cluster.metadata.MappingMetaData;
-import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.settings.Settings;
@@ -89,8 +88,8 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -113,22 +112,13 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     private static final Logger logger = LogManager.getLogger(AbstractExtendedClient.class.getName());
 
-    /**
-     * The one and only index type name used in the extended client.
-     * Notr that all Elasticsearch version < 6.2.0 do not allow a prepending "_".
-     */
-    private static final String TYPE_NAME = "doc";
-
-    /**
-     * The Elasticsearch client.
-     */
     private ElasticsearchClient client;
 
     private BulkMetric bulkMetric;
 
     private BulkController bulkController;
 
-    private AtomicBoolean closed;
+    private final AtomicBoolean closed;
 
     private static final IndexShiftResult EMPTY_INDEX_SHIFT_RESULT = new IndexShiftResult() {
         @Override
@@ -195,7 +185,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public AbstractExtendedClient init(Settings settings) throws IOException {
-        logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
+        logger.info("initializing with settings = " + settings.toDelimitedString(','));
         if (client == null) {
             client = createClient(settings);
         }
@@ -303,7 +293,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public ExtendedClient newIndex(String index, Settings settings) throws IOException {
-        return newIndex(index, settings, (Map<String, Object>) null);
+        return newIndex(index, settings, (Map<String, ?>) null);
     }
 
     @Override
@@ -314,7 +304,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     }
 
     @Override
-    public ExtendedClient newIndex(String index, Settings settings, Map<String, Object> mapping) throws IOException {
+    public ExtendedClient newIndex(String index, Settings settings, XContentBuilder mapping) throws IOException {
         ensureActive();
         if (index == null) {
             logger.warn("no index name given to create index");
@@ -325,13 +315,37 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
             createIndexRequest.settings(settings);
         }
         if (mapping != null) {
-            createIndexRequest.mapping(TYPE_NAME, mapping);
+            createIndexRequest.mapping("_doc", mapping);
         }
         CreateIndexResponse createIndexResponse = client.execute(CreateIndexAction.INSTANCE, createIndexRequest).actionGet();
-        XContentBuilder builder = XContentFactory.jsonBuilder();
-        logger.info("index {} created: {}", index,
-                Strings.toString(createIndexResponse.toXContent(builder, ToXContent.EMPTY_PARAMS)));
-        return this;
+        if (createIndexResponse.isAcknowledged()) {
+            return this;
+        }
+        throw new IllegalStateException("index creation not acknowledged");
+    }
+
+    @Override
+    public ExtendedClient newIndex(String index, Settings settings, Map<String, ?> mapping) throws IOException {
+        ensureActive();
+        if (index == null) {
+            logger.warn("no index name given to create index");
+            return this;
+        }
+        CreateIndexRequest createIndexRequest = new CreateIndexRequest().index(index);
+        if (settings != null) {
+            createIndexRequest.settings(settings);
+        }
+        if (mapping != null) {
+            if (mapping.size() != 1) {
+                throw new IllegalArgumentException("mapping invalid, just use 'doc' for mapping");
+            }
+            createIndexRequest.mapping("_doc", mapping);
+        }
+        CreateIndexResponse createIndexResponse = client.execute(CreateIndexAction.INSTANCE, createIndexRequest).actionGet();
+        if (createIndexResponse.isAcknowledged()) {
+            return this;
+        }
+        throw new IllegalStateException("index creation not acknowledged");
     }
 
     @Override
@@ -387,13 +401,13 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public ExtendedClient index(String index, String id, boolean create, String source) {
-        return index(new IndexRequest(index, TYPE_NAME, id).create(create)
+        return index(new IndexRequest().index(index).id(id).create(create)
                 .source(source.getBytes(StandardCharsets.UTF_8), XContentType.JSON));
     }
 
     @Override
     public ExtendedClient index(String index, String id, boolean create, BytesReference source) {
-        return index(new IndexRequest(index, TYPE_NAME, id).create(create)
+        return index(new IndexRequest().index(index).id(id).create(create)
                 .source(source, XContentType.JSON));
     }
 
@@ -406,7 +420,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public ExtendedClient delete(String index, String id) {
-        return delete(new DeleteRequest(index, TYPE_NAME, id));
+        return delete(new DeleteRequest().index(index).id(id));
     }
 
     @Override
@@ -417,14 +431,14 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     }
 
     @Override
-    public ExtendedClient update(String index, String id, BytesReference source) {
-        return update(new UpdateRequest(index, TYPE_NAME, id)
+    public ExtendedClient update(String index, String id, BytesReference source) throws IOException {
+        return update(new UpdateRequest().index(index).id(id)
                 .doc(source, XContentType.JSON));
     }
 
     @Override
     public ExtendedClient update(String index, String id, String source) {
-        return update(new UpdateRequest(index, TYPE_NAME, id)
+        return update(new UpdateRequest().index(index).id(id)
                 .doc(source.getBytes(StandardCharsets.UTF_8), XContentType.JSON));
     }
 
@@ -458,7 +472,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
             ClusterHealthResponse healthResponse =
                     client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
             if (healthResponse != null && healthResponse.isTimedOut()) {
-                logger.error("timeout waiting for recovery");
+                logger.warn("timeout waiting for recovery");
                 return false;
             }
         }
@@ -473,9 +487,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
         ClusterHealthResponse healthResponse = client.execute(ClusterHealthAction.INSTANCE,
                 new ClusterHealthRequest().timeout(timeout).waitForStatus(status)).actionGet();
         if (healthResponse != null && healthResponse.isTimedOut()) {
-            if (logger.isErrorEnabled()) {
-                logger.error("timeout, cluster state is " + healthResponse.getStatus().name() + " and not " + status.name());
-            }
+            logger.warn("timeout, cluster state is " + healthResponse.getStatus().name() + " and not " + status.name());
             return false;
         }
         return true;
@@ -693,7 +705,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
         }
         if (!indicesAliasesRequest.getAliasActions().isEmpty()) {
             logger.debug("indices alias request = {}", indicesAliasesRequest.getAliasActions().toString());
-            IndicesAliasesResponse indicesAliasesResponse =
+            AcknowledgedResponse indicesAliasesResponse =
                     client.execute(IndicesAliasesAction.INSTANCE, indicesAliasesRequest).actionGet();
             logger.debug("response isAcknowledged = {} isFragment = {}",
                     indicesAliasesResponse.isAcknowledged(), indicesAliasesResponse.isFragment());
@@ -719,7 +731,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
         GetIndexRequestBuilder getIndexRequestBuilder = new GetIndexRequestBuilder(client, GetIndexAction.INSTANCE);
         GetIndexResponse getIndexResponse = getIndexRequestBuilder.execute().actionGet();
         Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
-        logger.info("{} indices", getIndexResponse.getIndices().length);
+        logger.info("pruneIndex: total of {} indices", getIndexResponse.getIndices().length);
         List<String> candidateIndices = new ArrayList<>();
         for (String s : getIndexResponse.getIndices()) {
             Matcher m = pattern.matcher(s);
@@ -754,21 +766,30 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
         String[] s = new String[indicesToDelete.size()];
         DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest()
                 .indices(indicesToDelete.toArray(s));
-        DeleteIndexResponse response = client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
-        return new SuccessPruneResult(candidateIndices, indicesToDelete, response);
+        AcknowledgedResponse response = client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
+        if( response.isAcknowledged()) {
+            logger.log(Level.INFO, "deletion of {} acknowledged, waiting for GREEN", Arrays.asList(s));
+            waitForCluster("GREEN", 30L, TimeUnit.SECONDS);
+            return new SuccessPruneResult(candidateIndices, indicesToDelete, response);
+        } else {
+            logger.log(Level.WARN, "deletion of {} not acknowledged", Arrays.asList(s));
+            return new FailPruneResult(candidateIndices, indicesToDelete, response);
+        }
     }
 
     @Override
     public Long mostRecentDocument(String index, String timestampfieldname) {
         ensureActive();
-        SortBuilder<?> sort = SortBuilders.fieldSort(timestampfieldname).order(SortOrder.DESC);
-        SearchSourceBuilder builder = new SearchSourceBuilder();
-        builder.sort(sort);
-        builder.storedField(timestampfieldname);
-        builder.size(1);
-        SearchRequest searchRequest = new SearchRequest();
-        searchRequest.indices(index);
-        searchRequest.source(builder);
+        SortBuilder<?> sort = SortBuilders
+                .fieldSort(timestampfieldname)
+                .order(SortOrder.DESC);
+        SearchSourceBuilder builder = new SearchSourceBuilder()
+                .sort(sort)
+                .storedField(timestampfieldname)
+                .size(1);
+        SearchRequest searchRequest = new SearchRequest()
+                .indices(index)
+                .source(builder);
         SearchResponse searchResponse =
                 client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
         if (searchResponse.getHits().getHits().length == 1) {
@@ -912,17 +933,17 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     private void checkMapping(String index, String type, MappingMetaData mappingMetaData) {
         try {
-            SearchSourceBuilder builder = new SearchSourceBuilder();
-            builder.query(QueryBuilders.matchAllQuery());
-            builder.size(0);
-            SearchRequest searchRequest = new SearchRequest();
-            searchRequest.indices(index);
-            searchRequest.types(type);
-            searchRequest.source(builder);
+            SearchSourceBuilder builder = new SearchSourceBuilder()
+                    .query(QueryBuilders.matchAllQuery())
+                    .size(0)
+                    .trackTotalHits(true);
+            SearchRequest searchRequest = new SearchRequest()
+                    .indices(index)
+                    .source(builder);
             SearchResponse searchResponse =
                     client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
-            long total = searchResponse.getHits().getTotalHits();
-            if (total > 0L) {
+            TotalHits total = searchResponse.getHits().getTotalHits();
+            if (total.value > 0L) {
                 Map<String, Long> fields = new TreeMap<>();
                 Map<String, Object> root = mappingMetaData.getSourceAsMap();
                 checkMapping(index, type, "", "", root, fields);
@@ -930,9 +951,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
                 Map<String, Long> map = sortByValue(fields);
                 map.forEach((key, value) -> {
                     logger.info("{} {} {}",
-                            key,
-                            value,
-                            (double) value * 100 / total);
+                            key, value, (double) value * 100 / total.value);
                     if (value == 0) {
                         empty.incrementAndGet();
                     }
@@ -976,23 +995,23 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
             } else if ("type".equals(key)) {
                 QueryBuilder filterBuilder = QueryBuilders.existsQuery(path);
                 QueryBuilder queryBuilder = QueryBuilders.constantScoreQuery(filterBuilder);
-                SearchSourceBuilder builder = new SearchSourceBuilder();
-                builder.query(queryBuilder);
-                builder.size(0);
-                SearchRequest searchRequest = new SearchRequest();
-                searchRequest.indices(index);
-                searchRequest.types(type);
-                searchRequest.source(builder);
+                SearchSourceBuilder builder = new SearchSourceBuilder()
+                        .query(queryBuilder)
+                        .size(0)
+                        .trackTotalHits(true);
+                SearchRequest searchRequest = new SearchRequest()
+                        .indices(index)
+                        .source(builder);
                 SearchResponse searchResponse =
                         client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
-                fields.put(path, searchResponse.getHits().getTotalHits());
+                fields.put(path, searchResponse.getHits().getTotalHits().value);
             }
         }
     }
 
     private static <K, V extends Comparable<? super V>> Map<K, V> sortByValue(Map<K, V> map) {
         Map<K, V> result = new LinkedHashMap<>();
-        map.entrySet().stream().sorted(Comparator.comparing(Map.Entry::getValue))
+        map.entrySet().stream().sorted(Map.Entry.comparingByValue())
                 .forEachOrdered(e -> result.put(e.getKey(), e.getValue()));
         return result;
     }
@@ -1046,10 +1065,46 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
         List<String> indicesToDelete;
 
-        DeleteIndexResponse response;
+        AcknowledgedResponse response;
 
         SuccessPruneResult(List<String> candidateIndices, List<String> indicesToDelete,
-                           DeleteIndexResponse response) {
+                           AcknowledgedResponse response) {
+            this.candidateIndices = candidateIndices;
+            this.indicesToDelete = indicesToDelete;
+            this.response = response;
+        }
+
+        @Override
+        public IndexPruneResult.State getState() {
+            return IndexPruneResult.State.SUCCESS;
+        }
+
+        @Override
+        public List<String> getCandidateIndices() {
+            return candidateIndices;
+        }
+
+        @Override
+        public List<String> getDeletedIndices() {
+            return indicesToDelete;
+        }
+
+        @Override
+        public boolean isAcknowledged() {
+            return response.isAcknowledged();
+        }
+    }
+
+    private static class FailPruneResult implements IndexPruneResult {
+
+        List<String> candidateIndices;
+
+        List<String> indicesToDelete;
+
+        AcknowledgedResponse response;
+
+        FailPruneResult(List<String> candidateIndices, List<String> indicesToDelete,
+                           AcknowledgedResponse response) {
             this.candidateIndices = candidateIndices;
             this.indicesToDelete = indicesToDelete;
             this.response = response;

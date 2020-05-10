@@ -33,7 +33,7 @@ class SearchTest {
         ElasticsearchClient client = helper.client("1");
         BulkRequestBuilder builder = new BulkRequestBuilder(client, BulkAction.INSTANCE);
         for (int i = 0; i < 1000; i++) {
-            IndexRequest indexRequest = new IndexRequest("pages", "row")
+            IndexRequest indexRequest = new IndexRequest().index("pages")
                     .source(XContentFactory.jsonBuilder()
                             .startObject()
                             .field("user1", "joerg")
@@ -61,10 +61,9 @@ class SearchTest {
             searchSource.size(10);
             SearchRequest searchRequest = new SearchRequest();
             searchRequest.indices("pages");
-            searchRequest.types("row");
             searchRequest.source(searchSource);
             SearchResponse searchResponse = client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
-            assertTrue(searchResponse.getHits().getTotalHits() > 0);
+            assertTrue(searchResponse.getHits().getTotalHits().value > 0);
         }
     }
 }

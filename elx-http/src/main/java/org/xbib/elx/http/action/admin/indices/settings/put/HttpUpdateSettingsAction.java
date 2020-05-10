@@ -2,7 +2,7 @@ package org.xbib.elx.http.action.admin.indices.settings.put;
 
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsAction;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
-import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsResponse;
+import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.xcontent.ToXContent;
@@ -11,11 +11,12 @@ import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
-public class HttpUpdateSettingsAction extends HttpAction<UpdateSettingsRequest, UpdateSettingsResponse> {
+public class HttpUpdateSettingsAction extends HttpAction<UpdateSettingsRequest, AcknowledgedResponse> {
 
     @Override
     public UpdateSettingsAction getActionInstance() {
@@ -37,12 +38,7 @@ public class HttpUpdateSettingsAction extends HttpAction<UpdateSettingsRequest, 
     }
 
     @Override
-    protected CheckedFunction<XContentParser, UpdateSettingsResponse, IOException> entityParser() {
-        return UpdateSettingsResponse::fromXContent;
-    }
-
-    @Override
-    protected UpdateSettingsResponse emptyResponse() {
-        return new UpdateSettingsResponse();
+    protected CheckedFunction<XContentParser, AcknowledgedResponse, IOException> entityParser(HttpResponse httpResponse) {
+        return AcknowledgedResponse::fromXContent;
     }
 }

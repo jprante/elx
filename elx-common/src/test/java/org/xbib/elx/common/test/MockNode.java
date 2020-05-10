@@ -6,10 +6,12 @@ import org.elasticsearch.node.Node;
 import org.elasticsearch.plugins.Plugin;
 
 import java.util.List;
+import java.util.Map;
 
 class MockNode extends Node {
 
     MockNode(Settings settings, List<Class<? extends Plugin>> classpathPlugins) {
-        super(InternalSettingsPreparer.prepareEnvironment(settings, null), classpathPlugins);
+        super(InternalSettingsPreparer.prepareEnvironment(settings, Map.of(), null, () -> "mock"),
+                classpathPlugins, false);
     }
 }

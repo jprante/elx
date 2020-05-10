@@ -45,20 +45,20 @@ class WildcardTest {
     }
 
     private void index(ElasticsearchClient client, String id, String fieldValue) throws IOException {
-        client.execute(IndexAction.INSTANCE, new IndexRequest("index", "type", id)
+        client.execute(IndexAction.INSTANCE, new IndexRequest().index("index").id(id)
                 .source(XContentFactory.jsonBuilder().startObject().field("field", fieldValue).endObject()))
                 .actionGet();
         client.execute(RefreshAction.INSTANCE, new RefreshRequest()).actionGet();
     }
 
     private long count(ElasticsearchClient client, QueryBuilder queryBuilder) {
-        SearchSourceBuilder builder = new SearchSourceBuilder();
-        builder.query(queryBuilder);
-        SearchRequest searchRequest = new SearchRequest();
-        searchRequest.indices("index");
-        searchRequest.types("type");
-        searchRequest.source(builder);
-        return client.execute(SearchAction.INSTANCE, searchRequest).actionGet().getHits().getTotalHits();
+        SearchSourceBuilder builder = new SearchSourceBuilder()
+                .query(queryBuilder)
+                .trackTotalHits(true);
+        SearchRequest searchRequest = new SearchRequest()
+                .indices("index")
+                .source(builder);
+        return client.execute(SearchAction.INSTANCE, searchRequest).actionGet().getHits().getTotalHits().value;
     }
 
     private void validateCount(ElasticsearchClient client, QueryBuilder queryBuilder, long expectedHits) {

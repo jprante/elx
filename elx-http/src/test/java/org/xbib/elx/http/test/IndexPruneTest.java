@@ -66,9 +66,9 @@ class IndexPruneTest {
                 indicesExistsRequest.indices(index);
                 IndicesExistsResponse indicesExistsResponse =
                         client.getClient().execute(IndicesExistsAction.INSTANCE, indicesExistsRequest).actionGet();
+                logger.info("indices exists response for {} is {}", index, indicesExistsResponse.isExists());
                 list.add(indicesExistsResponse.isExists());
             }
-            logger.info(list);
             assertFalse(list.get(0));
             assertFalse(list.get(1));
             assertTrue(list.get(2));

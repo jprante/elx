@@ -12,8 +12,6 @@ public interface BulkProcessor extends Closeable, Flushable {
 
     BulkProcessor add(ActionRequest request);
 
-    BulkProcessor add(ActionRequest request, Object payload);
-
     boolean awaitFlush(long timeout, TimeUnit unit) throws InterruptedException;
 
     boolean awaitClose(long timeout, TimeUnit unit) throws InterruptedException;

@@ -1,19 +1,25 @@
 package org.xbib.elx.http.test;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsAction;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
+import org.elasticsearch.action.admin.indices.settings.get.GetSettingsAction;
+import org.elasticsearch.action.admin.indices.settings.get.GetSettingsRequest;
+import org.elasticsearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.elasticsearch.action.search.SearchAction;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
-import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.common.ClientBuilder;
@@ -21,6 +27,7 @@ import org.xbib.elx.common.Parameters;
 import org.xbib.elx.http.ExtendedHttpClient;
 import org.xbib.elx.http.ExtendedHttpClientProvider;
 
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -82,28 +89,50 @@ class ClientTest {
     }
 
     @Test
-    void testMapping() throws Exception {
+    void testNewIndexWithSettings() throws Exception {
         final ExtendedHttpClient client = ClientBuilder.builder()
                 .provider(ExtendedHttpClientProvider.class)
                 .put(helper.getHttpSettings())
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
                 .build();
+        Settings settings = Settings.builder().put("index.number_of_shards", "1").build();
+        client.newIndex("test", settings);
+        GetSettingsRequest getSettingsRequest = new GetSettingsRequest()
+                .indices("test");
+        GetSettingsResponse getSettingsResponse =
+                client.getClient().execute(GetSettingsAction.INSTANCE, getSettingsRequest).actionGet();
+        logger.log(Level.INFO, "settings=" + getSettingsResponse.getSetting("test", "index.number_of_shards"));
+        assertEquals("1", getSettingsResponse.getSetting("test", "index.number_of_shards"));
+        client.close();
+    }
+
+    @Test
+    void testNewIndexWithSettingsAndMappings() throws Exception {
+        final ExtendedHttpClient client = ClientBuilder.builder()
+                .provider(ExtendedHttpClientProvider.class)
+                .put(helper.getHttpSettings())
+                .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
+                .build();
+        Settings settings = Settings.builder().put("index.number_of_shards", "1").build();
         XContentBuilder builder = JsonXContent.contentBuilder()
                 .startObject()
-                .startObject("doc")
                 .startObject("properties")
-                .startObject("location")
+                .startObject("pos")
                 .field("type", "geo_point")
                 .endObject()
                 .endObject()
-                .endObject()
                 .endObject();
-        client.newIndex("test", Settings.EMPTY, Strings.toString(builder));
-        GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices("test");
+        client.newIndex("test", settings, builder);
+        GetSettingsRequest getSettingsRequest = new GetSettingsRequest()
+                .indices("test");
+        GetSettingsResponse getSettingsResponse =
+                client.getClient().execute(GetSettingsAction.INSTANCE, getSettingsRequest).actionGet();
+        assertEquals("1", getSettingsResponse.getSetting("test", "index.number_of_shards"));
+        GetMappingsRequest getMappingsRequest = new GetMappingsRequest()
+                .indices("test");
         GetMappingsResponse getMappingsResponse =
                 client.getClient().execute(GetMappingsAction.INSTANCE, getMappingsRequest).actionGet();
-        logger.info("mappings={}", getMappingsResponse.getMappings());
-        assertTrue(getMappingsResponse.getMappings().get("test").containsKey("doc"));
+        assertTrue(getMappingsResponse.getMappings().get("test").containsKey("_doc"));
         client.close();
     }
 
@@ -136,8 +165,7 @@ class ClientTest {
             client.refreshIndex("test");
             SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client.getClient(), SearchAction.INSTANCE)
                     .setQuery(QueryBuilders.matchAllQuery()).setSize(0);
-            assertEquals(numactions,
-                    searchRequestBuilder.execute().actionGet().getHits().getTotalHits());
+            assertEquals(numactions, searchRequestBuilder.execute().actionGet().getHits().getTotalHits().value);
             client.close();
         }
     }
@@ -146,7 +174,7 @@ class ClientTest {
     void testThreadedRandomDocs() throws Exception {
         int maxthreads = Runtime.getRuntime().availableProcessors();
         Long maxActionsPerRequest = MAX_ACTIONS_PER_REQUEST;
-        final Long actions = ACTIONS;
+        final long actions = ACTIONS;
         logger.info("maxthreads={} maxactions={} maxloop={}", maxthreads, maxActionsPerRequest, actions);
         final ExtendedHttpClient client = ClientBuilder.builder()
                 .provider(ExtendedHttpClientProvider.class)
@@ -196,11 +224,19 @@ class ClientTest {
                 logger.error("error", client.getBulkController().getLastBulkError());
             }
             assertNull(client.getBulkController().getLastBulkError());
+            assertEquals(maxthreads * actions, client.getBulkMetric().getSucceeded().getCount());
+            logger.log(Level.INFO, "refreshing index test");
             client.refreshIndex("test");
-            SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client.getClient(), SearchAction.INSTANCE)
-                    .setQuery(QueryBuilders.matchAllQuery()).setSize(0);
-            assertEquals(maxthreads * actions,
-                    searchRequestBuilder.execute().actionGet().getHits().getTotalHits());
+            SearchSourceBuilder builder = new SearchSourceBuilder()
+                    .query(QueryBuilders.matchAllQuery())
+                    .size(0)
+                    .trackTotalHits(true);
+            SearchRequest searchRequest = new SearchRequest()
+                    .indices("test")
+                    .source(builder);
+            SearchResponse searchResponse = client.getClient().execute(SearchAction.INSTANCE, searchRequest).actionGet();
+            assertEquals(maxthreads * actions, searchResponse.getHits().getTotalHits().value);
+            client.close();
             client.close();
         }
     }

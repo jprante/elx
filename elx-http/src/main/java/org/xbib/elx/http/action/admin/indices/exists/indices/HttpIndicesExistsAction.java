@@ -10,6 +10,7 @@ import org.elasticsearch.rest.RestStatus;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.elx.http.HttpActionContext;
 import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
 
@@ -26,22 +27,27 @@ public class HttpIndicesExistsAction extends HttpAction<IndicesExistsRequest, In
         return newHeadRequest(url, index);
     }
 
-    @Override
-    protected CheckedFunction<XContentParser, IndicesExistsResponse, IOException> entityParser() {
-        return this::fromXContent;
-    }
-
-    @Override
-    protected IndicesExistsResponse emptyResponse() {
-        return new IndicesExistsResponse(false); // used for 404 Not found
-    }
-
+    /**
+     * Override for non-body logic.
+     * @param httpActionContext the HTTP action context
+     * @return the ELasticsearch sttatus exception
+     */
     @Override
     protected ElasticsearchStatusException parseToError(HttpActionContext<IndicesExistsRequest, IndicesExistsResponse> httpActionContext) {
         return new ElasticsearchStatusException("not found", RestStatus.NOT_FOUND);
     }
 
-    private IndicesExistsResponse fromXContent(XContentParser parser) throws IOException {
-        return new IndicesExistsResponse(true); // used for 200 OK
+    @Override
+    protected CheckedFunction<XContentParser, IndicesExistsResponse, IOException> entityParser(HttpResponse httpResponse) {
+        return httpResponse.getStatus().getCode() == 200 ? this::found : this::notfound;
     }
+
+    private IndicesExistsResponse found(XContentParser parser) {
+        return new IndicesExistsResponse(true);
+    }
+
+    private IndicesExistsResponse notfound(XContentParser parser) {
+        return new IndicesExistsResponse(false);
+    }
+
 }

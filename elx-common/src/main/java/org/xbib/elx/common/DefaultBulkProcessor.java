@@ -140,19 +140,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
      */
     @Override
     public DefaultBulkProcessor add(ActionRequest request) {
-        return add(request, null);
-    }
-
-    /**
-     * Adds either a delete or an index request with a payload.
-     *
-     * @param request request
-     * @param payload payload
-     * @return his bulk processor
-     */
-    @Override
-    public DefaultBulkProcessor add(ActionRequest request, Object payload) {
-        internalAdd(request, payload);
+        internalAdd(request);
         return this;
     }
 
@@ -186,14 +174,14 @@ public class DefaultBulkProcessor implements BulkProcessor {
         }
     }
 
-    private synchronized void internalAdd(ActionRequest request, Object payload) {
+    private synchronized void internalAdd(ActionRequest request) {
         ensureOpen();
         if (request instanceof IndexRequest) {
-            bulkRequest.add((IndexRequest) request, payload);
+            bulkRequest.add((IndexRequest) request);
         } else if (request instanceof DeleteRequest) {
-            bulkRequest.add((DeleteRequest) request, payload);
+            bulkRequest.add((DeleteRequest) request);
         } else if (request instanceof UpdateRequest) {
-            bulkRequest.add((UpdateRequest) request, payload);
+            bulkRequest.add((UpdateRequest) request);
         } else {
             throw new UnsupportedOperationException();
         }

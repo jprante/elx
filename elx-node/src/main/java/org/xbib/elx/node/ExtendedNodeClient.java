@@ -63,7 +63,7 @@ public class ExtendedNodeClient extends AbstractExtendedClient {
     private static class BulkNode extends Node {
 
         BulkNode(Environment env, Collection<Class<? extends Plugin>> classpathPlugins) {
-            super(env, classpathPlugins);
+            super(env, classpathPlugins, false);
         }
     }
 }

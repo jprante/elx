@@ -6,6 +6,7 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 
 import java.io.Closeable;
 import java.io.Flushable;
@@ -126,8 +127,9 @@ public interface ExtendedClient extends Flushable, Closeable {
      * @param id     the id
      * @param source the source
      * @return this
+     * @throws IOException if update fails
      */
-    ExtendedClient update(String index, String id, BytesReference source);
+    ExtendedClient update(String index, String id, BytesReference source) throws IOException;
 
     /**
      * Update document. Use with precaution! Does not work in all cases.
@@ -199,7 +201,18 @@ public interface ExtendedClient extends Flushable, Closeable {
      * @return this
      * @throws IOException if settings/mapping is invalid or index creation fails
      */
-    ExtendedClient newIndex(String index, Settings settings, Map<String, Object> mapping) throws IOException;
+    ExtendedClient newIndex(String index, Settings settings, XContentBuilder mapping) throws IOException;
+
+    /**
+     * Create a new index.
+     *
+     * @param index index
+     * @param settings settings
+     * @param mapping mapping
+     * @return this
+     * @throws IOException if settings/mapping is invalid or index creation fails
+     */
+    ExtendedClient newIndex(String index, Settings settings, Map<String, ?> mapping) throws IOException;
 
     /**
      * Create a new index.

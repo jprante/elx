@@ -12,7 +12,7 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.action.ActionResponse;
-import org.elasticsearch.action.GenericAction;
+import org.elasticsearch.action.ActionType;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
@@ -25,6 +25,7 @@ import org.elasticsearch.rest.RestStatus;
 import org.xbib.net.URL;
 import org.xbib.netty.http.client.api.Request;
 import org.xbib.netty.http.client.api.Transport;
+import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -47,7 +48,7 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
         this.settings = settings;
     }
 
-    public abstract GenericAction<R, T> getActionInstance();
+    public abstract ActionType<T> getActionInstance();
 
     final void execute(HttpActionContext<R, T> httpActionContext, ActionListener<T> listener) throws IOException {
         try {
@@ -71,7 +72,7 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
                 } else {
                     ElasticsearchStatusException statusException = parseToError(httpActionContext);
                     if (statusException.status().equals(RestStatus.NOT_FOUND)) {
-                        listener.onResponse(emptyResponse());
+                        listener.onResponse(parseToResponse(httpActionContext));
                     } else {
                         listener.onFailure(statusException);
                     }
@@ -158,7 +159,7 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
                 .createParser(httpActionContext.getExtendedHttpClient().getRegistry(),
                 DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
                 httpActionContext.getHttpResponse().getBody().toString(StandardCharsets.UTF_8))) {
-            return entityParser().apply(parser);
+            return entityParser(httpActionContext.getHttpResponse()).apply(parser);
         } catch (IOException e) {
             logger.error(e.getMessage(), e);
             return null;
@@ -166,12 +167,13 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
     }
 
     protected ElasticsearchStatusException parseToError(HttpActionContext<R, T> httpActionContext) {
+        // we assume a non-empty, valid JSON response body. If there is none, this method must be overriden.
         try (XContentParser parser = XContentFactory.xContent(XContentType.JSON)
                 .createParser(httpActionContext.getExtendedHttpClient().getRegistry(),
                         DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
                         httpActionContext.getHttpResponse().getBody().toString(StandardCharsets.UTF_8))) {
             return errorParser().apply(parser);
-        } catch (IOException e) {
+        } catch (Exception e) {
             logger.error(e.getMessage(), e);
             return new ElasticsearchStatusException(e.getMessage(), RestStatus.INTERNAL_SERVER_ERROR, e);
         }
@@ -183,8 +185,5 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
 
     protected abstract Request.Builder createHttpRequest(String baseUrl, R request) throws IOException;
 
-    protected abstract CheckedFunction<XContentParser, T, IOException> entityParser();
-
-    protected abstract T emptyResponse();
-
+    protected abstract CheckedFunction<XContentParser, T, IOException> entityParser(HttpResponse httpResponse);
 }

@@ -1,7 +1,6 @@
 package org.xbib.elx.http.action.admin.cluster.state;
 
 import com.carrotsearch.hppc.LongArrayList;
-import org.apache.logging.log4j.Level;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
@@ -20,6 +19,7 @@ import org.elasticsearch.common.xcontent.NamedObjectNotFoundException;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -73,13 +73,8 @@ public class HttpClusterStateAction extends HttpAction<ClusterStateRequest, Clus
     }
 
     @Override
-    protected CheckedFunction<XContentParser, ClusterStateResponse, IOException> entityParser() {
+    protected CheckedFunction<XContentParser, ClusterStateResponse, IOException> entityParser(HttpResponse httpResponse) {
         return this::fromXContent;
-    }
-
-    @Override
-    protected ClusterStateResponse emptyResponse() {
-        return new ClusterStateResponse();
     }
 
     private ClusterStateResponse fromXContent(XContentParser parser) throws IOException {
@@ -109,7 +104,7 @@ public class HttpClusterStateAction extends HttpAction<ClusterStateRequest, Clus
 
         }
         ClusterState clusterState = builder.build();
-        return new ClusterStateResponse(clusterName, clusterState, length);
+        return new ClusterStateResponse(clusterName, clusterState, true);
     }
 
     private MetaData metadataFromXContent(XContentParser parser) throws IOException {

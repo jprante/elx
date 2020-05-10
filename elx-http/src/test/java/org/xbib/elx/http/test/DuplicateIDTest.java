@@ -3,8 +3,11 @@ package org.xbib.elx.http.test;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchAction;
-import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.common.ClientBuilder;
@@ -14,7 +17,6 @@ import org.xbib.elx.http.ExtendedHttpClientProvider;
 
 import java.util.concurrent.TimeUnit;
 
-import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -26,7 +28,7 @@ class DuplicateIDTest {
 
     private static final Long MAX_ACTIONS_PER_REQUEST = 10L;
 
-    private static final Long ACTIONS = 50L;
+    private static final Long ACTIONS = 100L;
 
     private final TestExtension.Helper helper;
 
@@ -51,11 +53,16 @@ class DuplicateIDTest {
             client.flush();
             client.waitForResponses(30L, TimeUnit.SECONDS);
             client.refreshIndex("test");
-            SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client.getClient(), SearchAction.INSTANCE)
-                    .setIndices("test")
-                    .setTypes("test")
-                    .setQuery(matchAllQuery());
-            long hits = searchRequestBuilder.execute().actionGet().getHits().getTotalHits();
+            SearchSourceBuilder builder = new SearchSourceBuilder()
+                    .query(QueryBuilders.matchAllQuery())
+                    .size(0)
+                    .trackTotalHits(true);
+            SearchRequest searchRequest = new SearchRequest()
+                    .indices("test")
+                    .source(builder);
+            SearchResponse searchResponse =
+                    helper.client("1").execute(SearchAction.INSTANCE, searchRequest).actionGet();
+            long hits = searchResponse.getHits().getTotalHits().value;
             logger.info("hits = {}", hits);
             assertTrue(hits < ACTIONS);
         } catch (NoNodeAvailableException e) {

@@ -125,7 +125,7 @@ public class DefaultBulkController implements BulkController {
         }
         try {
             if (bulkMetric != null) {
-                bulkMetric.getCurrentIngest().inc(indexRequest.index(), indexRequest.type(), indexRequest.id());
+                bulkMetric.getCurrentIngest().inc(indexRequest.index(), "_doc", indexRequest.id());
             }
             bulkProcessor.add(indexRequest);
         } catch (Exception e) {
@@ -144,7 +144,7 @@ public class DefaultBulkController implements BulkController {
         }
         try {
             if (bulkMetric != null) {
-                bulkMetric.getCurrentIngest().inc(deleteRequest.index(), deleteRequest.type(), deleteRequest.id());
+                bulkMetric.getCurrentIngest().inc(deleteRequest.index(), "_doc", deleteRequest.id());
             }
             bulkProcessor.add(deleteRequest);
         } catch (Exception e) {
@@ -163,7 +163,7 @@ public class DefaultBulkController implements BulkController {
         }
         try {
             if (bulkMetric != null) {
-                bulkMetric.getCurrentIngest().inc(updateRequest.index(), updateRequest.type(), updateRequest.id());
+                bulkMetric.getCurrentIngest().inc(updateRequest.index(), "_doc", updateRequest.id());
             }
             bulkProcessor.add(updateRequest);
         } catch (Exception e) {

@@ -7,7 +7,7 @@ plugins {
 }
 
 if (JavaVersion.current() < JavaVersion.VERSION_11) {
-    throw new GradleException("This build must be run with java 11")
+    throw new GradleException("This build must be run with Java/OpenJDK 11+")
 }
 
 subprojects {
@@ -50,16 +50,15 @@ subprojects {
     test {
         enabled = true
         useJUnitPlatform()
-        doFirst {
-            jvmArgs = [
-                    '--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED',
-                    '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED',
-                    '--add-opens=java.base/java.nio=ALL-UNNAMED'
-            ]
-        }
+        // for Lucene to access jdk.internal.ref and jdk.internal.misc in Java 11+
+        jvmArgs = [
+                '--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED',
+                '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED',
+                '--add-opens=java.base/java.nio=ALL-UNNAMED'
+        ]
         systemProperty 'java.util.logging.manager', 'org.apache.logging.log4j.jul.LogManager'
-        systemProperty 'path.home', "${project.buildDir}/"
         systemProperty 'jna.debug_load', 'true'
+        systemProperty 'path.home', "${project.buildDir}/"
         failFast = true
         testLogging {
             events 'PASSED', 'FAILED', 'SKIPPED'

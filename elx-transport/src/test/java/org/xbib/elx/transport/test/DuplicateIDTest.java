@@ -28,7 +28,7 @@ class DuplicateIDTest {
 
     private static final Long MAX_ACTIONS_PER_REQUEST = 10L;
 
-    private static final Long ACTIONS = 5L;
+    private static final Long ACTIONS = 100L;
 
     private final TestExtension.Helper helper;
 
@@ -53,16 +53,16 @@ class DuplicateIDTest {
             client.flush();
             client.waitForResponses(30L, TimeUnit.SECONDS);
             client.refreshIndex("test_dup");
-            SearchSourceBuilder builder = new SearchSourceBuilder();
-            builder.query(QueryBuilders.matchAllQuery());
-            builder.size(0);
-            SearchRequest searchRequest = new SearchRequest();
-            searchRequest.indices("test_dup");
-            searchRequest.types("test_dup");
-            searchRequest.source(builder);
+            SearchSourceBuilder builder = new SearchSourceBuilder()
+                    .query(QueryBuilders.matchAllQuery())
+                    .size(0)
+                    .trackTotalHits(true);
+            SearchRequest searchRequest = new SearchRequest()
+                    .indices("test_dup")
+                    .source(builder);
             SearchResponse searchResponse =
                     helper.client("1").execute(SearchAction.INSTANCE, searchRequest).actionGet();
-            long hits = searchResponse.getHits().getTotalHits();
+            long hits = searchResponse.getHits().getTotalHits().value;
             logger.info("hits = {}", hits);
             assertTrue(hits < ACTIONS);
         } catch (NoNodeAvailableException e) {
