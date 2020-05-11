@@ -66,7 +66,7 @@ class ClientTest {
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
-            assertEquals(1, client.getBulkMetric().getSucceeded().getCount());
+            assertEquals(1, client.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (client.getBulkController().getLastBulkError() != null) {
                 logger.error("error", client.getBulkController().getLastBulkError());
             }
@@ -111,6 +111,7 @@ class ClientTest {
         Settings settings = Settings.builder().put("index.number_of_shards", "1").build();
         XContentBuilder builder = JsonXContent.contentBuilder()
                 .startObject()
+                .field("date_detection", false)
                 .startObject("properties")
                 .startObject("location")
                 .field("type", "geo_point")
@@ -152,7 +153,7 @@ class ClientTest {
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
-            assertEquals(numactions, client.getBulkMetric().getSucceeded().getCount());
+            assertEquals(numactions, client.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (client.getBulkController().getLastBulkError() != null) {
                 logger.error("error", client.getBulkController().getLastBulkError());
             }
@@ -209,7 +210,7 @@ class ClientTest {
                 logger.warn("latch timeout");
             }
             client.stopBulk("test", 30L, TimeUnit.SECONDS);
-            assertEquals(maxthreads * actions, client.getBulkMetric().getSucceeded().getCount());
+            assertEquals(maxthreads * actions, client.getBulkController().getBulkMetric().getSucceeded().getCount());
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
@@ -217,7 +218,7 @@ class ClientTest {
                 logger.error("error", client.getBulkController().getLastBulkError());
             }
             assertNull(client.getBulkController().getLastBulkError());
-            assertEquals(maxthreads * actions, client.getBulkMetric().getSucceeded().getCount());
+            assertEquals(maxthreads * actions, client.getBulkController().getBulkMetric().getSucceeded().getCount());
             logger.log(Level.INFO, "refreshing index test");
             client.refreshIndex("test");
             SearchSourceBuilder builder = new SearchSourceBuilder()

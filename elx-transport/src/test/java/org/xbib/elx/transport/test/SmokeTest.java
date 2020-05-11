@@ -57,8 +57,8 @@ class SmokeTest {
             int replica = client.getReplicaLevel(indexDefinition);
             assertEquals(2, replica);
             client.deleteIndex(indexDefinition);
-            assertEquals(0, client.getBulkMetric().getFailed().getCount());
-            assertEquals(4, client.getBulkMetric().getSucceeded().getCount());
+            assertEquals(0, client.getBulkController().getBulkMetric().getFailed().getCount());
+            assertEquals(4, client.getBulkController().getBulkMetric().getSucceeded().getCount());
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
