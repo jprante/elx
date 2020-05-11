@@ -36,13 +36,7 @@ public interface ExtendedClient extends Flushable, Closeable {
     ElasticsearchClient getClient();
 
     /**
-     * Get bulk metric.
-     * @return the bulk metric
-     */
-    BulkMetric getBulkMetric();
-
-    /**
-     * Get buulk control.
+     * Get bulk control.
      * @return the bulk control
      */
     BulkController getBulkController();

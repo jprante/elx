@@ -59,9 +59,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.DeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -72,7 +70,6 @@ import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.xbib.elx.api.BulkController;
-import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.ExtendedClient;
 import org.xbib.elx.api.IndexAliasAdder;
 import org.xbib.elx.api.IndexDefinition;
@@ -113,8 +110,6 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     private static final Logger logger = LogManager.getLogger(AbstractExtendedClient.class.getName());
 
     private ElasticsearchClient client;
-
-    private BulkMetric bulkMetric;
 
     private BulkController bulkController;
 
@@ -174,11 +169,6 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     }
 
     @Override
-    public BulkMetric getBulkMetric() {
-        return bulkMetric;
-    }
-
-    @Override
     public BulkController getBulkController() {
         return bulkController;
     }
@@ -189,12 +179,8 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
         if (client == null) {
             client = createClient(settings);
         }
-        if (bulkMetric == null) {
-            bulkMetric = new DefaultBulkMetric();
-            bulkMetric.init(settings);
-        }
         if (bulkController == null) {
-            bulkController = new DefaultBulkController(this, bulkMetric);
+            bulkController = new DefaultBulkController(this);
             bulkController.init(settings);
         }
         return this;
@@ -209,12 +195,8 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public void close() throws IOException {
-        ensureActive();
+        ensureClient();
         if (closed.compareAndSet(false, true)) {
-            if (bulkMetric != null) {
-                logger.info("closing bulk metric");
-                bulkMetric.close();
-            }
             if (bulkController != null) {
                 logger.info("closing bulk controller");
                 bulkController.close();
@@ -225,7 +207,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public String getClusterName() {
-        ensureActive();
+        ensureClient();
         try {
             ClusterStateRequest clusterStateRequest = new ClusterStateRequest().clear();
             ClusterStateResponse clusterStateResponse =
@@ -245,7 +227,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public ExtendedClient newIndex(IndexDefinition indexDefinition) throws IOException {
-        ensureActive();
+        ensureClient();
         waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
         URL indexSettings = indexDefinition.getSettingsUrl();
         if (indexSettings == null) {
@@ -305,7 +287,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public ExtendedClient newIndex(String index, Settings settings, XContentBuilder mapping) throws IOException {
-        ensureActive();
+        ensureClient();
         if (index == null) {
             logger.warn("no index name given to create index");
             return this;
@@ -326,7 +308,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public ExtendedClient newIndex(String index, Settings settings, Map<String, ?> mapping) throws IOException {
-        ensureActive();
+        ensureClient();
         if (index == null) {
             logger.warn("no index name given to create index");
             return this;
@@ -336,9 +318,6 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
             createIndexRequest.settings(settings);
         }
         if (mapping != null) {
-            if (mapping.size() != 1) {
-                throw new IllegalArgumentException("mapping invalid, just use 'doc' for mapping");
-            }
             createIndexRequest.mapping("_doc", mapping);
         }
         CreateIndexResponse createIndexResponse = client.execute(CreateIndexAction.INSTANCE, createIndexRequest).actionGet();
@@ -355,7 +334,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public ExtendedClient deleteIndex(String index) {
-        ensureActive();
+        ensureClient();
         if (index == null) {
             logger.warn("no index name given to delete index");
             return this;
@@ -375,7 +354,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     public ExtendedClient startBulk(String index, long startRefreshIntervalSeconds, long stopRefreshIntervalSeconds)
             throws IOException {
         if (bulkController != null) {
-            ensureActive();
+            ensureClient();
             bulkController.startBulkMode(index, startRefreshIntervalSeconds, stopRefreshIntervalSeconds);
         }
         return this;
@@ -384,7 +363,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     @Override
     public ExtendedClient stopBulk(IndexDefinition indexDefinition) throws IOException {
         if (bulkController != null) {
-            ensureActive();
+            ensureClient();
             bulkController.stopBulkMode(indexDefinition);
         }
         return this;
@@ -393,7 +372,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     @Override
     public ExtendedClient stopBulk(String index, long timeout, TimeUnit timeUnit) throws IOException {
         if (bulkController != null) {
-            ensureActive();
+            ensureClient();
             bulkController.stopBulkMode(index, timeout, timeUnit);
         }
         return this;
@@ -413,8 +392,8 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public ExtendedClient index(IndexRequest indexRequest) {
-        ensureActive();
-        bulkController.index(indexRequest);
+        ensureClient();
+        bulkController.bulkIndex(indexRequest);
         return this;
     }
 
@@ -425,13 +404,13 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public ExtendedClient delete(DeleteRequest deleteRequest) {
-        ensureActive();
-        bulkController.delete(deleteRequest);
+        ensureClient();
+        bulkController.bulkDelete(deleteRequest);
         return this;
     }
 
     @Override
-    public ExtendedClient update(String index, String id, BytesReference source) throws IOException {
+    public ExtendedClient update(String index, String id, BytesReference source) {
         return update(new UpdateRequest().index(index).id(id)
                 .doc(source, XContentType.JSON));
     }
@@ -444,20 +423,20 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public ExtendedClient update(UpdateRequest updateRequest) {
-        ensureActive();
-        bulkController.update(updateRequest);
+        ensureClient();
+        bulkController.bulkUpdate(updateRequest);
         return this;
     }
 
     @Override
     public boolean waitForResponses(long timeout, TimeUnit timeUnit) {
-        ensureActive();
-        return bulkController.waitForResponses(timeout, timeUnit);
+        ensureClient();
+        return bulkController.waitForBulkResponses(timeout, timeUnit);
     }
 
     @Override
     public boolean waitForRecovery(String index, long maxWaitTime, TimeUnit timeUnit) {
-        ensureActive();
+        ensureClient();
         ensureIndexGiven(index);
         GetSettingsRequest settingsRequest = new GetSettingsRequest();
         settingsRequest.indices(index);
@@ -481,7 +460,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public boolean waitForCluster(String statusString, long maxWaitTime, TimeUnit timeUnit) {
-        ensureActive();
+        ensureClient();
         ClusterHealthStatus status = ClusterHealthStatus.fromString(statusString);
         TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
         ClusterHealthResponse healthResponse = client.execute(ClusterHealthAction.INSTANCE,
@@ -495,7 +474,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public String getHealthColor(long maxWaitTime, TimeUnit timeUnit) {
-        ensureActive();
+        ensureClient();
         try {
             TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
             ClusterHealthResponse healthResponse = client.execute(ClusterHealthAction.INSTANCE,
@@ -552,7 +531,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     @Override
     public ExtendedClient flushIndex(String index) {
         if (index != null) {
-            ensureActive();
+            ensureClient();
             client.execute(FlushAction.INSTANCE, new FlushRequest(index)).actionGet();
         }
         return this;
@@ -561,7 +540,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     @Override
     public ExtendedClient refreshIndex(String index) {
         if (index != null) {
-            ensureActive();
+            ensureClient();
             client.execute(RefreshAction.INSTANCE, new RefreshRequest(index)).actionGet();
         }
         return this;
@@ -569,10 +548,10 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public String resolveMostRecentIndex(String alias) {
-        ensureActive();
         if (alias == null) {
             return null;
         }
+        ensureClient();
         GetAliasesRequest getAliasesRequest = new GetAliasesRequest().aliases(alias);
         GetAliasesResponse getAliasesResponse = client.execute(GetAliasesAction.INSTANCE, getAliasesRequest).actionGet();
         Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
@@ -597,7 +576,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public String resolveAlias(String alias) {
-        ensureActive();
+        ensureClient();
         ClusterStateRequest clusterStateRequest = new ClusterStateRequest();
         clusterStateRequest.blocks(false);
         clusterStateRequest.metaData(true);
@@ -639,7 +618,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     @Override
     public IndexShiftResult shiftIndex(String index, String fullIndexName,
                                      List<String> additionalAliases, IndexAliasAdder adder) {
-        ensureActive();
+        ensureClient();
         if (index == null) {
             return EMPTY_INDEX_SHIFT_RESULT; // nothing to shift to
         }
@@ -727,7 +706,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
         if (index.equals(fullIndexName)) {
             return EMPTY_INDEX_PRUNE_RESULT;
         }
-        ensureActive();
+        ensureClient();
         GetIndexRequestBuilder getIndexRequestBuilder = new GetIndexRequestBuilder(client, GetIndexAction.INSTANCE);
         GetIndexResponse getIndexResponse = getIndexRequestBuilder.execute().actionGet();
         Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
@@ -779,7 +758,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public Long mostRecentDocument(String index, String timestampfieldname) {
-        ensureActive();
+        ensureClient();
         SortBuilder<?> sort = SortBuilders
                 .fieldSort(timestampfieldname)
                 .order(SortOrder.DESC);
@@ -868,7 +847,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
 
     @Override
     public void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) throws IOException {
-        ensureActive();
+        ensureClient();
         if (index == null) {
             throw new IOException("no index name given");
         }
@@ -885,7 +864,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
         client.execute(UpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
     }
 
-    private void ensureActive() {
+    private void ensureClient() {
         if (this instanceof MockExtendedClient) {
             return;
         }
@@ -917,7 +896,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     }
 
     public void checkMapping(String index) {
-        ensureActive();
+        ensureClient();
         GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices(index);
         GetMappingsResponse getMappingsResponse = client.execute(GetMappingsAction.INSTANCE, getMappingsRequest).actionGet();
         ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> map = getMappingsResponse.getMappings();
@@ -946,7 +925,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
             if (total.value > 0L) {
                 Map<String, Long> fields = new TreeMap<>();
                 Map<String, Object> root = mappingMetaData.getSourceAsMap();
-                checkMapping(index, type, "", "", root, fields);
+                checkMapping(index, "", "", root, fields);
                 AtomicInteger empty = new AtomicInteger();
                 Map<String, Long> map = sortByValue(fields);
                 map.forEach((key, value) -> {
@@ -965,7 +944,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
     }
 
     @SuppressWarnings("unchecked")
-    private void checkMapping(String index, String type,
+    private void checkMapping(String index,
                               String pathDef, String fieldName, Map<String, Object> map,
                               Map<String, Long> fields) {
         String path = pathDef;
@@ -990,7 +969,7 @@ public abstract class AbstractExtendedClient implements ExtendedClient {
                 String fieldType = o instanceof String ? o.toString() : null;
                 // do not recurse into our custom field mapper
                 if (!"standardnumber".equals(fieldType) && !"ref".equals(fieldType)) {
-                    checkMapping(index, type, path, key, child, fields);
+                    checkMapping(index, path, key, child, fields);
                 }
             } else if ("type".equals(key)) {
                 QueryBuilder filterBuilder = QueryBuilders.existsQuery(path);
