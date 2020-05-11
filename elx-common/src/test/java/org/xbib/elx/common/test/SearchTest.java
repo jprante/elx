@@ -33,7 +33,7 @@ class SearchTest {
         ElasticsearchClient client = helper.client("1");
         BulkRequestBuilder builder = new BulkRequestBuilder(client, BulkAction.INSTANCE);
         for (int i = 0; i < 1; i++) {
-            IndexRequest indexRequest = new IndexRequest("pages", "row")
+            IndexRequest indexRequest = new IndexRequest().index("pages").type("row")
                     .source(XContentFactory.jsonBuilder()
                             .startObject()
                             .field("user1", "joerg")

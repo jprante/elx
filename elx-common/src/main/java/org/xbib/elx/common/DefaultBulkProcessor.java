@@ -11,7 +11,9 @@ import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.common.util.concurrent.FutureUtils;
+import org.xbib.elx.api.BulkListener;
 import org.xbib.elx.api.BulkProcessor;
+import org.xbib.elx.api.BulkRequestHandler;
 
 import java.util.Objects;
 import java.util.concurrent.Executors;
@@ -29,6 +31,8 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class DefaultBulkProcessor implements BulkProcessor {
 
+    private final BulkListener bulkListener;
+
     private final int bulkActions;
 
     private final long bulkSize;
@@ -45,16 +49,22 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
     private volatile boolean closed;
 
-    private DefaultBulkProcessor(ElasticsearchClient client, Listener listener, String name, int concurrentRequests,
-                                 int bulkActions, ByteSizeValue bulkSize, TimeValue flushInterval) {
+    private DefaultBulkProcessor(ElasticsearchClient client,
+                                 BulkListener bulkListener,
+                                 String name,
+                                 int concurrentRequests,
+                                 int bulkActions,
+                                 ByteSizeValue bulkSize,
+                                 TimeValue flushInterval) {
+        this.bulkListener = bulkListener;
         this.executionIdGen = new AtomicLong();
         this.closed = false;
         this.bulkActions = bulkActions;
         this.bulkSize = bulkSize.getBytes();
         this.bulkRequest = new BulkRequest();
         this.bulkRequestHandler = concurrentRequests == 0 ?
-                new SyncBulkRequestHandler(client, listener) :
-                new AsyncBulkRequestHandler(client, listener, concurrentRequests);
+                new SyncBulkRequestHandler(client, bulkListener) :
+                new AsyncBulkRequestHandler(client, bulkListener, concurrentRequests);
         if (flushInterval != null) {
             this.scheduler = (ScheduledThreadPoolExecutor) Executors.newScheduledThreadPool(1,
                     EsExecutors.daemonThreadFactory(name != null ? "[" + name + "]" : "" + "bulk_processor"));
@@ -68,10 +78,16 @@ public class DefaultBulkProcessor implements BulkProcessor {
         }
     }
 
-    public static Builder builder(ElasticsearchClient client, Listener listener) {
+    public static Builder builder(ElasticsearchClient client,
+                                  BulkListener listener) {
         Objects.requireNonNull(client, "The client you specified while building a BulkProcessor is null");
         Objects.requireNonNull(listener, "A listener for the BulkProcessor is required but null");
         return new Builder(client, listener);
+    }
+
+    @Override
+    public BulkListener getBulkListener() {
+        return bulkListener;
     }
 
     /**
@@ -136,20 +152,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
     @SuppressWarnings("rawtypes")
     @Override
     public DefaultBulkProcessor add(ActionRequest request) {
-        return add(request, null);
-    }
-
-    /**
-     * Adds either a delete or an index request with a payload.
-     *
-     * @param request request
-     * @param payload payload
-     * @return his bulk processor
-     */
-    @SuppressWarnings("rawtypes")
-    @Override
-    public DefaultBulkProcessor add(ActionRequest request, Object payload) {
-        internalAdd(request, payload);
+        internalAdd(request);
         return this;
     }
 
@@ -183,9 +186,9 @@ public class DefaultBulkProcessor implements BulkProcessor {
         }
     }
 
-    private synchronized void internalAdd(ActionRequest<?> request, Object payload) {
+    private synchronized void internalAdd(ActionRequest<?> request) {
         ensureOpen();
-        bulkRequest.add(request, payload);
+        bulkRequest.add(request);
         executeIfNeeded();
     }
 
@@ -217,7 +220,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
         private final ElasticsearchClient client;
 
-        private final Listener listener;
+        private final BulkListener bulkListener;
 
         private String name;
 
@@ -233,12 +236,12 @@ public class DefaultBulkProcessor implements BulkProcessor {
          * Creates a builder of bulk processor with the client to use and the listener that will be used
          * to be notified on the completion of bulk requests.
          *
-         * @param client   the client
-         * @param listener the listener
+         * @param client the client
+         * @param bulkListener the listener
          */
-        Builder(ElasticsearchClient client, Listener listener) {
+        Builder(ElasticsearchClient client, BulkListener bulkListener) {
             this.client = client;
-            this.listener = listener;
+            this.bulkListener = bulkListener;
         }
 
         /**
@@ -308,7 +311,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
          * @return a bulk processor
          */
         public DefaultBulkProcessor build() {
-            return new DefaultBulkProcessor(client, listener, name, concurrentRequests, bulkActions, bulkSize, flushInterval);
+            return new DefaultBulkProcessor(client, bulkListener, name, concurrentRequests, bulkActions, bulkSize, flushInterval);
         }
     }
 
@@ -332,10 +335,9 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
         private final ElasticsearchClient client;
 
-        private final DefaultBulkProcessor.Listener listener;
+        private final BulkListener listener;
 
-        SyncBulkRequestHandler(ElasticsearchClient client, DefaultBulkProcessor.Listener listener) {
-            Objects.requireNonNull(listener, "A listener is required for SyncBulkRequestHandler but null");
+        SyncBulkRequestHandler(ElasticsearchClient client, BulkListener listener) {
             this.client = client;
             this.listener = listener;
         }
@@ -365,14 +367,13 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
         private final ElasticsearchClient client;
 
-        private final DefaultBulkProcessor.Listener listener;
+        private final BulkListener listener;
 
         private final Semaphore semaphore;
 
         private final int concurrentRequests;
 
-        private AsyncBulkRequestHandler(ElasticsearchClient client, DefaultBulkProcessor.Listener listener, int concurrentRequests) {
-            Objects.requireNonNull(listener, "A listener is required for AsyncBulkRequestHandler but null");
+        private AsyncBulkRequestHandler(ElasticsearchClient client, BulkListener listener, int concurrentRequests) {
             this.client = client;
             this.listener = listener;
             this.concurrentRequests = concurrentRequests;
@@ -413,7 +414,8 @@ public class DefaultBulkProcessor implements BulkProcessor {
             } catch (Exception e) {
                 listener.afterBulk(executionId, bulkRequest, e);
             } finally {
-                if (!bulkRequestSetupSuccessful && acquired) {  // if we fail on client.bulk() release the semaphore
+                if (!bulkRequestSetupSuccessful && acquired) {
+                    // if we fail on client.bulk() release the semaphore
                     semaphore.release();
                 }
             }

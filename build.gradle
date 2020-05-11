@@ -2,7 +2,11 @@ plugins {
     id "org.sonarqube" version "2.8"
     id "io.codearte.nexus-staging" version "0.21.1"
     id "com.github.spotbugs" version "2.0.1"
-    id "org.xbib.gradle.plugin.asciidoctor" version "1.5.6.0.1"
+    id "org.xbib.gradle.plugin.asciidoctor" version "1.6.0.1"
+}
+
+if (JavaVersion.current() < JavaVersion.VERSION_11) {
+    throw new GradleException("This build must be run with Java/OpenJDK 11+")
 }
 
 subprojects {
@@ -19,10 +23,10 @@ subprojects {
 
     dependencies {
         testImplementation "org.junit.jupiter:junit-jupiter-api:${project.property('junit.version')}"
-        testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${project.property('junit.version')}"
         testImplementation "org.apache.logging.log4j:log4j-core:${project.property('log4j.version')}"
         testImplementation "org.apache.logging.log4j:log4j-jul:${project.property('log4j.version')}"
         testImplementation "org.apache.logging.log4j:log4j-slf4j-impl:${project.property('log4j.version')}"
+        testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${project.property('junit.version')}"
         asciidoclet "org.xbib:asciidoclet:${project.property('asciidoclet.version')}"
     }
 
@@ -46,14 +50,11 @@ subprojects {
     test {
         enabled = true
         useJUnitPlatform()
-        // we MUST use this hack because of Elasticsearch 2.2.1 Lucene 5.4.1 MMapDirectory unmap() hackery
-        doFirst {
-            jvmArgs = [
-                    '--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED',
-                    '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED',
-                    '--add-opens=java.base/java.nio=ALL-UNNAMED'
-            ]
-        }
+        jvmArgs = [
+                '--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED',
+                '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED',
+                '--add-opens=java.base/java.nio=ALL-UNNAMED'
+        ]
         systemProperty 'java.util.logging.manager', 'org.apache.logging.log4j.jul.LogManager'
         systemProperty 'jna.debug_load', 'true'
         systemProperty 'path.home', "${project.buildDir}"

@@ -30,7 +30,7 @@ class SimpleTest {
     }
 
     @Test
-    void test() throws Exception {
+    void testSimple() throws Exception {
         try {
             DeleteIndexRequest deleteIndexRequest =
                     new DeleteIndexRequest().indices("test");
@@ -39,7 +39,6 @@ class SimpleTest {
             // ignore if index not found
         }
         Settings indexSettings = Settings.settingsBuilder()
-                .put(helper.getNodeSettings())
                 .put("index.analysis.analyzer.default.filter.0", "lowercase")
                 .put("index.analysis.analyzer.default.filter.1", "trim")
                 .put("index.analysis.analyzer.default.tokenizer", "keyword")

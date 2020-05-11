@@ -52,7 +52,8 @@ class AliasTest {
         // get alias
         GetAliasesRequest getAliasesRequest = new GetAliasesRequest(Strings.EMPTY_ARRAY);
         long t0 = System.nanoTime();
-        GetAliasesResponse getAliasesResponse = client.execute(GetAliasesAction.INSTANCE, getAliasesRequest).actionGet();
+        GetAliasesResponse getAliasesResponse =
+                client.execute(GetAliasesAction.INSTANCE, getAliasesRequest).actionGet();
         long t1 = (System.nanoTime() - t0) / 1000000;
         logger.info("{} time(ms) = {}", getAliasesResponse.getAliases(), t1);
         assertTrue(t1 >= 0);

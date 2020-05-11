@@ -63,7 +63,7 @@ class DuplicateIDTest {
             logger.warn("skipping, no node available");
         } finally {
             client.close();
-            assertEquals(numactions, client.getBulkMetric().getSucceeded().getCount());
+            assertEquals(numactions, client.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (client.getBulkController().getLastBulkError() != null) {
                 logger.error("error", client.getBulkController().getLastBulkError());
             }

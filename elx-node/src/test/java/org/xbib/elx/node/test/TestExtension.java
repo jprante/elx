@@ -36,8 +36,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-
-import static org.elasticsearch.common.settings.Settings.settingsBuilder;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class TestExtension implements ParameterResolver, BeforeEachCallback, AfterEachCallback {
 
@@ -47,19 +46,9 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
 
     private static final char[] numbersAndLetters = ("0123456789abcdefghijklmnopqrstuvwxyz").toCharArray();
 
-    private Map<String, Node> nodes = new HashMap<>();
-
-    private Map<String, AbstractClient> clients = new HashMap<>();
-
-    private String home;
-
-    private String cluster;
-
-    private String host;
-
-    private int port;
-
     private static final String key = "es-instance";
+
+    private static final AtomicInteger count = new AtomicInteger(0);
 
     private static final ExtensionContext.Namespace ns =
             ExtensionContext.Namespace.create(TestExtension.class);
@@ -73,20 +62,23 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
     @Override
     public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext)
             throws ParameterResolutionException {
-        setHome(System.getProperty("path.home") + "/" + getRandomString(8));
-        setClusterName("test-cluster-" + System.getProperty("user.name"));
-        return extensionContext.getParent().get().getStore(ns).getOrComputeIfAbsent(key, key -> create());
+        // initialize new helper here, increase counter
+        return extensionContext.getParent().get().getStore(ns)
+                .getOrComputeIfAbsent(key + count.incrementAndGet(), key -> create(), Helper.class);
     }
 
     @Override
-    public void beforeEach(ExtensionContext context) throws Exception {
-        Helper helper = context.getParent().get().getStore(ns).getOrComputeIfAbsent(key, key -> create(), Helper.class);
-        logger.info("starting cluster");
+    public void beforeEach(ExtensionContext extensionContext) throws Exception {
+        Helper helper = extensionContext.getParent().get().getStore(ns)
+                .getOrComputeIfAbsent(key + count.get(), key -> create(), Helper.class);
+        logger.info("starting cluster with helper " + helper + " at " + helper.getHome());
         helper.startNode("1");
         NodesInfoRequest nodesInfoRequest = new NodesInfoRequest().transport(true);
         NodesInfoResponse response = helper.client("1"). execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
         Object obj = response.iterator().next().getTransport().getAddress()
                 .publishAddress();
+        String host = null;
+        int port = 0;
         if (obj instanceof InetSocketTransportAddress) {
             InetSocketTransportAddress address = (InetSocketTransportAddress) obj;
             host = address.address().getHostName();
@@ -111,42 +103,26 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
     }
 
     @Override
-    public void afterEach(ExtensionContext context) throws Exception {
-        closeNodes();
-        deleteFiles(Paths.get(getHome() + "/data"));
+    public void afterEach(ExtensionContext extensionContext) throws Exception {
+        Helper helper = extensionContext.getParent().get().getStore(ns)
+                .getOrComputeIfAbsent(key + count.get(), key -> create(), Helper.class);
+        closeNodes(helper);
+        deleteFiles(Paths.get(helper.getHome() + "/data"));
         logger.info("data files wiped");
         Thread.sleep(2000L); // let OS commit changes
     }
 
-    private void setClusterName(String cluster) {
-        this.cluster = cluster;
-    }
-
-    private String getClusterName() {
-        return cluster;
-    }
-
-    private void setHome(String home) {
-        this.home = home;
-    }
-
-    private String getHome() {
-        return home;
-    }
-
-    private void closeNodes() {
+    private void closeNodes(Helper helper) throws IOException {
         logger.info("closing all clients");
-        for (AbstractClient client : clients.values()) {
+        for (AbstractClient client : helper.clients.values()) {
             client.close();
         }
-        clients.clear();
         logger.info("closing all nodes");
-        for (Node node : nodes.values()) {
+        for (Node node : helper.nodes.values()) {
             if (node != null) {
                 node.close();
             }
         }
-        nodes.clear();
         logger.info("all nodes closed");
     }
 
@@ -168,20 +144,46 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         }
     }
 
-    private String getRandomString(int len) {
-        final char[] buf = new char[len];
-        final int n = numbersAndLetters.length - 1;
-        for (int i = 0; i < buf.length; i++) {
-            buf[i] = numbersAndLetters[random.nextInt(n)];
-        }
-        return new String(buf);
-    }
-
     private Helper create() {
-        return new Helper();
+        Helper helper = new Helper();
+        helper.setHome(System.getProperty("path.home") + "/" + helper.randomString(8));
+        helper.setClusterName("test-cluster-" + helper.randomString(8));
+        logger.info("cluster: " + helper.getClusterName() + " home: " + helper.getHome());
+        return helper;
     }
 
-    class Helper {
+    static class Helper {
+
+        String home;
+
+        String cluster;
+
+        Map<String, Node> nodes = new HashMap<>();
+
+        Map<String, AbstractClient> clients = new HashMap<>();
+
+        void setHome(String home) {
+            this.home = home;
+        }
+
+        String getHome() {
+            return home;
+        }
+
+        void setClusterName(String cluster) {
+            this.cluster = cluster;
+        }
+
+        String getClusterName() {
+            return cluster;
+        }
+
+        Settings getNodeSettings() {
+            return Settings.builder()
+                    .put("cluster.name", getClusterName())
+                    .put("path.home", getHome())
+                    .build();
+        }
 
         void startNode(String id) {
             buildNode(id).start();
@@ -191,25 +193,24 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return clients.get(id);
         }
 
-        String getCluster() {
-            return getClusterName();
-        }
-
-        String randomString(int n) {
-            return getRandomString(n);
+        String randomString(int len) {
+            final char[] buf = new char[len];
+            final int n = numbersAndLetters.length - 1;
+            for (int i = 0; i < buf.length; i++) {
+                buf[i] = numbersAndLetters[random.nextInt(n)];
+            }
+            return new String(buf);
         }
 
         private Node buildNode(String id) {
-            Settings nodeSettings = settingsBuilder()
-                    .put("cluster.name", getClusterName())
-                    .put("path.home", getHome())
-                    .put("name", id)
+            Settings nodeSettings = Settings.builder()
+                    .put(getNodeSettings())
+                    .put("node.name", id)
                     .build();
             Node node = new MockNode(nodeSettings);
             AbstractClient client = (AbstractClient) node.client();
             nodes.put(id, node);
             clients.put(id, client);
-            logger.info("clients={}", clients);
             return node;
         }
     }

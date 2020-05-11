@@ -94,7 +94,7 @@ class ClientTest {
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
-            assertEquals(1, client.getBulkMetric().getSucceeded().getCount());
+            assertEquals(1, client.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (client.getBulkController().getLastBulkError() != null) {
                 logger.error("error", client.getBulkController().getLastBulkError());
             }
@@ -122,7 +122,7 @@ class ClientTest {
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
-            assertEquals(numactions, client.getBulkMetric().getSucceeded().getCount());
+            assertEquals(numactions, client.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (client.getBulkController().getLastBulkError() != null) {
                 logger.error("error", client.getBulkController().getLastBulkError());
             }
@@ -180,7 +180,7 @@ class ClientTest {
             logger.warn("skipping, no node available");
         } finally {
             client.stopBulk("test5", 60L, TimeUnit.SECONDS);
-            assertEquals(maxthreads * actions, client.getBulkMetric().getSucceeded().getCount());
+            assertEquals(maxthreads * actions, client.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (client.getBulkController().getLastBulkError() != null) {
                 logger.error("error", client.getBulkController().getLastBulkError());
             }

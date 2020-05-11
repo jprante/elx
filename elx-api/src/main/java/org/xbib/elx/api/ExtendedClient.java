@@ -6,6 +6,7 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 
 import java.io.Closeable;
 import java.io.Flushable;
@@ -33,12 +34,6 @@ public interface ExtendedClient extends Flushable, Closeable {
      * @return Elasticsearch client
      */
     ElasticsearchClient getClient();
-
-    /**
-     * Get bulk metric.
-     * @return the bulk metric
-     */
-    BulkMetric getBulkMetric();
 
     /**
      * Get buulk control.
@@ -190,6 +185,8 @@ public interface ExtendedClient extends Flushable, Closeable {
      */
     ExtendedClient newIndex(String index, Settings settings, String mapping) throws IOException;
 
+    ExtendedClient newIndex(String index, Settings settings, XContentBuilder mapping) throws IOException;
+
     /**
      * Create a new index.
      *
@@ -199,7 +196,7 @@ public interface ExtendedClient extends Flushable, Closeable {
      * @return this
      * @throws IOException if settings/mapping is invalid or index creation fails
      */
-    ExtendedClient newIndex(String index, Settings settings, Map<String, Object> mapping) throws IOException;
+    ExtendedClient newIndex(String index, Settings settings, Map<String, ?> mapping) throws IOException;
 
     /**
      * Create a new index.
@@ -317,7 +314,7 @@ public interface ExtendedClient extends Flushable, Closeable {
 
     /**
      * Force segment merge of an index.
-     * @param indexDefinition th eindex definition
+     * @param indexDefinition the index definition
      * @return this
      */
     boolean forceMerge(IndexDefinition indexDefinition);
@@ -398,7 +395,7 @@ public interface ExtendedClient extends Flushable, Closeable {
     String resolveMostRecentIndex(String alias);
 
     /**
-     * Get all aliases.
+     * Get all index aliases.
      * @param index the index
      * @return map of index aliases
      */

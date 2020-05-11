@@ -37,7 +37,7 @@ class SmokeTest {
             client.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
             client.flush();
             client.waitForResponses(30, TimeUnit.SECONDS);
-            assertEquals(helper.getCluster(), client.getClusterName());
+            assertEquals(helper.getClusterName(), client.getClusterName());
             client.checkMapping("test_smoke");
             client.update("test_smoke", "1", "{ \"name\" : \"Another name\"}");
             client.flush();
@@ -54,8 +54,8 @@ class SmokeTest {
             int replica = client.getReplicaLevel(indexDefinition);
             assertEquals(2, replica);
             client.deleteIndex(indexDefinition);
-            assertEquals(0, client.getBulkMetric().getFailed().getCount());
-            assertEquals(4, client.getBulkMetric().getSucceeded().getCount());
+            assertEquals(0, client.getBulkController().getBulkMetric().getFailed().getCount());
+            assertEquals(4, client.getBulkController().getBulkMetric().getSucceeded().getCount());
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {

@@ -29,7 +29,7 @@ public class MockExtendedClient extends AbstractExtendedClient {
     }
 
     @Override
-    protected void closeClient()  {
+    protected void closeClient() {
     }
 
     @Override
