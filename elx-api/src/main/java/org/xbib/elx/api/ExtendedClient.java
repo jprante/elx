@@ -121,8 +121,9 @@ public interface ExtendedClient extends Flushable, Closeable {
      * @param id     the id
      * @param source the source
      * @return this
+     * @throws IOException if update fails
      */
-    ExtendedClient update(String index, String id, BytesReference source);
+    ExtendedClient update(String index, String id, BytesReference source) throws IOException;
 
     /**
      * Update document. Use with precaution! Does not work in all cases.
@@ -170,7 +171,7 @@ public interface ExtendedClient extends Flushable, Closeable {
      * @param index index
      * @param settings settings
      * @return this
-     * @throws IOException if settings/mapping is invalid or index creation fails
+     * @throws IOException if settings is invalid or index creation fails
      */
     ExtendedClient newIndex(String index, Settings settings) throws IOException;
 
@@ -185,6 +186,15 @@ public interface ExtendedClient extends Flushable, Closeable {
      */
     ExtendedClient newIndex(String index, Settings settings, String mapping) throws IOException;
 
+    /**
+     * Create a new index.
+     *
+     * @param index index
+     * @param settings settings
+     * @param mapping mapping
+     * @return this
+     * @throws IOException if settings/mapping is invalid or index creation fails
+     */
     ExtendedClient newIndex(String index, Settings settings, XContentBuilder mapping) throws IOException;
 
     /**
