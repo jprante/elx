@@ -9,7 +9,7 @@ import org.elasticsearch.action.get.MultiGetResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 
-public interface ReadClient {
+public interface SearchClient {
 
     ActionFuture<GetResponse> get(GetRequest getRequest);
 
