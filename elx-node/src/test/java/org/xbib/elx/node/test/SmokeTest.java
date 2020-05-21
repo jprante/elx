@@ -2,14 +2,15 @@ package org.xbib.elx.node.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.common.settings.Settings;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.api.IndexDefinition;
-import org.xbib.elx.node.ExtendedNodeClient;
-import org.xbib.elx.node.ExtendedNodeClientProvider;
+import org.xbib.elx.node.NodeAdminClient;
+import org.xbib.elx.node.NodeAdminClientProvider;
+import org.xbib.elx.node.NodeBulkClient;
+import org.xbib.elx.node.NodeBulkClientProvider;
 
 import java.util.concurrent.TimeUnit;
 
@@ -29,41 +30,56 @@ class SmokeTest {
 
     @Test
     void smokeTest() throws Exception {
-        final ExtendedNodeClient client = ClientBuilder.builder(helper.client("1"))
-                .provider(ExtendedNodeClientProvider.class)
+        final NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
+                .setAdminClientProvider(NodeAdminClientProvider.class)
                 .build();
+        final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
+                .setBulkClientProvider(NodeBulkClientProvider.class)
+                .build();
+        IndexDefinition indexDefinition =
+                adminClient.buildIndexDefinitionFromSettings("test_smoke", Settings.EMPTY);
         try {
+            assertEquals(helper.getClusterName(), client.getClusterName());
             client.newIndex("test_smoke");
             client.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
             client.flush();
             client.waitForResponses(30, TimeUnit.SECONDS);
-            assertEquals(helper.getClusterName(), client.getClusterName());
             client.checkMapping("test_smoke");
             client.update("test_smoke", "1", "{ \"name\" : \"Another name\"}");
-            client.flush();
-            client.waitForRecovery("test_smoke", 10L, TimeUnit.SECONDS);
             client.delete("test_smoke", "1");
+            client.flush();
+            client.waitForResponses(30, TimeUnit.SECONDS);
+            client.waitForRecovery("test_smoke", 10L, TimeUnit.SECONDS);
+            client.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}");
+            client.delete("test_smoke", "1");
+            client.flush();
             client.deleteIndex("test_smoke");
-            IndexDefinition indexDefinition = client.buildIndexDefinitionFromSettings("test_smoke_2", Settings.settingsBuilder()
+            IndexDefinition indexDefinition = client.buildIndexDefinitionFromSettings("test_smoke", Settings.builder()
                     .build());
             assertEquals(0, indexDefinition.getReplicaLevel());
             client.newIndex(indexDefinition);
             client.index(indexDefinition.getFullIndexName(), "1", true, "{ \"name\" : \"Hello World\"}");
             client.flush();
+            client.waitForResponses(30, TimeUnit.SECONDS);
             client.updateReplicaLevel(indexDefinition, 2);
             int replica = client.getReplicaLevel(indexDefinition);
             assertEquals(2, replica);
             client.deleteIndex(indexDefinition);
-            assertEquals(0, client.getBulkController().getBulkMetric().getFailed().getCount());
-            assertEquals(4, client.getBulkController().getBulkMetric().getSucceeded().getCount());
+            //assertEquals(0, client.getBulkMetric().getFailed().getCount());
+            //assertEquals(6, client.getBulkMetric().getSucceeded().getCount());
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } finally {
-            client.close();
-            if (client.getBulkController().getLastBulkError() != null) {
-                logger.error("error", client.getBulkController().getLastBulkError());
+            bulkClient.close();
+            if (bulkClient.getBulkController().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
-            assertNull(client.getBulkController().getLastBulkError());
+            assertEquals(0, bulkClient.getBulkMetric().getFailed().getCount());
+            assertEquals(6, bulkClient.getBulkMetric().getSucceeded().getCount());
+            assertNull(bulkClient.getBulkController().getLastBulkError());
+            // close admin after bulk
+            adminClient.deleteIndex(indexDefinition);
+            adminClient.close();
         }
     }
 }

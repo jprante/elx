@@ -1,25 +1,27 @@
 package org.xbib.elx.api;
 
-import org.elasticsearch.action.ActionFuture;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.action.get.GetRequestBuilder;
 import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.get.MultiGetRequest;
+import org.elasticsearch.action.get.MultiGetRequestBuilder;
 import org.elasticsearch.action.get.MultiGetResponse;
-import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.search.SearchHit;
+import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
 
-public interface ReadClient {
+public interface SearchClient {
 
-    ActionFuture<GetResponse> get(GetRequest getRequest);
+    Optional<GetResponse> get(Consumer<GetRequestBuilder> getRequestBuilder);
 
-    void get(GetRequest request, ActionListener<GetResponse> listener);
+    Optional<MultiGetResponse> multiGet(Consumer<MultiGetRequestBuilder> multiGetRequestBuilder);
 
-    ActionFuture<MultiGetResponse> multiGet(MultiGetRequest request);
+    Optional<SearchResponse> search(Consumer<SearchRequestBuilder> searchRequestBuilder);
 
-    void multiGet(MultiGetRequest request, ActionListener<MultiGetResponse> listener);
+    Stream<SearchHit> search(Consumer<SearchRequestBuilder> searchRequestBuilder,
+                             TimeValue scrollTime, int scrollSize);
 
-    ActionFuture<SearchResponse> search(SearchRequest request);
-
-    void search(SearchRequest request, ActionListener<SearchResponse> listener);
+    Stream<String> getIds(Consumer<SearchRequestBuilder> queryBuilder);
 }

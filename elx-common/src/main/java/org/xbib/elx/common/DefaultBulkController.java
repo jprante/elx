@@ -2,17 +2,19 @@ package org.xbib.elx.common;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.bulk.BulkItemResponse;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
+import org.xbib.elx.api.BulkClient;
 import org.xbib.elx.api.BulkController;
-import org.xbib.elx.api.BulkListener;
 import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.BulkProcessor;
-import org.xbib.elx.api.ExtendedClient;
 import org.xbib.elx.api.IndexDefinition;
 
 import java.io.IOException;
@@ -27,11 +29,9 @@ public class DefaultBulkController implements BulkController {
 
     private static final Logger logger = LogManager.getLogger(DefaultBulkController.class);
 
-    private final ExtendedClient client;
+    private final BulkClient client;
 
     private final BulkMetric bulkMetric;
-
-    private BulkProcessor bulkProcessor;
 
     private final List<String> indexNames;
 
@@ -43,11 +43,17 @@ public class DefaultBulkController implements BulkController {
 
     private final TimeUnit maxWaitTimeUnit;
 
-    private final AtomicBoolean active;
+    private BulkProcessor bulkProcessor;
 
-    public DefaultBulkController(ExtendedClient client) {
+    private BulkListener bulkListener;
+
+    private AtomicBoolean active;
+
+    private boolean enableBulkLogging;
+
+    public DefaultBulkController(ExtendedClient client, BulkMetric bulkMetric) {
         this.client = client;
-        this.bulkMetric = new DefaultBulkMetric();
+        this.bulkMetric = bulkMetric;
         this.indexNames = new ArrayList<>();
         this.active = new AtomicBoolean(false);
         this.startBulkRefreshIntervals = new HashMap<>();
@@ -57,13 +63,8 @@ public class DefaultBulkController implements BulkController {
     }
 
     @Override
-    public BulkMetric getBulkMetric() {
-        return bulkMetric;
-    }
-
-    @Override
     public Throwable getLastBulkError() {
-        return bulkProcessor.getBulkListener().getLastBulkError();
+        return bulkListener.getLastBulkError();
     }
 
     @Override
@@ -77,27 +78,22 @@ public class DefaultBulkController implements BulkController {
         ByteSizeValue maxVolumePerRequest = settings.getAsBytesSize(Parameters.MAX_VOLUME_PER_REQUEST.name(),
                 ByteSizeValue.parseBytesSizeValue(Parameters.DEFAULT_MAX_VOLUME_PER_REQUEST.getString(),
                         "maxVolumePerRequest"));
-        boolean enableBulkLogging = settings.getAsBoolean(Parameters.ENABLE_BULK_LOGGING.name(),
+        this.enableBulkLogging = settings.getAsBoolean(Parameters.ENABLE_BULK_LOGGING.name(),
                 Parameters.ENABLE_BULK_LOGGING.getValue());
-        BulkListener bulkListener = new DefaultBulkListener(this, bulkMetric, enableBulkLogging);
+        this.bulkListener = new BulkListener();
         this.bulkProcessor = DefaultBulkProcessor.builder(client.getClient(), bulkListener)
                 .setBulkActions(maxActionsPerRequest)
                 .setConcurrentRequests(maxConcurrentRequests)
                 .setFlushInterval(flushIngestInterval)
                 .setBulkSize(maxVolumePerRequest)
                 .build();
+        this.active.set(true);
         if (logger.isInfoEnabled()) {
             logger.info("bulk processor up with maxActionsPerRequest = {} maxConcurrentRequests = {} " +
-                            "flushIngestInterval = {} maxVolumePerRequest = {}, bulk logging = {}",
+                            "flushIngestInterval = {} maxVolumePerRequest = {} bulk logging = {} logger debug = {} from settings = {}",
                     maxActionsPerRequest, maxConcurrentRequests, flushIngestInterval, maxVolumePerRequest,
-                    enableBulkLogging);
+                    enableBulkLogging, logger.isDebugEnabled(), settings.toDelimitedString(','));
         }
-        this.active.set(true);
-    }
-
-    @Override
-    public void inactivate() {
-        this.active.set(false);
     }
 
     @Override
@@ -122,53 +118,65 @@ public class DefaultBulkController implements BulkController {
     }
 
     @Override
-    public void bulkIndex(IndexRequest indexRequest) {
+    public void index(IndexRequest indexRequest) {
         ensureActiveAndBulk();
+        if (!active.get()) {
+            throw new IllegalStateException("inactive");
+        }
         try {
-            bulkMetric.getCurrentIngest().inc(indexRequest.index(), indexRequest.type(), indexRequest.id());
+            if (bulkMetric != null) {
+                bulkMetric.getCurrentIngest().inc(indexRequest.index(), indexRequest.type(), indexRequest.id());
+            }
             bulkProcessor.add(indexRequest);
         } catch (Exception e) {
+            bulkListener.lastBulkError = e;
+            active.set(false);
             if (logger.isErrorEnabled()) {
                 logger.error("bulk add of index failed: " + e.getMessage(), e);
             }
-            inactivate();
         }
     }
 
     @Override
-    public void bulkDelete(DeleteRequest deleteRequest) {
+    public void delete(DeleteRequest deleteRequest) {
         if (!active.get()) {
             throw new IllegalStateException("inactive");
         }
         try {
-            bulkMetric.getCurrentIngest().inc(deleteRequest.index(), deleteRequest.type(), deleteRequest.id());
+            if (bulkMetric != null) {
+                bulkMetric.getCurrentIngest().inc(deleteRequest.index(), deleteRequest.type(), deleteRequest.id());
+            }
             bulkProcessor.add(deleteRequest);
         } catch (Exception e) {
+            bulkListener.lastBulkError = e;
+            active.set(false);
             if (logger.isErrorEnabled()) {
                 logger.error("bulk add of delete failed: " + e.getMessage(), e);
             }
-            inactivate();
         }
     }
 
     @Override
-    public void bulkUpdate(UpdateRequest updateRequest) {
+    public void update(UpdateRequest updateRequest) {
         if (!active.get()) {
             throw new IllegalStateException("inactive");
         }
         try {
-            bulkMetric.getCurrentIngest().inc(updateRequest.index(), updateRequest.type(), updateRequest.id());
+            if (bulkMetric != null) {
+                bulkMetric.getCurrentIngest().inc(updateRequest.index(), updateRequest.type(), updateRequest.id());
+            }
             bulkProcessor.add(updateRequest);
         } catch (Exception e) {
+            bulkListener.lastBulkError = e;
+            active.set(false);
             if (logger.isErrorEnabled()) {
                 logger.error("bulk add of update failed: " + e.getMessage(), e);
             }
-            inactivate();
         }
     }
 
     @Override
-    public boolean waitForBulkResponses(long timeout, TimeUnit timeUnit) {
+    public boolean waitForResponses(long timeout, TimeUnit timeUnit) {
         try {
             return bulkProcessor.awaitFlush(timeout, timeUnit);
         } catch (InterruptedException e) {
@@ -187,7 +195,7 @@ public class DefaultBulkController implements BulkController {
     @Override
     public void stopBulkMode(String index, long timeout, TimeUnit timeUnit) throws IOException {
         flush();
-        if (waitForBulkResponses(timeout, timeUnit)) {
+        if (waitForResponses(timeout, timeUnit)) {
             if (indexNames.contains(index)) {
                 Long secs = stopBulkRefreshIntervals.get(index);
                 if (secs != null && secs != 0L) {
@@ -209,7 +217,6 @@ public class DefaultBulkController implements BulkController {
     @Override
     public void close() throws IOException {
         flush();
-        bulkMetric.close();
         if (client.waitForResponses(maxWaitTime, maxWaitTimeUnit)) {
             for (String index : indexNames) {
                 Long secs = stopBulkRefreshIntervals.get(index);
@@ -230,6 +237,93 @@ public class DefaultBulkController implements BulkController {
         }
         if (bulkProcessor == null) {
             throw new UnsupportedOperationException("bulk processor not present");
+        }
+        if (bulkListener == null) {
+            throw new UnsupportedOperationException("bulk listener not present");
+        }
+    }
+
+    private class BulkListener implements DefaultBulkProcessor.Listener {
+
+        private final Logger logger = LogManager.getLogger(BulkListener.class.getName());
+
+        private Throwable lastBulkError = null;
+
+        @Override
+        public void beforeBulk(long executionId, BulkRequest request) {
+            long l = 0;
+            if (bulkMetric != null) {
+                l = bulkMetric.getCurrentIngest().getCount();
+                bulkMetric.getCurrentIngest().inc();
+                int n = request.numberOfActions();
+                bulkMetric.getSubmitted().inc(n);
+                bulkMetric.getCurrentIngestNumDocs().inc(n);
+                bulkMetric.getTotalIngestSizeInBytes().inc(request.estimatedSizeInBytes());
+            }
+            if (enableBulkLogging && logger.isDebugEnabled()) {
+                logger.debug("before bulk [{}] [actions={}] [bytes={}] [concurrent requests={}]",
+                        executionId,
+                        request.numberOfActions(),
+                        request.estimatedSizeInBytes(),
+                        l);
+            }
+        }
+
+        @Override
+        public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
+            long l = 0;
+            if (bulkMetric != null) {
+                l = bulkMetric.getCurrentIngest().getCount();
+                bulkMetric.getCurrentIngest().dec();
+                bulkMetric.getSucceeded().inc(response.getItems().length);
+            }
+            int n = 0;
+            for (BulkItemResponse itemResponse : response.getItems()) {
+                if (bulkMetric != null) {
+                    bulkMetric.getCurrentIngest().dec(itemResponse.getIndex(), itemResponse.getType(), itemResponse.getId());
+                }
+                if (itemResponse.isFailed()) {
+                    n++;
+                    if (bulkMetric != null) {
+                        bulkMetric.getSucceeded().dec(1);
+                        bulkMetric.getFailed().inc(1);
+                    }
+                }
+            }
+            if (enableBulkLogging && logger.isDebugEnabled() && bulkMetric != null) {
+                logger.debug("after bulk [{}] [succeeded={}] [failed={}] [{}ms] {} concurrent requests",
+                        executionId,
+                        bulkMetric.getSucceeded().getCount(),
+                        bulkMetric.getFailed().getCount(),
+                        response.getTook().millis(),
+                        l);
+            }
+            if (n > 0) {
+                if (enableBulkLogging && logger.isErrorEnabled()) {
+                    logger.error("bulk [{}] failed with {} failed items, failure message = {}",
+                            executionId, n, response.buildFailureMessage());
+                }
+            } else {
+                if (bulkMetric != null) {
+                    bulkMetric.getCurrentIngestNumDocs().dec(response.getItems().length);
+                }
+            }
+        }
+
+        @Override
+        public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
+            if (bulkMetric != null) {
+                bulkMetric.getCurrentIngest().dec();
+            }
+            lastBulkError = failure;
+            active.set(false);
+            if (enableBulkLogging && logger.isErrorEnabled()) {
+                logger.error("after bulk [" + executionId + "] error", failure);
+            }
+        }
+
+        Throwable getLastBulkError() {
+            return lastBulkError;
         }
     }
 }

@@ -3,8 +3,6 @@ package org.xbib.elx.common;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.api.IndexRetention;
 
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.concurrent.TimeUnit;
 
 public class DefaultIndexDefinition implements IndexDefinition {
@@ -15,9 +13,9 @@ public class DefaultIndexDefinition implements IndexDefinition {
 
     private String dateTimePattern;
 
-    private URL settingsUrl;
+    private String settings;
 
-    private URL mappingsUrl;
+    private String mappings;
 
     private boolean enabled;
 
@@ -62,37 +60,25 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public IndexDefinition setSettingsUrl(String settingsUrlString) throws MalformedURLException {
-        this.settingsUrl = settingsUrlString != null ? new URL(settingsUrlString) : null;
+    public IndexDefinition setSettings(String settings) {
+        this.settings = settings;
         return this;
     }
 
     @Override
-    public IndexDefinition setSettingsUrl(URL settingsUrl) {
-        this.settingsUrl = settingsUrl;
+    public String getSettings() {
+        return settings;
+    }
+
+    @Override
+    public IndexDefinition setMappings(String mappings) {
+        this.mappings = mappings;
         return this;
     }
 
     @Override
-    public URL getSettingsUrl() {
-        return settingsUrl;
-    }
-
-    @Override
-    public IndexDefinition setMappingsUrl(String mappingsUrlString) throws MalformedURLException {
-        this.mappingsUrl = mappingsUrlString != null ? new URL(mappingsUrlString) : null;
-        return this;
-    }
-
-    @Override
-    public IndexDefinition setMappingsUrl(URL mappingsUrl) {
-        this.mappingsUrl = mappingsUrl;
-        return this;
-    }
-
-    @Override
-    public URL getMappingsUrl() {
-        return mappingsUrl;
+    public String getMappings() {
+        return mappings;
     }
 
     @Override

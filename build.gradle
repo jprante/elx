@@ -11,7 +11,7 @@ wrapper {
 ext {
     user = 'jprante'
     name = 'elx'
-    description = 'Extensions for Elasticsearch clients (node and transport)'
+    description = 'Admin/Bulk/Search API extensions for Elasticsearch clients (node, transport, http)'
     inceptionYear = '2019'
     url = 'https://github.com/' + user + '/' + name
     scmUrl = 'https://github.com/' + user + '/' + name

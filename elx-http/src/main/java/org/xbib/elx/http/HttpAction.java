@@ -154,15 +154,35 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
         if (xContentType == null) {
             throw new IllegalStateException("unsupported content-type: " + mediaType);
         }
-        String body = httpActionContext.getHttpResponse().content().toString(StandardCharsets.UTF_8);
-        T t;
-        try (XContentParser parser = xContentType.xContent().createParser(body)) {
-            t = entityParser().apply(parser);
+        try (XContentParser parser = xContentType.xContent()
+                .createParser(httpActionContext.getExtendedHttpClient().getRegistry(),
+                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                httpActionContext.getHttpResponse().getBody().toString(StandardCharsets.UTF_8))) {
+            return entityParser().apply(parser);
+        } catch (IOException e) {
+            logger.error(e.getMessage(), e);
+            return null;
         }
         return t;
     }
 
-    protected abstract RequestBuilder createHttpRequest(String baseUrl, R request) throws IOException;
+    protected ElasticsearchStatusException parseToError(HttpActionContext<R, T> httpActionContext) {
+        try (XContentParser parser = XContentFactory.xContent(XContentType.JSON)
+                .createParser(httpActionContext.getExtendedHttpClient().getRegistry(),
+                        DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                        httpActionContext.getHttpResponse().getBody().toString(StandardCharsets.UTF_8))) {
+            return errorParser().apply(parser);
+        } catch (IOException e) {
+            logger.error(e.getMessage(), e);
+            return new ElasticsearchStatusException(e.getMessage(), RestStatus.INTERNAL_SERVER_ERROR, e);
+        }
+    }
+
+    protected CheckedFunction<XContentParser, ElasticsearchStatusException, IOException> errorParser() {
+        return BytesRestResponse::errorFromXContent;
+    }
+
+    protected abstract Request.Builder createHttpRequest(String baseUrl, R request) throws IOException;
 
     protected abstract CheckedFunction<XContentParser, T, IOException> entityParser();
 
