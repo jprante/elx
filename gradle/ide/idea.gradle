@@ -1,0 +1,13 @@
+apply plugin: 'idea'
+
+idea {
+    module {
+        outputDir file('build/classes/java/main')
+        testOutputDir file('build/classes/java/test')
+    }
+}
+
+// if project was  not imported via idea pluginw
+clean {
+    delete 'out'
+}

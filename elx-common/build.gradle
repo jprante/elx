@@ -1,5 +1,5 @@
 dependencies{
-    compile project(':elx-api')
-    testCompile "org.xbib.elasticsearch:elasticsearch-analysis-common:${rootProject.property('elasticsearch-server.version')}"
-    testCompile "org.xbib.elasticsearch:transport-netty4:${rootProject.property('elasticsearch-server.version')}"
+    api project(':elx-api')
+    testImplementation "org.xbib.elasticsearch:elasticsearch-analysis-common:${rootProject.property('elasticsearch-server.version')}"
+    testImplementation "org.xbib.elasticsearch:transport-netty4:${rootProject.property('elasticsearch-server.version')}"
 }
