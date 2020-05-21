@@ -1,4 +1,5 @@
 org.elasticsearch.action.admin.indices.mapping.get.HttpGetMappingsAction
+org.elasticsearch.action.admin.indices.get.HttpGetIndexAction
 org.xbib.elx.http.action.admin.cluster.health.HttpClusterHealthAction
 org.xbib.elx.http.action.admin.cluster.node.info.HttpNodesInfoAction
 org.xbib.elx.http.action.admin.cluster.settings.HttpClusterUpdateSettingsAction

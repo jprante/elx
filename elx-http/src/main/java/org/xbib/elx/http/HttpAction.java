@@ -77,7 +77,7 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
                     }
                 }
             });
-            Transport transport = httpActionContext.getExtendedHttpClient().internalClient().execute(httpRequest);
+            Transport transport = httpActionContext.getHelper().internalClient().execute(httpRequest);
             httpActionContext.setHttpClientTransport(transport);
             if (transport.isFailed()) {
                 listener.onFailure(new Exception(transport.getFailure()));
@@ -155,7 +155,7 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
             throw new IllegalStateException("unsupported content-type: " + mediaType);
         }
         try (XContentParser parser = xContentType.xContent()
-                .createParser(httpActionContext.getExtendedHttpClient().getRegistry(),
+                .createParser(httpActionContext.getHelper().getRegistry(),
                 DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
                 httpActionContext.getHttpResponse().getBody().toString(StandardCharsets.UTF_8))) {
             return entityParser().apply(parser);
@@ -167,7 +167,7 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
 
     protected ElasticsearchStatusException parseToError(HttpActionContext<R, T> httpActionContext) {
         try (XContentParser parser = XContentFactory.xContent(XContentType.JSON)
-                .createParser(httpActionContext.getExtendedHttpClient().getRegistry(),
+                .createParser(httpActionContext.getHelper().getRegistry(),
                         DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
                         httpActionContext.getHttpResponse().getBody().toString(StandardCharsets.UTF_8))) {
             return errorParser().apply(parser);

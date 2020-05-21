@@ -1,6 +1,6 @@
 package org.xbib.elx.api;
 
-import java.util.List;
+import java.util.Collection;
 
 public interface IndexPruneResult {
 
@@ -8,9 +8,9 @@ public interface IndexPruneResult {
 
     State getState();
 
-    List<String> getCandidateIndices();
+    Collection<String> getCandidateIndices();
 
-    List<String> getDeletedIndices();
+    Collection<String> getDeletedIndices();
 
     boolean isAcknowledged();
 }

@@ -11,10 +11,10 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
+import org.xbib.elx.api.BulkClient;
 import org.xbib.elx.api.BulkController;
 import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.BulkProcessor;
-import org.xbib.elx.api.ExtendedClient;
 import org.xbib.elx.api.IndexDefinition;
 
 import java.io.IOException;
@@ -29,7 +29,7 @@ public class DefaultBulkController implements BulkController {
 
     private static final Logger logger = LogManager.getLogger(DefaultBulkController.class);
 
-    private final ExtendedClient client;
+    private final BulkClient client;
 
     private final BulkMetric bulkMetric;
 
@@ -39,9 +39,9 @@ public class DefaultBulkController implements BulkController {
 
     private final Map<String, Long> stopBulkRefreshIntervals;
 
-    private long maxWaitTime;
+    private final long maxWaitTime;
 
-    private TimeUnit maxWaitTimeUnit;
+    private final TimeUnit maxWaitTimeUnit;
 
     private BulkProcessor bulkProcessor;
 
@@ -51,7 +51,7 @@ public class DefaultBulkController implements BulkController {
 
     private boolean enableBulkLogging;
 
-    public DefaultBulkController(ExtendedClient client, BulkMetric bulkMetric) {
+    public DefaultBulkController(BulkClient client, BulkMetric bulkMetric) {
         this.client = client;
         this.bulkMetric = bulkMetric;
         this.indexNames = new ArrayList<>();

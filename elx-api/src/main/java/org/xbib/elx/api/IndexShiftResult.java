@@ -1,10 +1,10 @@
 package org.xbib.elx.api;
 
-import java.util.List;
+import java.util.Collection;
 
 public interface IndexShiftResult {
 
-    List<String> getMovedAliases();
+    Collection<String> getMovedAliases();
 
-    List<String> getNewAliases();
+    Collection<String> getNewAliases();
 }
