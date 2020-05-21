@@ -5,6 +5,7 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.xcontent.XContentParser;
+import org.elasticsearch.search.Scroll;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.netty.http.client.api.Request;
 
@@ -19,9 +20,10 @@ public class HttpSearchAction extends HttpAction<SearchRequest, SearchResponse> 
 
     @Override
     protected Request.Builder createHttpRequest(String url, SearchRequest request) {
-        // request.indices() always empty array
+        Scroll scroll = request.scroll();
+        String params = scroll != null ? "?scroll=" + scroll.keepAlive() : "";
         String index = request.indices() != null ? String.join(",", request.indices()) + "/" : "";
-        return newPostRequest(url, index + "_search", request.source().toString());
+        return newPostRequest(url, index + "_search" + params, request.source().toString());
     }
 
     @Override

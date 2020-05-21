@@ -38,7 +38,7 @@ public abstract class AbstractNativeClient implements NativeClient {
 
     /**
      * The one and only index type name used in the extended client.
-     * Notr that all Elasticsearch version < 6.2.0 do not allow a prepending "_".
+     * NOTE: all Elasticsearch version less than 6.2.0 forbid a prepending "_".
      */
     protected static final String TYPE_NAME = "doc";
 

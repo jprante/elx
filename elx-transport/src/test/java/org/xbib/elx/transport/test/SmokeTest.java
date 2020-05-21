@@ -30,17 +30,16 @@ class SmokeTest {
 
     @Test
     void smokeTest() throws Exception {
-        final TransportAdminClient adminClient = ClientBuilder.builder()
+        try (TransportAdminClient adminClient = ClientBuilder.builder()
                 .setAdminClientProvider(TransportAdminClientProvider.class)
                 .put(helper.getTransportSettings())
                 .build();
-        final TransportBulkClient bulkClient = ClientBuilder.builder()
+             TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
                 .put(helper.getTransportSettings())
-                .build();
-        IndexDefinition indexDefinition =
-                adminClient.buildIndexDefinitionFromSettings("test_smoke", Settings.EMPTY);
-        try {
+                .build()) {
+            IndexDefinition indexDefinition =
+                    adminClient.buildIndexDefinitionFromSettings("test_smoke", Settings.EMPTY);
             assertEquals(helper.getClusterName(), adminClient.getClusterName());
             bulkClient.newIndex("test_smoke");
             bulkClient.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
@@ -61,17 +60,13 @@ class SmokeTest {
             adminClient.updateReplicaLevel(indexDefinition, 2);
             int replica = adminClient.getReplicaLevel(indexDefinition);
             assertEquals(2, replica);
-        } finally {
-            bulkClient.close();
             assertEquals(0, bulkClient.getBulkMetric().getFailed().getCount());
             assertEquals(4, bulkClient.getBulkMetric().getSucceeded().getCount());
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
             assertNull(bulkClient.getBulkController().getLastBulkError());
-            // close admin after bulk
             adminClient.deleteIndex(indexDefinition);
-            adminClient.close();
         }
     }
 }

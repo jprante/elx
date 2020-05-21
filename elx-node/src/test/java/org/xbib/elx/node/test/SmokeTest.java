@@ -30,15 +30,14 @@ class SmokeTest {
 
     @Test
     void smokeTest() throws Exception {
-        final NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
+        try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
                 .setAdminClientProvider(NodeAdminClientProvider.class)
                 .build();
-        final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
+             NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                .build();
-        IndexDefinition indexDefinition =
-                adminClient.buildIndexDefinitionFromSettings("test_smoke", Settings.EMPTY);
-        try {
+                .build()) {
+            IndexDefinition indexDefinition =
+                    adminClient.buildIndexDefinitionFromSettings("test_smoke", Settings.EMPTY);
             assertEquals(helper.getClusterName(), adminClient.getClusterName());
             bulkClient.newIndex("test_smoke");
             bulkClient.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
@@ -62,17 +61,13 @@ class SmokeTest {
             adminClient.updateReplicaLevel(indexDefinition, 2);
             int replica = adminClient.getReplicaLevel(indexDefinition);
             assertEquals(2, replica);
-        } finally {
-            bulkClient.close();
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
             assertEquals(0, bulkClient.getBulkMetric().getFailed().getCount());
             assertEquals(6, bulkClient.getBulkMetric().getSucceeded().getCount());
             assertNull(bulkClient.getBulkController().getLastBulkError());
-            // close admin after bulk
             adminClient.deleteIndex(indexDefinition);
-            adminClient.close();
         }
     }
 }

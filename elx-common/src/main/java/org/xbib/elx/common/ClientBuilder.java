@@ -23,7 +23,7 @@ public class ClientBuilder {
 
     private final ElasticsearchClient client;
 
-    private final ClassLoader classLoader;
+    private ClassLoader classLoader;
 
     private final Settings.Builder settingsBuilder;
 
@@ -54,6 +54,11 @@ public class ClientBuilder {
 
     public static ClientBuilder builder(ElasticsearchClient client) {
         return new ClientBuilder(client);
+    }
+
+    public ClientBuilder setClassLoader(ClassLoader classLoader) {
+        this.classLoader = classLoader;
+        return this;
     }
 
     public ClientBuilder setAdminClientProvider(Class<? extends AdminClientProvider> adminClientProvider) {
@@ -140,6 +145,6 @@ public class ClientBuilder {
                 }
             }
         }
-        throw new IllegalArgumentException("no provider");
+        throw new IllegalArgumentException("no provider found");
     }
 }

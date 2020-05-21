@@ -139,8 +139,20 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
             logger.warn("no index name given to delete index");
             return this;
         }
-        DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest().indices(index);
+        DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest()
+                .indices(index);
         client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
+        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
+                .waitForNoInitializingShards(true)
+                .waitForNoRelocatingShards(true)
+                .waitForYellowStatus();
+        ClusterHealthResponse healthResponse =
+                client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
+        if (healthResponse.isTimedOut()) {
+            String message = "timeout waiting for cluster shards";
+            logger.error(message);
+            throw new IllegalStateException(message);
+        }
         return this;
     }
 
@@ -151,18 +163,22 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
         GetSettingsRequest settingsRequest = new GetSettingsRequest();
         settingsRequest.indices(index);
         GetSettingsResponse settingsResponse = client.execute(GetSettingsAction.INSTANCE, settingsRequest).actionGet();
-        int shards = settingsResponse.getIndexToSettings().get(index).getAsInt("index.number_of_shards", -1);
+        int shards = settingsResponse.getIndexToSettings()
+                .get(index).getAsInt("index.number_of_shards", -1);
         if (shards > 0) {
             TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
             ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
                     .indices(index)
                     .waitForActiveShards(shards)
+                    .waitForNoInitializingShards(true)
+                    .waitForNoRelocatingShards(true)
+                    .waitForYellowStatus()
                     .timeout(timeout);
             ClusterHealthResponse healthResponse =
                     client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
-            if (healthResponse != null && healthResponse.isTimedOut()) {
-                logger.error("timeout waiting for recovery");
-                return false;
+            if (healthResponse.isTimedOut()) {
+                String message = "timeout waiting for cluster shards";
+                logger.error(message);
             }
         }
         return true;

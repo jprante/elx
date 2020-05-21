@@ -136,7 +136,7 @@ public class HttpClientHelper extends AbstractAdminClient implements Elasticsear
 
     @Override
     public ThreadPool threadPool() {
-        logger.log(Level.DEBUG, "returning null for threadPool() request");
+        logger.log(Level.TRACE, "returning null for threadPool() request");
         return null;
     }
 
@@ -149,7 +149,7 @@ public class HttpClientHelper extends AbstractAdminClient implements Elasticsear
         }
         try {
             HttpActionContext httpActionContext = new HttpActionContext(this, request, url);
-            logger.log(Level.DEBUG, "url = " + url);
+            logger.log(Level.TRACE, "url = " + url);
             httpAction.execute(httpActionContext, listener);
         } catch (Exception e) {
             logger.error(e.getMessage(), e);

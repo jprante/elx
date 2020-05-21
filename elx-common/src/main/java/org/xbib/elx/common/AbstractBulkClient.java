@@ -4,7 +4,7 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.indices.create.CreateIndexAction;
-import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
+import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.flush.FlushAction;
 import org.elasticsearch.action.admin.indices.flush.FlushRequest;
@@ -27,7 +27,6 @@ import org.xbib.elx.api.BulkClient;
 import org.xbib.elx.api.BulkController;
 import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.IndexDefinition;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -100,41 +99,41 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
 
     @Override
     public void newIndex(String index) throws IOException {
-        newIndex(index, Settings.EMPTY, (Map<String, ?>) null);
+        newIndex(index, Settings.EMPTY, (XContentBuilder) null);
     }
 
     @Override
     public void newIndex(String index, Settings settings) throws IOException {
-        newIndex(index, settings, (Map<String, ?>) null);
+        newIndex(index, settings, (XContentBuilder) null);
+    }
+
+    @Override
+    public void newIndex(String index, Settings settings, Map<String, ?> map) throws IOException {
+        newIndex(index, settings, map == null || map.isEmpty() ? null :
+                JsonXContent.contentBuilder().map(map));
     }
 
     @Override
     public void newIndex(String index, Settings settings, XContentBuilder builder) throws IOException {
-        String mappingString = Strings.toString(builder);
-        Map<String, ?> mappings = JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
-                DeprecationHandler.THROW_UNSUPPORTED_OPERATION, mappingString).mapOrdered();
-        newIndex(index, settings, mappings);
-    }
-
-    @Override
-    public void newIndex(String index, Settings settings, Map<String, ?> mapping) throws IOException {
         if (index == null) {
             logger.warn("no index name given to create index");
             return;
         }
         ensureClientIsPresent();
         waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
-        CreateIndexRequest createIndexRequest = new CreateIndexRequest().index(index);
+        CreateIndexRequestBuilder createIndexRequestBuilder = new CreateIndexRequestBuilder(client, CreateIndexAction.INSTANCE);
+        createIndexRequestBuilder.setIndex(index);
         if (settings != null) {
-            createIndexRequest.settings(settings);
+            createIndexRequestBuilder.setSettings(settings);
         }
-        if (mapping != null) {
-            createIndexRequest.mapping(TYPE_NAME, mapping);
+        if (builder != null) {
+            // NOTE: addMapping(type, ...) API is very fragile. Use XConteBuilder for safe typing.
+            createIndexRequestBuilder.addMapping(TYPE_NAME, builder);
         }
-        CreateIndexResponse createIndexResponse = client.execute(CreateIndexAction.INSTANCE, createIndexRequest).actionGet();
-        XContentBuilder builder = XContentFactory.jsonBuilder();
+        createIndexRequestBuilder.setWaitForActiveShards(1);
+        CreateIndexResponse createIndexResponse = createIndexRequestBuilder.execute().actionGet();
         logger.info("index {} created: {}", index,
-                Strings.toString(createIndexResponse.toXContent(builder, ToXContent.EMPTY_PARAMS)));
+                Strings.toString(createIndexResponse.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS)));
     }
 
     @Override

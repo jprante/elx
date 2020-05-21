@@ -30,17 +30,16 @@ class SmokeTest {
 
     @Test
     void smokeTest() throws Exception {
-        final HttpAdminClient adminClient = ClientBuilder.builder()
+        try (HttpAdminClient adminClient = ClientBuilder.builder()
                 .setAdminClientProvider(HttpAdminClientProvider.class)
                 .put(helper.getHttpSettings())
                 .build();
-        final HttpBulkClient bulkClient = ClientBuilder.builder()
+             HttpBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(HttpBulkClientProvider.class)
                 .put(helper.getHttpSettings())
-                .build();
-        IndexDefinition indexDefinition = adminClient.buildIndexDefinitionFromSettings("test_smoke", Settings.builder()
-                .build());
-        try {
+                .build()) {
+            IndexDefinition indexDefinition =
+                    adminClient.buildIndexDefinitionFromSettings("test_smoke", Settings.EMPTY);
             assertEquals(helper.getClusterName(), adminClient.getClusterName());
             bulkClient.newIndex("test_smoke");
             bulkClient.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
@@ -64,17 +63,13 @@ class SmokeTest {
             adminClient.updateReplicaLevel(indexDefinition, 2);
             int replica = adminClient.getReplicaLevel(indexDefinition);
             assertEquals(2, replica);
-        } finally {
-            bulkClient.close();
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
             assertEquals(0, bulkClient.getBulkMetric().getFailed().getCount());
             assertEquals(6, bulkClient.getBulkMetric().getSucceeded().getCount());
             assertNull(bulkClient.getBulkController().getLastBulkError());
-            // close admin after bulk
             adminClient.deleteIndex(indexDefinition);
-            adminClient.close();
         }
     }
 }
