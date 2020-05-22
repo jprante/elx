@@ -9,7 +9,7 @@ import org.xbib.elx.api.BulkController;
 import org.xbib.elx.api.BulkListener;
 import org.xbib.elx.api.BulkMetric;
 
-class DefaultBulkListener implements BulkListener {
+public class DefaultBulkListener implements BulkListener {
 
     private final Logger logger = LogManager.getLogger(BulkListener.class.getName());
 

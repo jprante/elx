@@ -13,12 +13,9 @@ import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.common.Strings;
+import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.xcontent.DeprecationHandler;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentType;
@@ -27,7 +24,6 @@ import org.xbib.elx.api.BulkClient;
 import org.xbib.elx.api.BulkController;
 import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.IndexDefinition;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -91,10 +87,9 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
     @Override
     public void newIndex(IndexDefinition indexDefinition) throws IOException {
         Settings settings = indexDefinition.getSettings() == null ? null :
-                Settings.builder().loadFromSource(indexDefinition.getSettings(), XContentType.JSON).build();
+                Settings.builder().loadFromSource(indexDefinition.getSettings()).build();
         Map<String, ?> mappings = indexDefinition.getMappings() == null ? null :
-                JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
-                DeprecationHandler.THROW_UNSUPPORTED_OPERATION, indexDefinition.getMappings()).mapOrdered();
+                JsonXContent.jsonXContent.createParser(indexDefinition.getMappings()).mapOrdered();
         newIndex(indexDefinition.getFullIndexName(), settings, mappings);
     }
 
@@ -110,9 +105,8 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
 
     @Override
     public void newIndex(String index, Settings settings, XContentBuilder builder) throws IOException {
-        String mappingString = Strings.toString(builder);
-        Map<String, ?> mappings = JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
-                DeprecationHandler.THROW_UNSUPPORTED_OPERATION, mappingString).mapOrdered();
+        String mappingString = builder.string();
+        Map<String, ?> mappings = JsonXContent.jsonXContent.createParser(mappingString).mapOrdered();
         newIndex(index, settings, mappings);
     }
 
@@ -134,7 +128,7 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
         CreateIndexResponse createIndexResponse = client.execute(CreateIndexAction.INSTANCE, createIndexRequest).actionGet();
         XContentBuilder builder = XContentFactory.jsonBuilder();
         logger.info("index {} created: {}", index,
-                Strings.toString(createIndexResponse.toXContent(builder, ToXContent.EMPTY_PARAMS)));
+                createIndexResponse.toString());
     }
 
     @Override
@@ -169,20 +163,18 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
 
     @Override
     public BulkClient index(String index, String id, boolean create, String source) {
-        return index(new IndexRequest(index, TYPE_NAME, id).create(create)
-                .source(source.getBytes(StandardCharsets.UTF_8), XContentType.JSON));
+        return index(index, id, create, new BytesArray(source.getBytes(StandardCharsets.UTF_8)));
     }
 
     @Override
     public BulkClient index(String index, String id, boolean create, BytesReference source) {
-        return index(new IndexRequest(index, TYPE_NAME, id).create(create)
-                .source(source, XContentType.JSON));
+        return index(new IndexRequest(index, TYPE_NAME, id).create(create).source(source));
     }
 
     @Override
     public BulkClient index(IndexRequest indexRequest) {
         ensureClientIsPresent();
-        bulkController.index(indexRequest);
+        bulkController.bulkIndex(indexRequest);
         return this;
     }
 
@@ -194,7 +186,7 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
     @Override
     public BulkClient delete(DeleteRequest deleteRequest) {
         ensureClientIsPresent();
-        bulkController.delete(deleteRequest);
+        bulkController.bulkDelete(deleteRequest);
         return this;
     }
 
@@ -213,14 +205,14 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
     @Override
     public BulkClient update(UpdateRequest updateRequest) {
         ensureClientIsPresent();
-        bulkController.update(updateRequest);
+        bulkController.bulkUpdate(updateRequest);
         return this;
     }
 
     @Override
     public boolean waitForResponses(long timeout, TimeUnit timeUnit) {
         ensureClientIsPresent();
-        return bulkController.waitForResponses(timeout, timeUnit);
+        return bulkController.waitForBulkResponses(timeout, timeUnit);
     }
 
     @Override

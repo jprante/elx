@@ -388,7 +388,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
                 listener.beforeBulk(executionId, bulkRequest);
                 semaphore.acquire();
                 acquired = true;
-                client.execute(BulkAction.INSTANCE, bulkRequest, new ActionListener<BulkResponse>() {
+                client.execute(BulkAction.INSTANCE, bulkRequest, new ActionListener<>() {
                     @Override
                     public void onResponse(BulkResponse response) {
                         try {

@@ -13,9 +13,6 @@ import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsAction;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse;
-import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsAction;
-import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequestBuilder;
-import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsAction;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.elasticsearch.action.search.SearchAction;
@@ -28,7 +25,6 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.xbib.elx.api.NativeClient;
 import java.io.IOException;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -38,7 +34,7 @@ public abstract class AbstractNativeClient implements NativeClient {
 
     /**
      * The one and only index type name used in the extended client.
-     * Notr that all Elasticsearch version < 6.2.0 do not allow a prepending "_".
+     * Note that all Elasticsearch versions before 6.2.0 do not allow a prepending "_".
      */
     protected static final String TYPE_NAME = "doc";
 
@@ -108,6 +104,23 @@ public abstract class AbstractNativeClient implements NativeClient {
             throw new IllegalStateException(message);
         }
     }
+    @Override
+    public void waitForShards(long maxWaitTime, TimeUnit timeUnit) {
+        ensureClientIsPresent();
+        logger.info("waiting for cluster shard settling");
+        TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
+        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
+                //.waitForActiveShards(0)
+                .waitForRelocatingShards(0)
+                .timeout(timeout);
+        ClusterHealthResponse healthResponse =
+                client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
+        if (healthResponse.isTimedOut()) {
+            String message = "timeout waiting for cluster shards";
+            logger.error(message);
+            throw new IllegalStateException(message);
+        }
+    }
 
     @Override
     public String getHealthColor(long maxWaitTime, TimeUnit timeUnit) {
@@ -131,16 +144,6 @@ public abstract class AbstractNativeClient implements NativeClient {
     }
 
     @Override
-    public Map<String, ?> getMapping(String index, String mapping) {
-        GetMappingsRequestBuilder getMappingsRequestBuilder = new GetMappingsRequestBuilder(client, GetMappingsAction.INSTANCE)
-                .setIndices(index)
-                .setTypes(mapping);
-        GetMappingsResponse getMappingsResponse = getMappingsRequestBuilder.execute().actionGet();
-        logger.info("get mappings response = {}", getMappingsResponse.getMappings().get(index).get(mapping).getSourceAsMap());
-        return getMappingsResponse.getMappings().get(index).get(mapping).getSourceAsMap();
-    }
-
-    @Override
     public long getSearchableDocs(String index) {
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE)
                 .setIndices(index)
@@ -152,7 +155,7 @@ public abstract class AbstractNativeClient implements NativeClient {
     @Override
     public boolean isIndexExists(String index) {
         IndicesExistsRequest indicesExistsRequest = new IndicesExistsRequest();
-        indicesExistsRequest.indices(index);
+        indicesExistsRequest.indices(new String[]{index});
         IndicesExistsResponse indicesExistsResponse =
                 client.execute(IndicesExistsAction.INSTANCE, indicesExistsRequest).actionGet();
         return indicesExistsResponse.isExists();

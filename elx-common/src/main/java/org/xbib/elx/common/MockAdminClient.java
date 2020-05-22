@@ -43,8 +43,8 @@ public class MockAdminClient extends AbstractAdminClient {
     }
 
     @Override
-    public boolean waitForRecovery(String index, long maxWaitTime, TimeUnit timeUnit) {
-        return true;
+    public void waitForShards(long maxWaitTime, TimeUnit timeUnit) {
+
     }
 
     @Override

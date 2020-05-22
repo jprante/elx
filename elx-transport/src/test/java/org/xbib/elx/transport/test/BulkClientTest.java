@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.Parameters;
+import org.xbib.elx.transport.TransportAdminClient;
+import org.xbib.elx.transport.TransportAdminClientProvider;
 import org.xbib.elx.transport.TransportBulkClient;
 import org.xbib.elx.transport.TransportBulkClientProvider;
 
@@ -66,7 +68,6 @@ class BulkClientTest {
         final TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
                 .put(helper.getTransportSettings())
-                .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
                 .build();
         bulkClient.newIndex("test");
         bulkClient.close();
@@ -74,23 +75,27 @@ class BulkClientTest {
 
     @Test
     void testMapping() throws Exception {
-        final TransportBulkClient bulkClient = ClientBuilder.builder()
-                .setBulkClientProvider(TransportBulkClientProvider.class)
+        try (TransportAdminClient adminClient = ClientBuilder.builder()
+                .setAdminClientProvider(TransportAdminClientProvider.class)
                 .put(helper.getTransportSettings())
                 .build();
-        XContentBuilder builder = JsonXContent.contentBuilder()
-                .startObject()
-                .startObject("doc")
-                .startObject("properties")
-                .startObject("location")
-                .field("type", "geo_point")
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
-        bulkClient.newIndex("test", Settings.EMPTY, builder);
-        assertTrue(bulkClient.getMapping("test", "doc").containsKey("properties"));
-        bulkClient.close();
+             TransportBulkClient bulkClient = ClientBuilder.builder()
+                     .setBulkClientProvider(TransportBulkClientProvider.class)
+                     .put(helper.getTransportSettings())
+                     .build()) {
+            XContentBuilder builder = JsonXContent.contentBuilder()
+                    .startObject()
+                    .startObject("doc")
+                    .startObject("properties")
+                    .startObject("location")
+                    .field("type", "geo_point")
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject();
+            bulkClient.newIndex("test", Settings.EMPTY, builder);
+            assertTrue(adminClient.getMapping("test", "doc").containsKey("properties"));
+        }
     }
 
     @Test

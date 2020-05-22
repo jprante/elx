@@ -55,7 +55,7 @@ public interface NativeClient extends Closeable {
      */
     void waitForCluster(String healthColor, long maxWaitTime, TimeUnit timeUnit);
 
-    Map<String, ?> getMapping(String index, String mapping);
+    void waitForShards(long maxWaitTime, TimeUnit timeUnit);
 
     long getSearchableDocs(String index);
 

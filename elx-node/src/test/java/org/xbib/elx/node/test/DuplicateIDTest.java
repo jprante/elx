@@ -33,35 +33,22 @@ class DuplicateIDTest {
     @Test
     void testDuplicateDocIDs() throws Exception {
         long numactions = ACTIONS;
-        final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
+        try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
-                .build();
-        try {
-            client.newIndex("test");
+                .build()) {
+            bulkClient.newIndex("test");
             for (int i = 0; i < ACTIONS; i++) {
-                client.index("test", helper.randomString(1), false,
+                bulkClient.index("test", helper.randomString(1), false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
-            client.flush();
-            client.waitForResponses(30L, TimeUnit.SECONDS);
-            client.refreshIndex("test");
-            SearchSourceBuilder builder = new SearchSourceBuilder();
-            builder.query(QueryBuilders.matchAllQuery());
-            SearchRequest searchRequest = new SearchRequest();
-            searchRequest.indices("test");
-            searchRequest.types("test");
-            searchRequest.source(builder);
-            long hits = helper.client("1").execute(SearchAction.INSTANCE, searchRequest).actionGet().getHits().getTotalHits();
-            logger.info("hits = {}", hits);
-            assertTrue(hits < ACTIONS);
-        } catch (NoNodeAvailableException e) {
-            logger.warn("skipping, no node available");
-        } finally {
-            client.close();
-            assertEquals(numactions, client.getBulkMetric().getSucceeded().getCount());
-            if (client.getBulkController().getLastBulkError() != null) {
-                logger.error("error", client.getBulkController().getLastBulkError());
+            bulkClient.flush();
+            bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
+            bulkClient.refreshIndex("test");
+            assertTrue(bulkClient.getSearchableDocs("test") < ACTIONS);
+            assertEquals(numactions, bulkClient.getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkController().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
             assertNull(bulkClient.getBulkController().getLastBulkError());
         }

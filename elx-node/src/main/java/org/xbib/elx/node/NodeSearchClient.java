@@ -2,8 +2,8 @@ package org.xbib.elx.node;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.Version;
 import org.elasticsearch.client.ElasticsearchClient;
-import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -40,9 +40,9 @@ public class NodeSearchClient extends AbstractSearchClient {
         XContentBuilder builder = XContentFactory.jsonBuilder();
         effectiveSettings.toXContent(builder, new ToXContent.MapParams(Collections.singletonMap("flat_settings", "true")));
         logger.info("creating node client on {} with effective settings {}",
-                version, Strings.toString(builder));
+                version, builder.string());
         Collection<Class<? extends Plugin>> plugins = Collections.emptyList();
-        this.node = new BulkNode(new Environment(effectiveSettings, null), plugins);
+        this.node = new BulkNode(new Environment(effectiveSettings), plugins);
         try {
             node.start();
         } catch (Exception e) {
@@ -62,7 +62,7 @@ public class NodeSearchClient extends AbstractSearchClient {
     private static class BulkNode extends Node {
 
         BulkNode(Environment env, Collection<Class<? extends Plugin>> classpathPlugins) {
-            super(env, classpathPlugins);
+            super(env, Version.CURRENT, classpathPlugins);
         }
     }
 }

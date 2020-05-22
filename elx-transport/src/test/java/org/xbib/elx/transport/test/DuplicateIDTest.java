@@ -2,21 +2,13 @@ package org.xbib.elx.transport.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.action.search.SearchAction;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.transport.NoNodeAvailableException;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.Parameters;
 import org.xbib.elx.transport.TransportBulkClient;
 import org.xbib.elx.transport.TransportBulkClientProvider;
-
 import java.util.concurrent.TimeUnit;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -26,9 +18,9 @@ class DuplicateIDTest {
 
     private static final Logger logger = LogManager.getLogger(DuplicateIDTest.class.getName());
 
-    private static final Long MAX_ACTIONS_PER_REQUEST = 10L;
+    private static final Long ACTIONS = 100L;
 
-    private static final Long ACTIONS = 5L;
+    private static final Long MAX_ACTIONS_PER_REQUEST = 10L;
 
     private final TestExtension.Helper helper;
 
@@ -39,39 +31,23 @@ class DuplicateIDTest {
     @Test
     void testDuplicateDocIDs() throws Exception {
         long numactions = ACTIONS;
-        final TransportBulkClient bulkClient = ClientBuilder.builder()
+        try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
-                .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .put(helper.getTransportSettings())
-                .build();
-        try {
-            bulkClient.newIndex("test_dup");
+                .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
+                .build()) {
+            bulkClient.newIndex("test");
             for (int i = 0; i < ACTIONS; i++) {
-                bulkClient.index("test_dup", helper.randomString(1), false,
+                bulkClient.index("test", helper.randomString(1), false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
-            client.flush();
-            client.waitForResponses(30L, TimeUnit.SECONDS);
-            client.refreshIndex("test_dup");
-            SearchSourceBuilder builder = new SearchSourceBuilder();
-            builder.query(QueryBuilders.matchAllQuery());
-            builder.size(0);
-            SearchRequest searchRequest = new SearchRequest();
-            searchRequest.indices("test_dup");
-            searchRequest.types("test_dup");
-            searchRequest.source(builder);
-            SearchResponse searchResponse =
-                    helper.client("1").execute(SearchAction.INSTANCE, searchRequest).actionGet();
-            long hits = searchResponse.getHits().getTotalHits();
-            logger.info("hits = {}", hits);
-            assertTrue(hits < ACTIONS);
-        } catch (NoNodeAvailableException e) {
-            logger.warn("skipping, no node available");
-        } finally {
-            client.close();
-            assertEquals(numactions, client.getBulkMetric().getSucceeded().getCount());
-            if (client.getBulkController().getLastBulkError() != null) {
-                logger.error("error", client.getBulkController().getLastBulkError());
+            bulkClient.flush();
+            bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
+            bulkClient.refreshIndex("test");
+            assertTrue(bulkClient.getSearchableDocs("test") < ACTIONS);
+            assertEquals(numactions, bulkClient.getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkController().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
             assertNull(bulkClient.getBulkController().getLastBulkError());
         }

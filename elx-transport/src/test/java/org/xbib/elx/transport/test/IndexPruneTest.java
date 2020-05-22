@@ -35,15 +35,14 @@ class IndexPruneTest {
 
     @Test
     void testPrune() throws IOException {
-        final TransportAdminClient adminClient = ClientBuilder.builder()
+        try (TransportAdminClient adminClient = ClientBuilder.builder()
                 .setAdminClientProvider(TransportAdminClientProvider.class)
                 .put(helper.getTransportSettings())
                 .build();
-        final TransportBulkClient bulkClient = ClientBuilder.builder()
-                .setBulkClientProvider(TransportBulkClientProvider.class)
-                .put(helper.getTransportSettings())
-                .build();
-        try {
+             TransportBulkClient bulkClient = ClientBuilder.builder()
+                     .setBulkClientProvider(TransportBulkClientProvider.class)
+                     .put(helper.getTransportSettings())
+                     .build()) {
             Settings settings = Settings.builder()
                     .put("index.number_of_shards", 1)
                     .put("index.number_of_replicas", 0)
@@ -64,20 +63,13 @@ class IndexPruneTest {
             assertFalse(indexPruneResult.getDeletedIndices().contains("test_prune4"));
             List<Boolean> list = new ArrayList<>();
             for (String index : Arrays.asList("test_prune1", "test_prune2", "test_prune3", "test_prune4")) {
-                IndicesExistsRequest indicesExistsRequest = new IndicesExistsRequest();
-                indicesExistsRequest.indices(index);
-                IndicesExistsResponse indicesExistsResponse =
-                        client.getClient().execute(IndicesExistsAction.INSTANCE, indicesExistsRequest).actionGet();
-                list.add(indicesExistsResponse.isExists());
+                list.add(adminClient.isIndexExists(index));
             }
             logger.info(list);
             assertFalse(list.get(0));
             assertFalse(list.get(1));
             assertTrue(list.get(2));
             assertTrue(list.get(3));
-        } finally {
-            adminClient.close();
-            bulkClient.close();
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }

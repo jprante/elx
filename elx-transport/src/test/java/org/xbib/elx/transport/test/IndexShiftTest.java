@@ -3,6 +3,7 @@ package org.xbib.elx.transport.test;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
+import org.elasticsearch.cluster.metadata.AliasAction;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.jupiter.api.Test;
@@ -32,55 +33,54 @@ class IndexShiftTest {
         this.helper = helper;
     }
 
-    @Test
+      @Test
     void testIndexShift() throws Exception {
-        final TransportAdminClient adminClient = ClientBuilder.builder()
+        try (TransportAdminClient adminClient = ClientBuilder.builder()
                 .setAdminClientProvider(TransportAdminClientProvider.class)
                 .put(helper.getTransportSettings())
                 .build();
-        final TransportBulkClient bulkClient = ClientBuilder.builder()
-                .setBulkClientProvider(TransportBulkClientProvider.class)
-                .put(helper.getTransportSettings())
-                .build();
-        try {
+             TransportBulkClient bulkClient = ClientBuilder.builder()
+                     .setBulkClientProvider(TransportBulkClientProvider.class)
+                     .put(helper.getTransportSettings())
+                     .build()) {
             Settings settings = Settings.builder()
                     .put("index.number_of_shards", 1)
                     .put("index.number_of_replicas", 0)
                     .build();
-            client.newIndex("test_shift1234", settings);
+            bulkClient.newIndex("test_shift", settings);
             for (int i = 0; i < 1; i++) {
-                client.index("test_shift1234", helper.randomString(1), false,
+                bulkClient.index("test_shift", helper.randomString(1), false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
             IndexShiftResult indexShiftResult =
-                    client.shiftIndex("test_shift", "test_shift1234", Arrays.asList("a", "b", "c"));
+                    adminClient.shiftIndex("test", "test_shift", Arrays.asList("a", "b", "c"));
             assertTrue(indexShiftResult.getNewAliases().contains("a"));
             assertTrue(indexShiftResult.getNewAliases().contains("b"));
             assertTrue(indexShiftResult.getNewAliases().contains("c"));
             assertTrue(indexShiftResult.getMovedAliases().isEmpty());
-            Map<String, String> aliases = client.getAliases("test_shift1234");
+            Map<String, String> aliases = adminClient.getAliases("test_shift");
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
-            assertTrue(aliases.containsKey("test_shift"));
-            String resolved = adminClient.resolveAlias("test_shift");
+            assertTrue(aliases.containsKey("test"));
+            String resolved = adminClient.resolveAlias("test");
             aliases = adminClient.getAliases(resolved);
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
-            assertTrue(aliases.containsKey("test_shift"));
-            client.newIndex("test_shift5678", settings);
+            assertTrue(aliases.containsKey("test"));
+            bulkClient.newIndex("test_shift2", settings);
             for (int i = 0; i < 1; i++) {
-                client.index("test_shift5678", helper.randomString(1), false,
+                bulkClient.index("test_shift2", helper.randomString(1), false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
-            client.flush();
-            client.waitForResponses(30L, TimeUnit.SECONDS);
-            indexShiftResult = client.shiftIndex("test_shift", "test_shift5678", Arrays.asList("d", "e", "f"),
-                    (request, index, alias) -> request.addAliasAction(IndicesAliasesRequest.AliasActions.add()
-                            .index(index).alias(alias).filter(QueryBuilders.termQuery("my_key", alias)))
+            bulkClient.flush();
+            bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
+            indexShiftResult = adminClient.shiftIndex("test", "test_shift2", Arrays.asList("d", "e", "f"),
+                    (request, index, alias) -> request.addAliasAction(new IndicesAliasesRequest.AliasActions(AliasAction.Type.ADD,
+                            index, alias).filter(QueryBuilders.termQuery("my_key", alias)))
             );
             assertTrue(indexShiftResult.getNewAliases().contains("d"));
             assertTrue(indexShiftResult.getNewAliases().contains("e"));
@@ -88,14 +88,14 @@ class IndexShiftTest {
             assertTrue(indexShiftResult.getMovedAliases().contains("a"));
             assertTrue(indexShiftResult.getMovedAliases().contains("b"));
             assertTrue(indexShiftResult.getMovedAliases().contains("c"));
-            aliases = client.getAliases("test_shift5678");
+            aliases = adminClient.getAliases("test_shift2");
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
             assertTrue(aliases.containsKey("d"));
             assertTrue(aliases.containsKey("e"));
             assertTrue(aliases.containsKey("f"));
-            resolved = adminClient.resolveAlias("test_shift");
+            resolved = adminClient.resolveAlias("test");
             aliases = adminClient.getAliases(resolved);
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
@@ -103,9 +103,6 @@ class IndexShiftTest {
             assertTrue(aliases.containsKey("d"));
             assertTrue(aliases.containsKey("e"));
             assertTrue(aliases.containsKey("f"));
-        } finally {
-            adminClient.close();
-            bulkClient.close();
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
