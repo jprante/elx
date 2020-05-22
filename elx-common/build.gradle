@@ -1,7 +1,7 @@
 dependencies {
-    compile project(':elx-api')
-    compile "org.xbib:guice:${project.property('xbib-guice.version')}"
-    runtime "com.vividsolutions:jts:${project.property('jts.version')}"
-    runtime "com.github.spullara.mustache.java:compiler:${project.property('mustache.version')}"
-    runtime "net.java.dev.jna:jna:${project.property('jna.version')}"
+    api project(':elx-api')
+    implementation "org.xbib:guice:${project.property('xbib-guice.version')}"
+    runtimeOnly "com.vividsolutions:jts:${project.property('jts.version')}"
+    runtimeOnly "com.github.spullara.mustache.java:compiler:${project.property('mustache.version')}"
+    runtimeOnly "net.java.dev.jna:jna:${project.property('jna.version')}"
 }

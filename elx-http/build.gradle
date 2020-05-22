@@ -1,4 +1,4 @@
 dependencies {
-    compile project(':elx-common')
-    compile "org.xbib:netty-http-client:${project.property('xbib-netty-http.version')}"
+    api project(':elx-common')
+    api "org.xbib:netty-http-client:${project.property('xbib-netty-http.version')}"
 }

@@ -1,6 +1,6 @@
 dependencies {
-    compile "org.xbib:metrics-common:${project.property('xbib-metrics.version')}"
-    compile("org.elasticsearch:elasticsearch:${project.property('elasticsearch.version')}") {
+    api "org.xbib:metrics-common:${project.property('xbib-metrics.version')}"
+    api("org.elasticsearch:elasticsearch:${project.property('elasticsearch.version')}") {
         // exclude original ES jackson yaml, cbor, smile version (2.6.2)
         exclude group: 'com.fasterxml.jackson.dataformat'
         // these dependencies that are not meant for client applications
@@ -11,14 +11,14 @@ dependencies {
         exclude group: 'com.google.guava'
     }
     // override log4j2 of Elastic with ours
-    compile "org.apache.logging.log4j:log4j-core:${project.property('log4j.version')}"
+    api "org.apache.logging.log4j:log4j-core:${project.property('log4j.version')}"
     // override ES jackson with our jackson version
     // for Elasticsearch session, ES uses SMILE when encoding source for SearchRequest
-    compile "com.fasterxml.jackson.dataformat:jackson-dataformat-smile:${project.property('jackson.version')}"
+    api "com.fasterxml.jackson.dataformat:jackson-dataformat-smile:${project.property('jackson.version')}"
     // CBOR ist default JSON content compression encoding in ES 2.2.1
-    compile "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${project.property('jackson.version')}"
+    api "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${project.property('jackson.version')}"
     // not used, but maybe in other projects
-    compile "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${project.property('jackson.version')}"
+    api "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${project.property('jackson.version')}"
     // lift guava
-    compile "org.xbib:guava:${project.property('xbib-guava.version')}"
+    api "org.xbib:guava:${project.property('xbib-guava.version')}"
 }
