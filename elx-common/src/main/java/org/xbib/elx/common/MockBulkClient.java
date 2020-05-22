@@ -4,13 +4,22 @@ import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.ElasticsearchClient;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.xbib.elx.api.BulkClient;
+import org.xbib.elx.api.BulkController;
+import org.xbib.elx.api.BulkMetric;
+import org.xbib.elx.api.IndexDefinition;
+
+import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
  * A mocked client, it does not perform any actions on a cluster. Useful for testing.
  */
-public class MockBulkClient extends AbstractBulkClient {
+public class MockBulkClient extends MockNativeClient implements BulkClient {
 
     @Override
     public ElasticsearchClient getClient() {
@@ -33,6 +42,46 @@ public class MockBulkClient extends AbstractBulkClient {
 
     @Override
     protected void closeClient() {
+    }
+
+    @Override
+    public BulkMetric getBulkMetric() {
+        return null;
+    }
+
+    @Override
+    public BulkController getBulkController() {
+        return null;
+    }
+
+    @Override
+    public void newIndex(String index) throws IOException {
+
+    }
+
+    @Override
+    public void newIndex(IndexDefinition indexDefinition) throws IOException {
+
+    }
+
+    @Override
+    public void newIndex(String index, Settings settings) throws IOException {
+
+    }
+
+    @Override
+    public void newIndex(String index, Settings settings, XContentBuilder mapping) throws IOException {
+
+    }
+
+    @Override
+    public void newIndex(String index, Settings settings, Map<String, ?> mapping) throws IOException {
+
+    }
+
+    @Override
+    public BulkClient index(String index, String id, boolean create, BytesReference source) {
+        return null;
     }
 
     @Override
@@ -61,12 +110,27 @@ public class MockBulkClient extends AbstractBulkClient {
     }
 
     @Override
+    public BulkClient update(String index, String id, BytesReference source) {
+        return null;
+    }
+
+    @Override
     public MockBulkClient update(UpdateRequest updateRequest) {
         return this;
     }
 
     @Override
+    public void startBulk(IndexDefinition indexDefinition) throws IOException {
+
+    }
+
+    @Override
     public void startBulk(String index, long startRefreshInterval, long stopRefreshIterval) {
+    }
+
+    @Override
+    public void stopBulk(IndexDefinition indexDefinition) throws IOException {
+
     }
 
     @Override
@@ -76,6 +140,11 @@ public class MockBulkClient extends AbstractBulkClient {
     @Override
     public boolean waitForResponses(long maxWaitTime, TimeUnit timeUnit) {
         return true;
+    }
+
+    @Override
+    public void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) throws IOException {
+
     }
 
     @Override

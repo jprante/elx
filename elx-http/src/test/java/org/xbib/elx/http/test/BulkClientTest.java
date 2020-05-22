@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.Parameters;
+import org.xbib.elx.http.HttpAdminClient;
+import org.xbib.elx.http.HttpAdminClientProvider;
 import org.xbib.elx.http.HttpBulkClient;
 import org.xbib.elx.http.HttpBulkClientProvider;
 
@@ -73,24 +75,27 @@ class BulkClientTest {
 
     @Test
     void testMapping() throws Exception {
-        final HttpBulkClient client = ClientBuilder.builder()
+        try (HttpAdminClient adminClient = ClientBuilder.builder()
+                .setAdminClientProvider(HttpAdminClientProvider.class)
+                .put(helper.getHttpSettings())
+                .build();
+             HttpBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(HttpBulkClientProvider.class)
                 .put(helper.getHttpSettings())
-                .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
-                .build();
-        XContentBuilder builder = JsonXContent.contentBuilder()
-                .startObject()
-                .startObject("doc")
-                .startObject("properties")
-                .startObject("location")
-                .field("type", "geo_point")
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
-        client.newIndex("test", Settings.EMPTY, builder);
-        assertTrue(client.getMapping("test", "doc").containsKey("properties"));
-        client.close();
+                .build()) {
+            XContentBuilder builder = JsonXContent.contentBuilder()
+                    .startObject()
+                    .startObject("doc")
+                    .startObject("properties")
+                    .startObject("location")
+                    .field("type", "geo_point")
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject();
+            bulkClient.newIndex("test", Settings.EMPTY, builder);
+            assertTrue(adminClient.getMapping("test", "doc").containsKey("properties"));
+        }
     }
 
     @Test

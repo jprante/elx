@@ -13,9 +13,6 @@ import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsAction;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse;
-import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsAction;
-import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequestBuilder;
-import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsAction;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.elasticsearch.action.search.SearchAction;
@@ -28,7 +25,6 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.xbib.elx.api.NativeClient;
 import java.io.IOException;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -64,11 +60,10 @@ public abstract class AbstractNativeClient implements NativeClient {
 
     protected abstract void closeClient() throws IOException;
 
-
     @Override
     public void init(Settings settings) throws IOException {
-        logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
         if (client == null) {
+            logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
             client = createClient(settings);
         }
     }
@@ -96,15 +91,35 @@ public abstract class AbstractNativeClient implements NativeClient {
     @Override
     public void waitForCluster(String statusString, long maxWaitTime, TimeUnit timeUnit) {
         ensureClientIsPresent();
+        logger.info("waiting for cluster status " + statusString);
         ClusterHealthStatus status = ClusterHealthStatus.fromString(statusString);
         TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
-        ClusterHealthResponse healthResponse = client.execute(ClusterHealthAction.INSTANCE,
-                new ClusterHealthRequest().timeout(timeout).waitForStatus(status)).actionGet();
-        if (healthResponse != null && healthResponse.isTimedOut()) {
+        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
+                .timeout(timeout)
+                .waitForStatus(status);
+        ClusterHealthResponse healthResponse =
+                client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
+        if (healthResponse.isTimedOut()) {
             String message = "timeout, cluster state is " + healthResponse.getStatus().name() + " and not " + status.name();
-            if (logger.isErrorEnabled()) {
-                logger.error(message);
-            }
+            logger.error(message);
+            throw new IllegalStateException(message);
+        }
+    }
+
+    @Override
+    public void waitForShards(long maxWaitTime, TimeUnit timeUnit) {
+        ensureClientIsPresent();
+        logger.info("waiting for cluster shard settling");
+        TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
+        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
+                .waitForNoInitializingShards(true)
+                .waitForNoRelocatingShards(true)
+                .timeout(timeout);
+        ClusterHealthResponse healthResponse =
+                client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
+        if (healthResponse.isTimedOut()) {
+            String message = "timeout waiting for cluster shards";
+            logger.error(message);
             throw new IllegalStateException(message);
         }
     }
@@ -131,16 +146,6 @@ public abstract class AbstractNativeClient implements NativeClient {
     }
 
     @Override
-    public Map<String, ?> getMapping(String index, String mapping) {
-        GetMappingsRequestBuilder getMappingsRequestBuilder = new GetMappingsRequestBuilder(client, GetMappingsAction.INSTANCE)
-                .setIndices(index)
-                .setTypes(mapping);
-        GetMappingsResponse getMappingsResponse = getMappingsRequestBuilder.execute().actionGet();
-        logger.info("get mappings response = {}", getMappingsResponse.getMappings().get(index).get(mapping).getSourceAsMap());
-        return getMappingsResponse.getMappings().get(index).get(mapping).getSourceAsMap();
-    }
-
-    @Override
     public long getSearchableDocs(String index) {
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE)
                 .setIndices(index)
@@ -157,7 +162,6 @@ public abstract class AbstractNativeClient implements NativeClient {
                 client.execute(IndicesExistsAction.INSTANCE, indicesExistsRequest).actionGet();
         return indicesExistsResponse.isExists();
     }
-
 
     @Override
     public void close() throws IOException {
@@ -186,9 +190,6 @@ public abstract class AbstractNativeClient implements NativeClient {
     }
 
     protected void ensureClientIsPresent() {
-        if (this instanceof MockAdminClient) {
-            return;
-        }
         if (client == null) {
             throw new IllegalStateException("no client");
         }

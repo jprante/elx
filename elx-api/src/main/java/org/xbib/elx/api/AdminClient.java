@@ -22,6 +22,10 @@ public interface AdminClient extends NativeClient {
      */
     IndexDefinition buildIndexDefinitionFromSettings(String index, Settings settings) throws IOException;
 
+    Map<String, ?> getMapping(String index);
+
+    Map<String, ?> getMapping(String index, String type);
+
     /**
      * Delete an index.
      * @param indexDefinition the index definition
@@ -88,17 +92,6 @@ public interface AdminClient extends NativeClient {
      * @return this
      */
     boolean forceMerge(String index, long maxWaitTime, TimeUnit timeUnit);
-
-
-    /**
-     * Wait for index recovery (after replica change).
-     *
-     * @param index index
-     * @param maxWaitTime maximum wait time
-     * @param timeUnit time unit
-     * @return true if wait succeeded, false if wait timed out
-     */
-    boolean waitForRecovery(String index, long maxWaitTime, TimeUnit timeUnit);
 
     /**
      * Resolve alias.

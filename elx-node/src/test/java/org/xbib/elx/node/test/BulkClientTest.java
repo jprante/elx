@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.Parameters;
+import org.xbib.elx.node.NodeAdminClient;
+import org.xbib.elx.node.NodeAdminClientProvider;
 import org.xbib.elx.node.NodeBulkClient;
 import org.xbib.elx.node.NodeBulkClientProvider;
 
@@ -71,22 +73,25 @@ class BulkClientTest {
 
     @Test
     void testMapping() throws Exception {
-        final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
-                .setBulkClientProvider(NodeBulkClientProvider.class)
+        try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
+                .setAdminClientProvider(NodeAdminClientProvider.class)
                 .build();
-        XContentBuilder builder = JsonXContent.contentBuilder()
-                .startObject()
-                .startObject("doc")
-                .startObject("properties")
-                .startObject("location")
-                .field("type", "geo_point")
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
-        bulkClient.newIndex("test", Settings.EMPTY, builder);
-        assertTrue(bulkClient.getMapping("test", "doc").containsKey("properties"));
-        bulkClient.close();
+             NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
+                .setBulkClientProvider(NodeBulkClientProvider.class)
+                .build()) {
+            XContentBuilder builder = JsonXContent.contentBuilder()
+                    .startObject()
+                    .startObject("doc")
+                    .startObject("properties")
+                    .startObject("location")
+                    .field("type", "geo_point")
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject();
+            bulkClient.newIndex("test", Settings.EMPTY, builder);
+            assertTrue(adminClient.getMapping("test", "doc").containsKey("properties"));
+        }
     }
 
     @Test

@@ -47,7 +47,7 @@ public class DefaultBulkController implements BulkController {
 
     private BulkListener bulkListener;
 
-    private AtomicBoolean active;
+    private final AtomicBoolean active;
 
     private boolean enableBulkLogging;
 

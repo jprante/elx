@@ -26,6 +26,7 @@ import org.elasticsearch.action.admin.indices.get.GetIndexRequestBuilder;
 import org.elasticsearch.action.admin.indices.get.GetIndexResponse;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsAction;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
+import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequestBuilder;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
 import org.elasticsearch.action.admin.indices.settings.get.GetSettingsAction;
 import org.elasticsearch.action.admin.indices.settings.get.GetSettingsRequest;
@@ -128,60 +129,38 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
     };
 
     @Override
+    public Map<String, ?> getMapping(String index) {
+        return getMapping(index, TYPE_NAME);
+    }
+
+    @Override
+    public Map<String, ?> getMapping(String index, String mapping) {
+        GetMappingsRequestBuilder getMappingsRequestBuilder = new GetMappingsRequestBuilder(client, GetMappingsAction.INSTANCE)
+                .setIndices(index)
+                .setTypes(mapping);
+        GetMappingsResponse getMappingsResponse = getMappingsRequestBuilder.execute().actionGet();
+        logger.info("get mappings response = {}", getMappingsResponse.getMappings().get(index).get(mapping).getSourceAsMap());
+        return getMappingsResponse.getMappings().get(index).get(mapping).getSourceAsMap();
+    }
+
+    @Override
     public AdminClient deleteIndex(IndexDefinition indexDefinition) {
         return deleteIndex(indexDefinition.getFullIndexName());
     }
 
     @Override
     public AdminClient deleteIndex(String index) {
-        ensureClientIsPresent();
         if (index == null) {
             logger.warn("no index name given to delete index");
             return this;
         }
+        ensureClientIsPresent();
         DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest()
                 .indices(index);
         client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
-        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
-                .waitForNoInitializingShards(true)
-                .waitForNoRelocatingShards(true)
-                .waitForYellowStatus();
-        ClusterHealthResponse healthResponse =
-                client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
-        if (healthResponse.isTimedOut()) {
-            String message = "timeout waiting for cluster shards";
-            logger.error(message);
-            throw new IllegalStateException(message);
-        }
+        waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
+        waitForShards(30L, TimeUnit.SECONDS);
         return this;
-    }
-
-    @Override
-    public boolean waitForRecovery(String index, long maxWaitTime, TimeUnit timeUnit) {
-        ensureClientIsPresent();
-        ensureIndexGiven(index);
-        GetSettingsRequest settingsRequest = new GetSettingsRequest();
-        settingsRequest.indices(index);
-        GetSettingsResponse settingsResponse = client.execute(GetSettingsAction.INSTANCE, settingsRequest).actionGet();
-        int shards = settingsResponse.getIndexToSettings()
-                .get(index).getAsInt("index.number_of_shards", -1);
-        if (shards > 0) {
-            TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
-            ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
-                    .indices(index)
-                    .waitForActiveShards(shards)
-                    .waitForNoInitializingShards(true)
-                    .waitForNoRelocatingShards(true)
-                    .waitForYellowStatus()
-                    .timeout(timeout);
-            ClusterHealthResponse healthResponse =
-                    client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
-            if (healthResponse.isTimedOut()) {
-                String message = "timeout waiting for cluster shards";
-                logger.error(message);
-            }
-        }
-        return true;
     }
 
     @Override
@@ -192,11 +171,12 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
 
     @Override
     public AdminClient updateReplicaLevel(String index, int level, long maxWaitTime, TimeUnit timeUnit) throws IOException {
-        waitForCluster("YELLOW", maxWaitTime, timeUnit); // let cluster settle down from critical operations
-        if (level > 0) {
-            updateIndexSetting(index, "number_of_replicas", level, maxWaitTime, timeUnit);
-            waitForRecovery(index, maxWaitTime, timeUnit);
+        if (level < 1) {
+            logger.warn("invalid replica level");
+            return this;
         }
+        updateIndexSetting(index, "number_of_replicas", level, maxWaitTime, timeUnit);
+        waitForShards(maxWaitTime, timeUnit);
         return this;
     }
 
@@ -553,12 +533,6 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
             return string;
         } catch (MalformedInputException e) {
             return string;
-        }
-    }
-
-    private void ensureIndexGiven(String index) {
-        if (index == null) {
-            throw new IllegalArgumentException("no index given");
         }
     }
 

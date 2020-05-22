@@ -16,6 +16,7 @@ import org.xbib.elx.http.HttpBulkClientProvider;
 import org.xbib.elx.http.HttpSearchClient;
 import org.xbib.elx.http.HttpSearchClientProvider;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 @ExtendWith(TestExtension.class)
@@ -70,7 +71,12 @@ class SearchTest {
             Stream<String> ids = searchClient.getIds(qb -> qb
                     .setIndices("test")
                     .setQuery(QueryBuilders.matchAllQuery()));
-            ids.forEach(logger::info);
+            final AtomicInteger idcount = new AtomicInteger();
+            ids.forEach(id -> {
+                logger.info(id);
+                idcount.incrementAndGet();
+            });
+            assertEquals(numactions, idcount.get());
         }
     }
 }

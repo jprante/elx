@@ -42,14 +42,15 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
 
     @Override
     public void init(Settings settings) throws IOException {
-        logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
         super.init(settings);
         if (bulkMetric == null) {
             bulkMetric = new DefaultBulkMetric();
+            logger.log(Level.INFO, "initializing bulk metric with settings = " + settings.toDelimitedString(','));
             bulkMetric.init(settings);
         }
         if (bulkController == null) {
             bulkController = new DefaultBulkController(this, bulkMetric);
+            logger.log(Level.INFO, "initializing bulk controller with settings = " + settings.toDelimitedString(','));
             bulkController.init(settings);
         }
     }
@@ -120,7 +121,6 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
             return;
         }
         ensureClientIsPresent();
-        waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
         CreateIndexRequestBuilder createIndexRequestBuilder = new CreateIndexRequestBuilder(client, CreateIndexAction.INSTANCE);
         createIndexRequestBuilder.setIndex(index);
         if (settings != null) {
@@ -130,10 +130,11 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
             // NOTE: addMapping(type, ...) API is very fragile. Use XConteBuilder for safe typing.
             createIndexRequestBuilder.addMapping(TYPE_NAME, builder);
         }
-        createIndexRequestBuilder.setWaitForActiveShards(1);
         CreateIndexResponse createIndexResponse = createIndexRequestBuilder.execute().actionGet();
         logger.info("index {} created: {}", index,
                 Strings.toString(createIndexResponse.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS)));
+        waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
+        waitForShards(30L, TimeUnit.SECONDS);
     }
 
     @Override
@@ -219,7 +220,9 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
     @Override
     public boolean waitForResponses(long timeout, TimeUnit timeUnit) {
         ensureClientIsPresent();
-        return bulkController.waitForResponses(timeout, timeUnit);
+        boolean success = bulkController.waitForResponses(timeout, timeUnit);
+        logger.info("waited for all bulk responses: " + success);
+        return success;
     }
 
     @Override
