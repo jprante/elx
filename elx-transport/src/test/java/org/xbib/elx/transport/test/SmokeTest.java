@@ -54,6 +54,7 @@ class SmokeTest {
             bulkClient.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}");
             bulkClient.delete("test_smoke", "1");
             bulkClient.flush();
+            bulkClient.waitForResponses(30, TimeUnit.SECONDS);
             adminClient.deleteIndex("test_smoke");
             bulkClient.newIndex(indexDefinition);
             bulkClient.index(indexDefinition.getFullIndexName(), "1", true, "{ \"name\" : \"Hello World\"}");
