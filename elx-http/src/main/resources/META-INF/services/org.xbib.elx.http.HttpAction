@@ -1,0 +1,3 @@
+org.xbib.elx.http.action.search.HttpSearchAction
+org.xbib.elx.http.action.get.HttpGetAction
+org.xbib.elx.http.action.get.HttpMultiGetAction

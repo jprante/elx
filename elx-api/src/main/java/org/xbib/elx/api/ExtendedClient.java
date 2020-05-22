@@ -6,6 +6,7 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 
 import java.io.Closeable;
 import java.io.Flushable;
@@ -33,12 +34,6 @@ public interface ExtendedClient extends Flushable, Closeable {
      * @return Elasticsearch client
      */
     ElasticsearchClient getClient();
-
-    /**
-     * Get bulk metric.
-     * @return the bulk metric
-     */
-    BulkMetric getBulkMetric();
 
     /**
      * Get buulk control.
@@ -126,8 +121,9 @@ public interface ExtendedClient extends Flushable, Closeable {
      * @param id     the id
      * @param source the source
      * @return this
+     * @throws IOException if update fails
      */
-    ExtendedClient update(String index, String id, BytesReference source);
+    ExtendedClient update(String index, String id, BytesReference source) throws IOException;
 
     /**
      * Update document. Use with precaution! Does not work in all cases.
@@ -174,6 +170,16 @@ public interface ExtendedClient extends Flushable, Closeable {
      *
      * @param index index
      * @param settings settings
+     * @return this
+     * @throws IOException if settings is invalid or index creation fails
+     */
+    ExtendedClient newIndex(String index, Settings settings) throws IOException;
+
+    /**
+     * Create a new index.
+     *
+     * @param index index
+     * @param settings settings
      * @param mapping mapping
      * @return this
      * @throws IOException if settings/mapping is invalid or index creation fails
@@ -189,7 +195,18 @@ public interface ExtendedClient extends Flushable, Closeable {
      * @return this
      * @throws IOException if settings/mapping is invalid or index creation fails
      */
-    ExtendedClient newIndex(String index, Settings settings, Map<String, Object> mapping) throws IOException;
+    ExtendedClient newIndex(String index, Settings settings, XContentBuilder mapping) throws IOException;
+
+    /**
+     * Create a new index.
+     *
+     * @param index index
+     * @param settings settings
+     * @param mapping mapping
+     * @return this
+     * @throws IOException if settings/mapping is invalid or index creation fails
+     */
+    ExtendedClient newIndex(String index, Settings settings, Map<String, ?> mapping) throws IOException;
 
     /**
      * Create a new index.
@@ -307,7 +324,7 @@ public interface ExtendedClient extends Flushable, Closeable {
 
     /**
      * Force segment merge of an index.
-     * @param indexDefinition th eindex definition
+     * @param indexDefinition the index definition
      * @return this
      */
     boolean forceMerge(IndexDefinition indexDefinition);
@@ -364,9 +381,11 @@ public interface ExtendedClient extends Flushable, Closeable {
      * @param index the index
      * @param key the key of the value to be updated
      * @param value the new value
+     * @param timeout timeout
+     * @param timeUnit time unit
      * @throws IOException if update index setting failed
      */
-    void updateIndexSetting(String index, String key, Object value) throws IOException;
+    void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) throws IOException;
 
     /**
      * Resolve alias.
@@ -386,11 +405,11 @@ public interface ExtendedClient extends Flushable, Closeable {
     String resolveMostRecentIndex(String alias);
 
     /**
-     * Get all index filters.
+     * Get all index aliases.
      * @param index the index
-     * @return map of index filters
+     * @return map of index aliases
      */
-    Map<String, String> getIndexFilters(String index);
+    Map<String, String> getAliases(String index);
 
     /**
      *  Shift from one index to another.

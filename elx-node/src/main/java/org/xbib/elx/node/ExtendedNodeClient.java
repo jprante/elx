@@ -34,7 +34,7 @@ public class ExtendedNodeClient extends AbstractExtendedClient {
                     .put("node.data", false)
                     .build();
             logger.info("creating node client on {} with effective settings {}",
-                    version, effectiveSettings.toString());
+                    version, effectiveSettings.getAsMap());
             Collection<Class<? extends Plugin>> plugins = Collections.emptyList();
             this.node = new BulkNode(new Environment(effectiveSettings), plugins);
             try {
@@ -48,15 +48,10 @@ public class ExtendedNodeClient extends AbstractExtendedClient {
     }
 
     @Override
-    public void close() throws IOException {
-        super.close();
-        try {
-            if (node != null) {
-                logger.debug("closing node...");
-                node.close();
-            }
-        } catch (Exception e) {
-            logger.error(e.getMessage(), e);
+    protected void closeClient() {
+        if (node != null) {
+            logger.debug("closing node...");
+            node.close();
         }
     }
 

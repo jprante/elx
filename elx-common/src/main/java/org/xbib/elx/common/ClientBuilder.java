@@ -1,5 +1,8 @@
 package org.xbib.elx.common;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.Version;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
@@ -15,6 +18,8 @@ import java.util.ServiceLoader;
 
 @SuppressWarnings("rawtypes")
 public class ClientBuilder {
+
+    private static final Logger logger = LogManager.getLogger(ClientBuilder.class);
 
     private final ElasticsearchClient client;
 
@@ -97,6 +102,10 @@ public class ClientBuilder {
         if (provider == null) {
             throw new IllegalArgumentException("no provider");
         }
-        return (C) providerMap.get(provider).getExtendedClient().setClient(client).init(settingsBuilder.build());
+        Settings settings = settingsBuilder.build();
+        logger.log(Level.INFO, "settings = " + settings.toDelimitedString(','));
+        return (C) providerMap.get(provider).getExtendedClient()
+                .setClient(client)
+                .init(settings);
     }
 }

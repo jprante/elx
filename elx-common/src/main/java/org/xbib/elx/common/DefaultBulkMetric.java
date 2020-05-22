@@ -1,11 +1,10 @@
 package org.xbib.elx.common;
 
-import org.elasticsearch.common.settings.Settings;
 import org.xbib.elx.api.BulkMetric;
-import org.xbib.metrics.Count;
-import org.xbib.metrics.CountMetric;
-import org.xbib.metrics.Meter;
-import org.xbib.metrics.Metered;
+import org.xbib.metrics.api.Count;
+import org.xbib.metrics.api.Metered;
+import org.xbib.metrics.common.CountMetric;
+import org.xbib.metrics.common.Meter;
 
 import java.util.concurrent.Executors;
 
@@ -37,10 +36,6 @@ public class DefaultBulkMetric implements BulkMetric {
         submitted = new CountMetric();
         succeeded = new CountMetric();
         failed = new CountMetric();
-    }
-
-    @Override
-    public void init(Settings settings) {
         start();
     }
 

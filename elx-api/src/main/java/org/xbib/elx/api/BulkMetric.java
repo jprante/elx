@@ -1,14 +1,11 @@
 package org.xbib.elx.api;
 
-import org.elasticsearch.common.settings.Settings;
-import org.xbib.metrics.Count;
-import org.xbib.metrics.Metered;
+import org.xbib.metrics.api.Count;
+import org.xbib.metrics.api.Metered;
 
 import java.io.Closeable;
 
 public interface BulkMetric extends Closeable {
-
-    void init(Settings settings);
 
     Metered getTotalIngest();
 
