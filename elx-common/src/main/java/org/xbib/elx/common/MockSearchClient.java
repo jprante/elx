@@ -34,7 +34,7 @@ public class MockSearchClient extends AbstractSearchClient {
     }
 
     @Override
-    protected void closeClient() {
+    protected void closeClient(Settings settings) {
     }
 
     @Override

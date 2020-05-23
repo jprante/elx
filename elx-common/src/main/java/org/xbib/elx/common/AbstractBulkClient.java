@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class AbstractBulkClient extends AbstractNativeClient implements BulkClient {
 
@@ -37,17 +38,19 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
 
     private BulkController bulkController;
 
+    private final AtomicBoolean closed = new AtomicBoolean(true);
+
     @Override
     public void init(Settings settings) throws IOException {
-        logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
-        super.init(settings);
-        if (bulkMetric == null) {
+        if (closed.compareAndSet(true, false)) {
+            super.init(settings);
+            logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
             bulkMetric = new DefaultBulkMetric();
             bulkMetric.init(settings);
-        }
-        if (bulkController == null) {
             bulkController = new DefaultBulkController(this, bulkMetric);
             bulkController.init(settings);
+        } else {
+            logger.log(Level.WARN, "not initializing");
         }
     }
 
@@ -70,8 +73,8 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
 
     @Override
     public void close() throws IOException {
-        ensureClientIsPresent();
         if (closed.compareAndSet(false, true)) {
+            ensureClientIsPresent();
             if (bulkMetric != null) {
                 logger.info("closing bulk metric");
                 bulkMetric.close();
@@ -80,7 +83,7 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
                 logger.info("closing bulk controller");
                 bulkController.close();
             }
-            closeClient();
+            closeClient(settings);
         }
     }
 

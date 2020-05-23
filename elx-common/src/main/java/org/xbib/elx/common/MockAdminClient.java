@@ -25,7 +25,7 @@ public class MockAdminClient extends AbstractAdminClient {
     }
 
     @Override
-    protected void closeClient() {
+    protected void closeClient(Settings settings) {
     }
 
     @Override

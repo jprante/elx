@@ -30,7 +30,7 @@ public class TransportAdminClient extends AbstractAdminClient {
     }
 
     @Override
-    public void closeClient() {
-        helper.closeClient();
+    public void closeClient(Settings settings) {
+        helper.closeClient(settings);
     }
 }

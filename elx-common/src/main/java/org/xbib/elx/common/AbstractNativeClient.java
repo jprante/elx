@@ -40,14 +40,17 @@ public abstract class AbstractNativeClient implements NativeClient {
 
     protected ElasticsearchClient client;
 
-    protected final AtomicBoolean closed;
+    protected Settings settings;
 
-    protected AbstractNativeClient() {
+    private final AtomicBoolean closed;
+
+    public AbstractNativeClient() {
         closed = new AtomicBoolean(false);
     }
 
     @Override
     public void setClient(ElasticsearchClient client) {
+        logger.log(Level.INFO, "setting client = " + client);
         this.client = client;
     }
 
@@ -56,16 +59,14 @@ public abstract class AbstractNativeClient implements NativeClient {
         return client;
     }
 
-    protected abstract ElasticsearchClient createClient(Settings settings) throws IOException;
-
-    protected abstract void closeClient() throws IOException;
-
-
     @Override
     public void init(Settings settings) throws IOException {
-        logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
-        if (client == null) {
-            client = createClient(settings);
+        if (closed.compareAndSet(false, true)) {
+            logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
+            this.settings = settings;
+            setClient(createClient(settings));
+        } else {
+            logger.log(Level.WARN, "not initializing");
         }
     }
 
@@ -166,9 +167,13 @@ public abstract class AbstractNativeClient implements NativeClient {
     public void close() throws IOException {
         ensureClientIsPresent();
         if (closed.compareAndSet(false, true)) {
-            closeClient();
+            closeClient(settings);
         }
     }
+
+    protected abstract ElasticsearchClient createClient(Settings settings) throws IOException;
+
+    protected abstract void closeClient(Settings settings) throws IOException;
 
     protected void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) throws IOException {
         ensureClientIsPresent();
@@ -217,5 +222,4 @@ public abstract class AbstractNativeClient implements NativeClient {
                 throw new IllegalArgumentException("unknown time unit: " + timeUnit);
         }
     }
-
 }
