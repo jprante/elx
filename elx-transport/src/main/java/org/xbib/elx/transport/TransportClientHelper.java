@@ -6,6 +6,7 @@ import org.elasticsearch.Version;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequestBuilder;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.client.transport.TransportClient;
@@ -24,34 +25,62 @@ import java.util.List;
 
 public class TransportClientHelper {
 
-    private static final Logger logger = LogManager.getLogger(TransportAdminClient.class.getName());
+    private static final Logger logger = LogManager.getLogger(TransportClientHelper.class.getName());
 
-    protected ElasticsearchClient createClient(Settings settings) {
-        if (settings != null) {
-            String systemIdentifier = System.getProperty("os.name")
-                    + " " + System.getProperty("java.vm.name")
-                    + " " + System.getProperty("java.vm.vendor")
-                    + " " + System.getProperty("java.vm.version")
-                    + " Elasticsearch " + Version.CURRENT.toString();
-            Settings effectiveSettings = Settings.builder()
-                    // for thread pool size
-                    .put("processors",
-                            settings.getAsInt("processors", Runtime.getRuntime().availableProcessors()))
-                    .put("client.transport.sniff", false) // do not sniff
-                    .put("client.transport.nodes_sampler_interval", "1m") // do not ping
-                    .put("client.transport.ping_timeout", "1m") // wait for unresponsive nodes a very long time before disconnect
-                    .put("client.transport.ignore_cluster_name", true) // connect to any cluster
-                    // custom settings may override defaults
-                    .put(settings)
-                    .build();
-            logger.info("creating transport client on {} with custom settings {} and effective settings {}",
-                    systemIdentifier, settings.getAsMap(), effectiveSettings.getAsMap());
+    private static ElasticsearchClient client;
 
-            // we need to disable dead lock check because we may have mixed node/transport clients
-            DefaultChannelFuture.setUseDeadLockChecker(false);
-            return TransportClient.builder().settings(effectiveSettings).build();
+    private static Object configurationObject;
+
+    private final Object lock = new Object();
+
+    public ElasticsearchClient createClient(Settings settings, Object object) {
+        if (configurationObject == null && object != null) {
+            configurationObject = object;
         }
-        return null;
+        if (configurationObject instanceof ElasticsearchClient) {
+            return (ElasticsearchClient) configurationObject;
+        }
+        if (client == null) {
+            synchronized (lock) {
+                String systemIdentifier = System.getProperty("os.name")
+                        + " " + System.getProperty("java.vm.name")
+                        + " " + System.getProperty("java.vm.vendor")
+                        + " " + System.getProperty("java.vm.version")
+                        + " Elasticsearch " + Version.CURRENT.toString();
+                Settings effectiveSettings = Settings.builder()
+                        // for thread pool size
+                        .put("processors",
+                                settings.getAsInt("processors", Runtime.getRuntime().availableProcessors()))
+                        .put("client.transport.sniff", false) // do not sniff
+                        .put("client.transport.nodes_sampler_interval", "1m") // do not ping
+                        .put("client.transport.ping_timeout", "1m") // wait for unresponsive nodes a very long time before disconnect
+                        .put("client.transport.ignore_cluster_name", true) // connect to any cluster
+                        // custom settings may override defaults
+                        .put(settings)
+                        .build();
+                logger.info("creating transport client on {} with custom settings {} and effective settings {}",
+                        systemIdentifier, settings.getAsMap(), effectiveSettings.getAsMap());
+
+                // we need to disable dead lock check because we may have mixed node/transport clients
+                DefaultChannelFuture.setUseDeadLockChecker(false);
+                client = TransportClient.builder().settings(effectiveSettings).build();
+            }
+        }
+        return client;
+    }
+
+    public void closeClient() {
+        synchronized (lock) {
+            if (client != null) {
+                if (client instanceof Client) {
+                    ((Client) client).close();
+                }
+                if (client != null) {
+                    client.threadPool().shutdownNow();
+                }
+                client = null;
+            }
+        }
     }
 
     public void init(TransportClient transportClient, Settings settings) throws IOException {
