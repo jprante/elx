@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-public interface SearchClient {
+public interface SearchClient extends BasicClient {
 
     Optional<GetResponse> get(Consumer<GetRequestBuilder> getRequestBuilder);
 

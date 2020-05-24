@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public abstract class AbstractBulkClient extends AbstractNativeClient implements BulkClient {
+public abstract class AbstractBulkClient extends AbstractBasicClient implements BulkClient {
 
     private static final Logger logger = LogManager.getLogger(AbstractBulkClient.class.getName());
 

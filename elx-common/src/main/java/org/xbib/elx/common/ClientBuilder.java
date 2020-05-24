@@ -10,7 +10,7 @@ import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.xbib.elx.api.AdminClientProvider;
 import org.xbib.elx.api.BulkClientProvider;
-import org.xbib.elx.api.NativeClient;
+import org.xbib.elx.api.BasicClient;
 import org.xbib.elx.api.SearchClientProvider;
 
 import java.io.IOException;
@@ -107,7 +107,7 @@ public class ClientBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    public <C extends NativeClient> C build() throws IOException {
+    public <C extends BasicClient> C build() throws IOException {
         Settings settings = settingsBuilder.build();
         logger.log(Level.INFO, "settings = " + settings.toDelimitedString(','));
         if (adminClientProvider != null) {

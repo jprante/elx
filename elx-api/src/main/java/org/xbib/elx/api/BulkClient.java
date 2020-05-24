@@ -11,7 +11,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public interface BulkClient extends NativeClient, Flushable {
+public interface BulkClient extends BasicClient, Flushable {
 
     /**
      * Get bulk metric.

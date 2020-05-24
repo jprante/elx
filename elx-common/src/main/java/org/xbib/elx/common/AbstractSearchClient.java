@@ -28,7 +28,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-public abstract class AbstractSearchClient extends AbstractNativeClient implements SearchClient {
+public abstract class AbstractSearchClient extends AbstractBasicClient implements SearchClient {
 
     @Override
     public Optional<GetResponse> get(Consumer<GetRequestBuilder> getRequestBuilderConsumer) {

@@ -23,14 +23,14 @@ import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.xbib.elx.api.NativeClient;
+import org.xbib.elx.api.BasicClient;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public abstract class AbstractNativeClient implements NativeClient {
+public abstract class AbstractBasicClient implements BasicClient {
 
-    private static final Logger logger = LogManager.getLogger(AbstractNativeClient.class.getName());
+    private static final Logger logger = LogManager.getLogger(AbstractBasicClient.class.getName());
 
     /**
      * The one and only index type name used in the extended client.
@@ -44,7 +44,7 @@ public abstract class AbstractNativeClient implements NativeClient {
 
     private final AtomicBoolean closed;
 
-    public AbstractNativeClient() {
+    public AbstractBasicClient() {
         closed = new AtomicBoolean(false);
     }
 

@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Interface for extended managing and indexing methods of an Elasticsearch client.
  */
-public interface AdminClient extends NativeClient {
+public interface AdminClient extends BasicClient {
 
     /**
      * Build index definition from settings.

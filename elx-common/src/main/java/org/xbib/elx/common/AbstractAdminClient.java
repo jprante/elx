@@ -87,7 +87,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-public abstract class AbstractAdminClient extends AbstractNativeClient implements AdminClient {
+public abstract class AbstractAdminClient extends AbstractBasicClient implements AdminClient {
 
     private static final Logger logger = LogManager.getLogger(AbstractAdminClient.class.getName());
 

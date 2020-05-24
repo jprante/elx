@@ -4,10 +4,9 @@ import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public interface NativeClient extends Closeable {
+public interface BasicClient extends Closeable {
 
     /**
      * Set an Elasticsearch client to extend from it. May be null for TransportClient.
