@@ -14,6 +14,7 @@ import org.xbib.elx.api.BasicClient;
 import org.xbib.elx.api.SearchClientProvider;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.ServiceLoader;
 
 @SuppressWarnings("rawtypes")
@@ -103,6 +104,25 @@ public class ClientBuilder {
 
     public ClientBuilder put(Settings settings) {
         settingsBuilder.put(settings);
+        return this;
+    }
+
+    public ClientBuilder put(Map<String, ?> map) {
+        for (Map.Entry<String, ?> entry : map.entrySet()) {
+            if (entry.getValue() == null) {
+                continue;
+            }
+            if (entry.getValue() instanceof String ||
+                    entry.getValue() instanceof  Integer ||
+                    entry.getValue() instanceof Long ||
+                    entry.getValue() instanceof Float ||
+                    entry.getValue() instanceof TimeValue) {
+                settingsBuilder.put(entry.getKey(), entry.getValue().toString());
+            } else {
+                logger.log(Level.WARN, "skipping " + entry.getValue() +
+                        " because invalid class type " + entry.getValue().getClass().getName());
+            }
+        }
         return this;
     }
 
