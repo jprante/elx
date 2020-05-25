@@ -193,6 +193,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
                     .put("path.home", getHome())
                     .put("cluster.initial_master_nodes", "1")
                     .put("discovery.seed_hosts",  "127.0.0.1:9300")
+                    .put("node.max_local_storage_nodes", "2")
                     .build();
         }
 

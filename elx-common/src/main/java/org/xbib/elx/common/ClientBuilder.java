@@ -8,11 +8,12 @@ import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
-import org.xbib.elx.api.ExtendedClient;
-import org.xbib.elx.api.ExtendedClientProvider;
+import org.xbib.elx.api.AdminClientProvider;
+import org.xbib.elx.api.BulkClientProvider;
+import org.xbib.elx.api.BasicClient;
+import org.xbib.elx.api.SearchClientProvider;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
 
@@ -23,11 +24,15 @@ public class ClientBuilder {
 
     private final ElasticsearchClient client;
 
+    private final ClassLoader classLoader;
+
     private final Settings.Builder settingsBuilder;
 
-    private Map<Class<? extends ExtendedClientProvider>, ExtendedClientProvider> providerMap;
+    private Class<? extends AdminClientProvider> adminClientProvider;
 
-    private Class<? extends ExtendedClientProvider> provider;
+    private Class<? extends BulkClientProvider> bulkClientProvider;
+
+    private Class<? extends SearchClientProvider> searchClientProvider;
 
     public ClientBuilder() {
         this(null);
@@ -39,14 +44,9 @@ public class ClientBuilder {
 
     public ClientBuilder(ElasticsearchClient client, ClassLoader classLoader) {
         this.client = client;
+        this.classLoader = classLoader;
         this.settingsBuilder = Settings.builder();
         settingsBuilder.put("node.name", "elx-client-" + Version.CURRENT);
-        this.providerMap = new HashMap<>();
-        ServiceLoader<ExtendedClientProvider> serviceLoader = ServiceLoader.load(ExtendedClientProvider.class,
-                classLoader != null ? classLoader : Thread.currentThread().getContextClassLoader());
-        for (ExtendedClientProvider provider : serviceLoader) {
-            providerMap.put(provider.getClass(), provider);
-        }
     }
 
     public static ClientBuilder builder() {
@@ -57,8 +57,18 @@ public class ClientBuilder {
         return new ClientBuilder(client);
     }
 
-    public ClientBuilder provider(Class<? extends ExtendedClientProvider> provider) {
-        this.provider = provider;
+    public ClientBuilder setAdminClientProvider(Class<? extends AdminClientProvider> adminClientProvider) {
+        this.adminClientProvider = adminClientProvider;
+        return this;
+    }
+
+    public ClientBuilder setBulkClientProvider(Class<? extends BulkClientProvider> bulkClientProvider) {
+        this.bulkClientProvider = bulkClientProvider;
+        return this;
+    }
+
+    public ClientBuilder setSearchClientProvider(Class<? extends SearchClientProvider> searchClientProvider) {
+        this.searchClientProvider = searchClientProvider;
         return this;
     }
 
@@ -97,15 +107,59 @@ public class ClientBuilder {
         return this;
     }
 
-    @SuppressWarnings("unchecked")
-    public <C extends ExtendedClient> C build() throws IOException {
-        if (provider == null) {
-            throw new IllegalArgumentException("no provider");
+    public ClientBuilder put(Map<String, ?> map) {
+        for (Map.Entry<String, ?> entry : map.entrySet()) {
+            if (entry.getValue() == null) {
+                continue;
+            }
+            if (entry.getValue() instanceof String ||
+                    entry.getValue() instanceof  Integer ||
+                    entry.getValue() instanceof Long ||
+                    entry.getValue() instanceof Float ||
+                    entry.getValue() instanceof TimeValue) {
+                settingsBuilder.put(entry.getKey(), entry.getValue().toString());
+            } else {
+                logger.log(Level.WARN, "skipping " + entry.getValue() +
+                        " because invalid class type " + entry.getValue().getClass().getName());
+            }
         }
+        return this;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <C extends BasicClient> C build() throws IOException {
         Settings settings = settingsBuilder.build();
         logger.log(Level.INFO, "settings = " + settings.toDelimitedString(','));
-        return (C) providerMap.get(provider).getExtendedClient()
-                .setClient(client)
-                .init(settings);
+        if (adminClientProvider != null) {
+            for (AdminClientProvider provider : ServiceLoader.load(AdminClientProvider.class, classLoader)) {
+                if (provider.getClass().isAssignableFrom(adminClientProvider)) {
+                    C c = (C) provider.getClient();
+                    c.setClient(client);
+                    c.init(settings);
+                    return c;
+                }
+            }
+        }
+        if (bulkClientProvider != null) {
+            for (BulkClientProvider provider : ServiceLoader.load(BulkClientProvider.class, classLoader)) {
+                if (provider.getClass().isAssignableFrom(bulkClientProvider)) {
+                    C c = (C) provider.getClient();
+                    c.setClient(client);
+                    c.init(settings);
+                    return c;
+                }
+            }
+        }
+        if (searchClientProvider != null) {
+            for (SearchClientProvider provider : ServiceLoader.load(SearchClientProvider.class, classLoader)) {
+                if (provider.getClass().isAssignableFrom(searchClientProvider)) {
+                    C c = (C) provider.getClient();
+                    c.setClient(client);
+                    c.init(settings);
+                    return c;
+                }
+            }
+        }
+        throw new IllegalArgumentException("no provider");
     }
 }

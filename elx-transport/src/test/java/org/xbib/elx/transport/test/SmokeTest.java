@@ -2,14 +2,15 @@ package org.xbib.elx.transport.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.common.settings.Settings;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
-import org.xbib.elx.transport.ExtendedTransportClient;
-import org.xbib.elx.transport.ExtendedTransportClientProvider;
+import org.xbib.elx.transport.TransportAdminClient;
+import org.xbib.elx.transport.TransportAdminClientProvider;
+import org.xbib.elx.transport.TransportBulkClient;
+import org.xbib.elx.transport.TransportBulkClientProvider;
 
 import java.util.concurrent.TimeUnit;
 
@@ -29,44 +30,46 @@ class SmokeTest {
 
     @Test
     void smokeTest() throws Exception {
-        final ExtendedTransportClient client = ClientBuilder.builder()
-                .provider(ExtendedTransportClientProvider.class)
+        try (TransportAdminClient adminClient = ClientBuilder.builder()
+                .setAdminClientProvider(TransportAdminClientProvider.class)
                 .put(helper.getTransportSettings())
                 .build();
-        try {
-            assertEquals(helper.getClusterName(), client.getClusterName());
-            client.newIndex("test_smoke");
-            client.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
-            client.flush();
-            client.waitForResponses(30, TimeUnit.SECONDS);
-            client.checkMapping("test_smoke");
-            client.update("test_smoke", "1", "{ \"name\" : \"Another name\"}");
-            client.delete("test_smoke", "1");
-            client.flush();
-            client.waitForResponses(30, TimeUnit.SECONDS);
-            client.checkMapping("test_smoke");
-            client.deleteIndex("test_smoke");
-            IndexDefinition indexDefinition = client.buildIndexDefinitionFromSettings("test_smoke", Settings.builder()
-                    .build());
+             TransportBulkClient bulkClient = ClientBuilder.builder()
+                     .setBulkClientProvider(TransportBulkClientProvider.class)
+                     .put(helper.getTransportSettings())
+                     .build()) {
+            IndexDefinition indexDefinition =
+                    adminClient.buildIndexDefinitionFromSettings("test_smoke", Settings.EMPTY);
             assertEquals(0, indexDefinition.getReplicaLevel());
-            client.newIndex(indexDefinition);
-            client.index(indexDefinition.getFullIndexName(), "1", true, "{ \"name\" : \"Hello World\"}");
-            client.flush();
-            client.waitForResponses(30, TimeUnit.SECONDS);
-            client.updateReplicaLevel(indexDefinition, 2);
-            int replica = client.getReplicaLevel(indexDefinition);
+            assertEquals(helper.getClusterName(), adminClient.getClusterName());
+            bulkClient.newIndex("test_smoke");
+            bulkClient.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
+            bulkClient.flush();
+            bulkClient.waitForResponses(30, TimeUnit.SECONDS);
+            adminClient.checkMapping("test_smoke");
+            bulkClient.update("test_smoke", "1", "{ \"name\" : \"Another name\"}");
+            bulkClient.delete("test_smoke", "1");
+            bulkClient.flush();
+            bulkClient.waitForResponses(30, TimeUnit.SECONDS);
+            bulkClient.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}");
+            bulkClient.delete("test_smoke", "1");
+            bulkClient.flush();
+            bulkClient.waitForResponses(30, TimeUnit.SECONDS);
+            adminClient.deleteIndex("test_smoke");
+            bulkClient.newIndex(indexDefinition);
+            bulkClient.index(indexDefinition.getFullIndexName(), "1", true, "{ \"name\" : \"Hello World\"}");
+            bulkClient.flush();
+            bulkClient.waitForResponses(30, TimeUnit.SECONDS);
+            adminClient.updateReplicaLevel(indexDefinition, 2);
+            int replica = adminClient.getReplicaLevel(indexDefinition);
             assertEquals(2, replica);
-            client.deleteIndex(indexDefinition);
-            assertEquals(0, client.getBulkController().getBulkMetric().getFailed().getCount());
-            assertEquals(4, client.getBulkController().getBulkMetric().getSucceeded().getCount());
-        } catch (NoNodeAvailableException e) {
-            logger.warn("skipping, no node available");
-        } finally {
-            client.close();
-            if (client.getBulkController().getLastBulkError() != null) {
-                logger.error("error", client.getBulkController().getLastBulkError());
+            assertEquals(0, bulkClient.getBulkMetric().getFailed().getCount());
+            assertEquals(6, bulkClient.getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkController().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
-            assertNull(client.getBulkController().getLastBulkError());
+            assertNull(bulkClient.getBulkController().getLastBulkError());
+            adminClient.deleteIndex(indexDefinition);
         }
     }
 }

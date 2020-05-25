@@ -1,7 +1,5 @@
 package org.xbib.elx.api;
 
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.concurrent.TimeUnit;
 
 public interface IndexDefinition {
@@ -14,17 +12,13 @@ public interface IndexDefinition {
 
     String getFullIndexName();
 
-    IndexDefinition setSettingsUrl(String settingsUrlString) throws MalformedURLException;
+    IndexDefinition setSettings(String settings);
 
-    IndexDefinition setSettingsUrl(URL settingsUrl);
+    String getSettings();
 
-    URL getSettingsUrl();
+    IndexDefinition setMappings(String mappings);
 
-    IndexDefinition setMappingsUrl(String mappingsUrlString) throws MalformedURLException;
-
-    IndexDefinition setMappingsUrl(URL mappingsUrl);
-
-    URL getMappingsUrl();
+    String getMappings();
 
     IndexDefinition setDateTimePattern(String timeWindow);
 
