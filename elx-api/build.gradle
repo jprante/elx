@@ -1,4 +1,4 @@
 dependencies {
-    compile "org.xbib:metrics-common:${project.property('xbib-metrics.version')}"
-    compile "org.elasticsearch:elasticsearch:${rootProject.property('elasticsearch.version')}"
+    api "org.xbib:metrics-common:${project.property('xbib-metrics.version')}"
+    api "org.elasticsearch:elasticsearch:${rootProject.property('elasticsearch.version')}"
 }

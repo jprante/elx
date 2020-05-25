@@ -1,6 +1,6 @@
 dependencies{
-    compile project(':elx-api')
-    testCompile "org.elasticsearch.plugin:transport-netty4-client:${rootProject.property('elasticsearch.version')}"
-    testCompile "io.netty:netty-codec-http:${project.property('netty.version')}"
-    testCompile "io.netty:netty-transport:${project.property('netty.version')}"
+    api project(':elx-api')
+    testImplementation "org.elasticsearch.plugin:transport-netty4-client:${rootProject.property('elasticsearch.version')}"
+    testImplementation "io.netty:netty-codec-http:${project.property('netty.version')}"
+    testImplementation "io.netty:netty-transport:${project.property('netty.version')}"
 }
