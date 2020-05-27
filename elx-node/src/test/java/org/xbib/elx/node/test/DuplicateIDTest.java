@@ -50,7 +50,7 @@ class DuplicateIDTest {
             assertTrue(bulkClient.getSearchableDocs("test") < ACTIONS);
         } finally {
             bulkClient.close();
-            assertEquals(numactions, bulkClient.getBulkMetric().getSucceeded().getCount());
+            assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }

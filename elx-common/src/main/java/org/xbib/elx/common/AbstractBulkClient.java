@@ -24,7 +24,6 @@ import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.xbib.elx.api.BulkClient;
 import org.xbib.elx.api.BulkController;
-import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.IndexDefinition;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -36,8 +35,6 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     private static final Logger logger = LogManager.getLogger(AbstractBulkClient.class.getName());
 
-    private BulkMetric bulkMetric;
-
     private BulkController bulkController;
 
     private final AtomicBoolean closed = new AtomicBoolean(true);
@@ -47,18 +44,11 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         if (closed.compareAndSet(true, false)) {
             super.init(settings);
             logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
-            bulkMetric = new DefaultBulkMetric();
-            bulkMetric.init(settings);
-            bulkController = new DefaultBulkController(this, bulkMetric);
+            bulkController = new DefaultBulkController(this);
             bulkController.init(settings);
         } else {
             logger.log(Level.WARN, "not initializing");
         }
-    }
-
-    @Override
-    public BulkMetric getBulkMetric() {
-        return bulkMetric;
     }
 
     @Override
@@ -77,10 +67,6 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     public void close() throws IOException {
         if (closed.compareAndSet(false, true)) {
             ensureClientIsPresent();
-            if (bulkMetric != null) {
-                logger.info("closing bulk metric");
-                bulkMetric.close();
-            }
             if (bulkController != null) {
                 logger.info("closing bulk controller");
                 bulkController.close();

@@ -23,7 +23,6 @@ ext {
     licenseUrl = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
 }
 
-
 subprojects {
     apply plugin: 'java-library'
 

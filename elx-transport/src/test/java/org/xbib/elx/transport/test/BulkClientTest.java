@@ -54,7 +54,7 @@ class BulkClientTest {
             bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
         } finally {
-            assertEquals(1, bulkClient.getBulkMetric().getSucceeded().getCount());
+            assertEquals(1, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
@@ -117,7 +117,7 @@ class BulkClientTest {
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
         } finally {
-            assertEquals(numactions, bulkClient.getBulkMetric().getSucceeded().getCount());
+            assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
@@ -172,7 +172,7 @@ class BulkClientTest {
                 logger.warn("latch timeout");
             }
             bulkClient.stopBulk("test", 30L, TimeUnit.SECONDS);
-            assertEquals(maxthreads * actions, bulkClient.getBulkMetric().getSucceeded().getCount());
+            assertEquals(maxthreads * actions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
         } catch (NoNodeAvailableException e) {
             logger.warn("skipping, no node available");
         } catch (Exception e) {

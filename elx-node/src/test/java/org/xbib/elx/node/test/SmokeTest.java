@@ -63,8 +63,8 @@ class SmokeTest {
             adminClient.updateReplicaLevel(indexDefinition, 2);
             int replica = adminClient.getReplicaLevel(indexDefinition);
             assertEquals(2, replica);
-            assertEquals(0, bulkClient.getBulkMetric().getFailed().getCount());
-            assertEquals(6, bulkClient.getBulkMetric().getSucceeded().getCount());
+            assertEquals(0, bulkClient.getBulkController().getBulkMetric().getFailed().getCount());
+            assertEquals(6, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }

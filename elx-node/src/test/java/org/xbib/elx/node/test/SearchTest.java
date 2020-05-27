@@ -53,7 +53,7 @@ class SearchTest {
             bulkClient.refreshIndex("test");
             assertEquals(numactions, bulkClient.getSearchableDocs("test"));
         }
-        assertEquals(numactions, bulkClient.getBulkMetric().getSucceeded().getCount());
+        assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
         if (bulkClient.getBulkController().getLastBulkError() != null) {
             logger.error("error", bulkClient.getBulkController().getLastBulkError());
         }
@@ -77,6 +77,9 @@ class SearchTest {
                 idcount.incrementAndGet();
             });
             assertEquals(numactions, idcount.get());
+            assertEquals(13, searchClient.getSearchMetric().getQueries().getCount());
+            assertEquals(2, searchClient.getSearchMetric().getSucceededQueries().getCount());
+            assertEquals(0, searchClient.getSearchMetric().getEmptyQueries().getCount());
         }
     }
 }

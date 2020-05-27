@@ -45,6 +45,11 @@ public class DefaultBulkMetric implements BulkMetric {
     }
 
     @Override
+    public void markTotalIngest(long n) {
+        totalIngest.mark(n);
+    }
+
+    @Override
     public Metered getTotalIngest() {
         return totalIngest;
     }

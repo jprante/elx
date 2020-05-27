@@ -64,7 +64,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -134,12 +133,12 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     };
 
     @Override
-    public Map<String, ?> getMapping(String index) throws IOException {
+    public Map<String, ?> getMapping(String index) {
         return getMapping(index, TYPE_NAME);
     }
 
     @Override
-    public Map<String, ?> getMapping(String index, String mapping) throws IOException {
+    public Map<String, ?> getMapping(String index, String mapping) {
         GetMappingsRequestBuilder getMappingsRequestBuilder = new GetMappingsRequestBuilder(client, GetMappingsAction.INSTANCE)
                 .setIndices(index)
                 .setTypes(mapping);
@@ -506,6 +505,22 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         client.execute(UpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
     }
 
+    @Override
+    public void checkMapping(String index) {
+        ensureClientIsPresent();
+        GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices(index);
+        GetMappingsResponse getMappingsResponse = client.execute(GetMappingsAction.INSTANCE, getMappingsRequest).actionGet();
+        ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> map = getMappingsResponse.getMappings();
+        map.keys().forEach((Consumer<ObjectCursor<String>>) stringObjectCursor -> {
+            ImmutableOpenMap<String, MappingMetaData> mappings = map.get(stringObjectCursor.value);
+            for (ObjectObjectCursor<String, MappingMetaData> cursor : mappings) {
+                String mappingName = cursor.key;
+                MappingMetaData mappingMetaData = cursor.value;
+                checkMapping(index, mappingName, mappingMetaData);
+            }
+        });
+    }
+
     private static String findSettingsFrom(String string) throws IOException {
         if (string == null) {
             return null;
@@ -546,7 +561,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                 }
             }
             return string;
-        } catch (MalformedInputException e) {
+        } catch (MalformedURLException e) {
             return string;
         }
     }
@@ -567,21 +582,6 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         return result;
     }
 
-    public void checkMapping(String index) {
-        ensureClientIsPresent();
-        GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices(index);
-        GetMappingsResponse getMappingsResponse = client.execute(GetMappingsAction.INSTANCE, getMappingsRequest).actionGet();
-        ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> map = getMappingsResponse.getMappings();
-        map.keys().forEach((Consumer<ObjectCursor<String>>) stringObjectCursor -> {
-            ImmutableOpenMap<String, MappingMetaData> mappings = map.get(stringObjectCursor.value);
-            for (ObjectObjectCursor<String, MappingMetaData> cursor : mappings) {
-                String mappingName = cursor.key;
-                MappingMetaData mappingMetaData = cursor.value;
-                checkMapping(index, mappingName, mappingMetaData);
-            }
-        });
-    }
-
     private void checkMapping(String index, String type, MappingMetaData mappingMetaData) {
         try {
             SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE)
@@ -595,7 +595,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             if (total > 0L) {
                 Map<String, Long> fields = new TreeMap<>();
                 Map<String, Object> root = mappingMetaData.getSourceAsMap();
-                checkMapping(index, type, "", "", root, fields);
+                checkMapping(index, "", "", root, fields);
                 AtomicInteger empty = new AtomicInteger();
                 Map<String, Long> map = sortByValue(fields);
                 map.forEach((key, value) -> {
@@ -616,7 +616,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     }
 
     @SuppressWarnings("unchecked")
-    private void checkMapping(String index, String type,
+    private void checkMapping(String index,
                               String pathDef, String fieldName, Map<String, Object> map,
                               Map<String, Long> fields) {
         String path = pathDef;
@@ -641,7 +641,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                 String fieldType = o instanceof String ? o.toString() : null;
                 // do not recurse into our custom field mapper
                 if (!"standardnumber".equals(fieldType) && !"ref".equals(fieldType)) {
-                    checkMapping(index, type, path, key, child, fields);
+                    checkMapping(index, path, key, child, fields);
                 }
             } else if ("type".equals(key)) {
                 QueryBuilder filterBuilder = QueryBuilders.existsQuery(path);

@@ -45,9 +45,9 @@ public class DefaultBulkController implements BulkController {
 
     private final AtomicBoolean active;
 
-    public DefaultBulkController(BulkClient bulkClient, BulkMetric bulkMetric) {
+    public DefaultBulkController(BulkClient bulkClient) {
         this.bulkClient = bulkClient;
-        this.bulkMetric = bulkMetric;
+        this.bulkMetric = new DefaultBulkMetric();
         this.indexNames = new ArrayList<>();
         this.active = new AtomicBoolean(false);
         this.startBulkRefreshIntervals = new HashMap<>();
@@ -68,6 +68,7 @@ public class DefaultBulkController implements BulkController {
 
     @Override
     public void init(Settings settings) {
+        bulkMetric.init(settings);
         int maxActionsPerRequest = settings.getAsInt(Parameters.MAX_ACTIONS_PER_REQUEST.name(),
                 Parameters.DEFAULT_MAX_ACTIONS_PER_REQUEST.getNum());
         int maxConcurrentRequests = settings.getAsInt(Parameters.MAX_CONCURRENT_REQUESTS.name(),

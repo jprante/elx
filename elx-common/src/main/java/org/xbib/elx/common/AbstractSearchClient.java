@@ -1,6 +1,7 @@
 package org.xbib.elx.common;
 
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.get.GetAction;
 import org.elasticsearch.action.get.GetRequestBuilder;
 import org.elasticsearch.action.get.GetResponse;
@@ -15,9 +16,12 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchScrollAction;
 import org.elasticsearch.action.search.SearchScrollRequestBuilder;
 import org.elasticsearch.action.search.ShardSearchFailure;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.search.SearchHit;
 import org.xbib.elx.api.SearchClient;
+import org.xbib.elx.api.SearchMetric;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Optional;
@@ -30,11 +34,43 @@ import java.util.stream.StreamSupport;
 
 public abstract class AbstractSearchClient extends AbstractBasicClient implements SearchClient {
 
+    private SearchMetric searchMetric;
+
+    @Override
+    public SearchMetric getSearchMetric() {
+        return searchMetric;
+    }
+
+    @Override
+    public void init(Settings settings) throws IOException {
+        super.init(settings);
+        this.searchMetric = new DefaultSearchMetric();
+        searchMetric.init(settings);
+    }
+
+    @Override
+    public void close() throws IOException {
+        super.close();
+        if (searchMetric != null) {
+            searchMetric.close();
+        }
+    }
+
     @Override
     public Optional<GetResponse> get(Consumer<GetRequestBuilder> getRequestBuilderConsumer) {
         GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE);
         getRequestBuilderConsumer.accept(getRequestBuilder);
-        GetResponse getResponse = getRequestBuilder.execute().actionGet();
+        ActionFuture<GetResponse> actionFuture = getRequestBuilder.execute();
+        searchMetric.getCurrentQueries().inc();
+        GetResponse getResponse = actionFuture.actionGet();
+        searchMetric.getCurrentQueries().dec();
+        searchMetric.getQueries().inc();
+        searchMetric.markTotalQueries(1);
+        if (getResponse.isExists()) {
+            searchMetric.getSucceededQueries().inc();
+        } else {
+            searchMetric.getEmptyQueries().inc();
+        }
         return getResponse.isExists() ? Optional.of(getResponse) : Optional.empty();
     }
 
@@ -42,23 +78,46 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
     public Optional<MultiGetResponse> multiGet(Consumer<MultiGetRequestBuilder> multiGetRequestBuilderConsumer) {
         MultiGetRequestBuilder multiGetRequestBuilder = new MultiGetRequestBuilder(client, MultiGetAction.INSTANCE);
         multiGetRequestBuilderConsumer.accept(multiGetRequestBuilder);
-        MultiGetResponse multiGetItemResponse = multiGetRequestBuilder.execute().actionGet();
-        return multiGetItemResponse.getResponses().length == 0 ?  Optional.empty() : Optional.of(multiGetItemResponse);
+        ActionFuture<MultiGetResponse> actionFuture = multiGetRequestBuilder.execute();
+        searchMetric.getCurrentQueries().inc();
+        MultiGetResponse multiGetItemResponse = actionFuture.actionGet();
+        searchMetric.getCurrentQueries().dec();
+        searchMetric.getQueries().inc();
+        searchMetric.markTotalQueries(1);
+        boolean isempty = multiGetItemResponse.getResponses().length == 0;
+        if (isempty) {
+            searchMetric.getEmptyQueries().inc();
+        } else {
+            searchMetric.getSucceededQueries().inc();
+        }
+        return isempty ?  Optional.empty() : Optional.of(multiGetItemResponse);
     }
 
     @Override
     public Optional<SearchResponse> search(Consumer<SearchRequestBuilder> queryBuilder) {
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE);
         queryBuilder.accept(searchRequestBuilder);
-        SearchResponse searchResponse = searchRequestBuilder.execute().actionGet();
+        ActionFuture<SearchResponse> actionFuture = searchRequestBuilder.execute();
+        searchMetric.getCurrentQueries().inc();
+        SearchResponse searchResponse = actionFuture.actionGet();
+        searchMetric.getCurrentQueries().dec();
+        searchMetric.getQueries().inc();
+        searchMetric.markTotalQueries(1);
         if (searchResponse.getFailedShards() > 0) {
             StringBuilder sb = new StringBuilder("Search failed:");
             for (ShardSearchFailure failure : searchResponse.getShardFailures()) {
                 sb.append("\n").append(failure.reason());
             }
+            searchMetric.getEmptyQueries().inc();
             throw new ElasticsearchException(sb.toString());
         }
-        return searchResponse.getHits().getHits().length == 0 ? Optional.empty() : Optional.of(searchResponse);
+        boolean isempty = searchResponse.getHits().getHits().length == 0;
+        if (isempty) {
+            searchMetric.getEmptyQueries().inc();
+        } else {
+            searchMetric.getSucceededQueries().inc();
+        }
+        return isempty ? Optional.empty() : Optional.of(searchResponse);
     }
 
     @Override
@@ -67,12 +126,32 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE);
         queryBuilder.accept(searchRequestBuilder);
         searchRequestBuilder.setScroll(scrollTime).setSize(scrollSize);
-        SearchResponse originalSearchResponse = searchRequestBuilder.execute().actionGet();
+        ActionFuture<SearchResponse> actionFuture =  searchRequestBuilder.execute();
+        searchMetric.getCurrentQueries().inc();
+        SearchResponse originalSearchResponse = actionFuture.actionGet();
+        searchMetric.getCurrentQueries().dec();
+        searchMetric.getQueries().inc();
+        searchMetric.markTotalQueries(1);
+        boolean isempty = originalSearchResponse.getHits().getTotalHits().value == 0;
+        if (isempty) {
+            searchMetric.getEmptyQueries().inc();
+        } else {
+            searchMetric.getSucceededQueries().inc();
+        }
         Stream<SearchResponse> infiniteResponses = Stream.iterate(originalSearchResponse,
-                searchResponse -> new SearchScrollRequestBuilder(client, SearchScrollAction.INSTANCE)
-                        .setScrollId(searchResponse.getScrollId())
-                        .setScroll(scrollTime)
-                        .execute().actionGet());
+                searchResponse -> {
+                    SearchScrollRequestBuilder searchScrollRequestBuilder =
+                            new SearchScrollRequestBuilder(client, SearchScrollAction.INSTANCE)
+                            .setScrollId(searchResponse.getScrollId())
+                            .setScroll(scrollTime);
+                    ActionFuture<SearchResponse> actionFuture1 = searchScrollRequestBuilder.execute();
+                    searchMetric.getCurrentQueries().inc();
+                    SearchResponse searchResponse1 = actionFuture1.actionGet();
+                    searchMetric.getCurrentQueries().dec();
+                    searchMetric.getQueries().inc();
+                    searchMetric.markTotalQueries(1);
+                    return searchResponse1;
+                });
         Predicate<SearchResponse> condition = searchResponse -> searchResponse.getHits().getHits().length > 0;
         Consumer<SearchResponse> lastAction = searchResponse -> {
             ClearScrollRequestBuilder clearScrollRequestBuilder =
