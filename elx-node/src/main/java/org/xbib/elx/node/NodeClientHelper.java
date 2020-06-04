@@ -53,6 +53,7 @@ public class NodeClientHelper {
                 .put("node.client", true)
                 .put("node.master", false)
                 .put("node.data", false)
+                .put("path.home", settings.get("path.home"))
                 .build();
         logger.info("creating node client on {} with effective settings {}",
                 version, effectiveSettings.getAsMap());

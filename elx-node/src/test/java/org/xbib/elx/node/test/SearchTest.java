@@ -39,6 +39,7 @@ class SearchTest {
         long numactions = ACTIONS;
         final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
+                .put(helper.getNodeSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .build();
         try (bulkClient) {
@@ -59,6 +60,7 @@ class SearchTest {
         assertNull(bulkClient.getBulkController().getLastBulkError());
         try (NodeSearchClient searchClient = ClientBuilder.builder(helper.client("1"))
                 .setSearchClientProvider(NodeSearchClientProvider.class)
+                .put(helper.getNodeSettings())
                 .build()) {
             Stream<SearchHit> stream = searchClient.search(qb -> qb
                             .setIndices("test")

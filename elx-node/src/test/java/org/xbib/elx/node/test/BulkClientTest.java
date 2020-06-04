@@ -43,6 +43,7 @@ class BulkClientTest {
     void testSingleDoc() throws Exception {
         final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
+                .put(helper.getNodeSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(30))
                 .build();
@@ -65,6 +66,7 @@ class BulkClientTest {
     void testNewIndex() throws Exception {
         final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
+                .put(helper.getNodeSettings())
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
                 .build();
         bulkClient.newIndex("test");
@@ -75,9 +77,11 @@ class BulkClientTest {
     void testMapping() throws Exception {
         try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
                 .setAdminClientProvider(NodeAdminClientProvider.class)
+                .put(helper.getNodeSettings())
                 .build();
              NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                      .setBulkClientProvider(NodeBulkClientProvider.class)
+                     .put(helper.getNodeSettings())
                      .build()) {
             XContentBuilder builder = JsonXContent.contentBuilder()
                     .startObject()
@@ -99,6 +103,7 @@ class BulkClientTest {
         long numactions = ACTIONS;
         final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
+                .put(helper.getNodeSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
                 .build();
@@ -130,6 +135,7 @@ class BulkClientTest {
         logger.info("maxthreads={} maxactions={} maxloop={}", maxthreads, maxActionsPerRequest, actions);
         final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
+                .put(helper.getNodeSettings())
                 .put(Parameters.MAX_CONCURRENT_REQUESTS.name(), maxthreads)
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), maxActionsPerRequest)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))

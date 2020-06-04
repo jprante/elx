@@ -180,6 +180,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
 
         Settings getNodeSettings() {
             return Settings.builder()
+                    .put("name", "elx-client") // for Threadpool name
                     .put("cluster.name", getClusterName())
                     .put("path.home", getHome())
                     .build();

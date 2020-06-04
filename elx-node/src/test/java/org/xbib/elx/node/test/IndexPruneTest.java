@@ -35,9 +35,11 @@ class IndexPruneTest {
     void testPrune() throws IOException {
         try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
                 .setAdminClientProvider(NodeAdminClientProvider.class)
+                .put(helper.getNodeSettings())
                 .build();
              NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
+                     .put(helper.getNodeSettings())
                 .build()) {
             Settings settings = Settings.builder()
                     .put("index.number_of_shards", 1)
