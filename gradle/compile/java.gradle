@@ -33,3 +33,12 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
 artifacts {
     archives sourcesJar, javadocJar
 }
+
+tasks.withType(JavaCompile) {
+    // TransportClient is deprecated
+    options.compilerArgs << '-Xlint:all,-deprecation'
+}
+
+javadoc {
+    options.addStringOption('Xdoclint:none', '-quiet')
+}
