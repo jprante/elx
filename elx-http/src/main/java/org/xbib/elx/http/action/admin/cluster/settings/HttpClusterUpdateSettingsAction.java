@@ -10,6 +10,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -40,12 +41,7 @@ public class HttpClusterUpdateSettingsAction extends HttpAction<ClusterUpdateSet
     }
 
     @Override
-    protected CheckedFunction<XContentParser, ClusterUpdateSettingsResponse, IOException> entityParser() {
+    protected CheckedFunction<XContentParser, ClusterUpdateSettingsResponse, IOException> entityParser(HttpResponse httpResponse) {
         return ClusterUpdateSettingsResponse::fromXContent;
-    }
-
-    @Override
-    protected ClusterUpdateSettingsResponse emptyResponse() {
-        return new ClusterUpdateSettingsResponse();
     }
 }

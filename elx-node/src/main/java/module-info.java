@@ -4,6 +4,7 @@ module org.xbib.elx.node {
     requires org.xbib.elx.common;
     requires org.xbib.elasticsearch.log4j;
     requires org.xbib.elasticsearch.server;
+    requires org.xbib.elasticsearch.transport.nettyfour;
     provides org.xbib.elx.api.AdminClientProvider with
             org.xbib.elx.node.NodeAdminClientProvider;
     provides org.xbib.elx.api.BulkClientProvider with

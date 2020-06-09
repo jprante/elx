@@ -11,13 +11,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public interface BulkClient extends NativeClient, Flushable {
-
-    /**
-     * Get bulk metric.
-     * @return the bulk metric
-     */
-    BulkMetric getBulkMetric();
+public interface BulkClient extends BasicClient, Flushable {
 
     /**
      * Get buulk control.
@@ -68,7 +62,7 @@ public interface BulkClient extends NativeClient, Flushable {
      * @param mapping mapping
      * @throws IOException if settings/mapping is invalid or index creation fails
      */
-    void newIndex(String index, Settings settings, Map<String, ?> mapping) throws IOException;
+    void newIndex(String index, Settings settings, Map<String, Object> mapping) throws IOException;
 
     /**
      * Add index request. Each request will be added to a queue for bulking requests.

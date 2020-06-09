@@ -39,6 +39,7 @@ class SearchTest {
         long numactions = ACTIONS;
         final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
+                .put(helper.getNodeSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .build();
         try (bulkClient) {
@@ -52,13 +53,14 @@ class SearchTest {
             bulkClient.refreshIndex("test");
             assertEquals(numactions, bulkClient.getSearchableDocs("test"));
         }
-        assertEquals(numactions, bulkClient.getBulkMetric().getSucceeded().getCount());
+        assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
         if (bulkClient.getBulkController().getLastBulkError() != null) {
             logger.error("error", bulkClient.getBulkController().getLastBulkError());
         }
         assertNull(bulkClient.getBulkController().getLastBulkError());
         try (NodeSearchClient searchClient = ClientBuilder.builder(helper.client("1"))
                 .setSearchClientProvider(NodeSearchClientProvider.class)
+                .put(helper.getNodeSettings())
                 .build()) {
             Stream<SearchHit> stream = searchClient.search(qb -> qb
                             .setIndices("test")
@@ -75,6 +77,9 @@ class SearchTest {
                 idcount.incrementAndGet();
             });
             assertEquals(numactions, idcount.get());
+            assertEquals(13, searchClient.getSearchMetric().getQueries().getCount());
+            assertEquals(2, searchClient.getSearchMetric().getSucceededQueries().getCount());
+            assertEquals(0, searchClient.getSearchMetric().getEmptyQueries().getCount());
         }
     }
 }

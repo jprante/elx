@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Interface for extended managing and indexing methods of an Elasticsearch client.
  */
-public interface AdminClient extends NativeClient {
+public interface AdminClient extends BasicClient {
 
     /**
      * Build index definition from settings.
@@ -22,9 +22,11 @@ public interface AdminClient extends NativeClient {
      */
     IndexDefinition buildIndexDefinitionFromSettings(String index, Settings settings) throws IOException;
 
-    Map<String, ?> getMapping(String index);
+    Map<String, ?> getMapping(String index) throws IOException;
 
-    Map<String, ?> getMapping(String index, String type);
+    Map<String, ?> getMapping(String index, String type) throws IOException;
+
+    void checkMapping(String index);
 
     /**
      * Delete an index.

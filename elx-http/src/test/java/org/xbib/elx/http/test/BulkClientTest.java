@@ -53,7 +53,7 @@ class BulkClientTest {
             client.flush();
             client.waitForResponses(30L, TimeUnit.SECONDS);
         } finally {
-            assertEquals(1, client.getBulkMetric().getSucceeded().getCount());
+            assertEquals(1, client.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (client.getBulkController().getLastBulkError() != null) {
                 logger.error("error", client.getBulkController().getLastBulkError());
             }
@@ -85,7 +85,7 @@ class BulkClientTest {
                 .build()) {
             XContentBuilder builder = JsonXContent.contentBuilder()
                     .startObject()
-                    .startObject("doc")
+                    .startObject("_doc")
                     .startObject("properties")
                     .startObject("location")
                     .field("type", "geo_point")
@@ -94,7 +94,7 @@ class BulkClientTest {
                     .endObject()
                     .endObject();
             bulkClient.newIndex("test", Settings.EMPTY, builder);
-            assertTrue(adminClient.getMapping("test", "doc").containsKey("properties"));
+            assertTrue(adminClient.getMapping("test", "_doc").containsKey("properties"));
         }
     }
 
@@ -115,7 +115,7 @@ class BulkClientTest {
             client.flush();
             client.waitForResponses(30L, TimeUnit.SECONDS);
         } finally {
-            assertEquals(numactions, client.getBulkMetric().getSucceeded().getCount());
+            assertEquals(numactions, client.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (client.getBulkController().getLastBulkError() != null) {
                 logger.error("error", client.getBulkController().getLastBulkError());
             }
@@ -170,7 +170,7 @@ class BulkClientTest {
                 logger.warn("latch timeout");
             }
             bulkClient.stopBulk("test", 30L, TimeUnit.SECONDS);
-            assertEquals(maxthreads * actions, bulkClient.getBulkMetric().getSucceeded().getCount());
+            assertEquals(maxthreads * actions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
         } finally {
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());

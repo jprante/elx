@@ -1,7 +1,13 @@
 package org.xbib.elx.common.test;
 
 import org.junit.jupiter.api.Test;
-import org.xbib.elx.common.*;
+import org.xbib.elx.common.ClientBuilder;
+import org.xbib.elx.common.MockAdminClient;
+import org.xbib.elx.common.MockAdminClientProvider;
+import org.xbib.elx.common.MockBulkClient;
+import org.xbib.elx.common.MockBulkClientProvider;
+import org.xbib.elx.common.MockSearchClient;
+import org.xbib.elx.common.MockSearchClientProvider;
 
 import java.io.IOException;
 

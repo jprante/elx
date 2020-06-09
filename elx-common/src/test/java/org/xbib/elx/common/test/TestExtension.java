@@ -12,7 +12,6 @@ import org.elasticsearch.action.admin.cluster.node.info.NodesInfoResponse;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
-import org.elasticsearch.analysis.common.CommonAnalysisPlugin;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.client.support.AbstractClient;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
@@ -37,7 +36,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -215,7 +214,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
                     .put(getNodeSettings())
                     .put("node.name", id)
                     .build();
-            List<Class<? extends Plugin>> plugins = Arrays.asList(CommonAnalysisPlugin.class, Netty4Plugin.class);
+            List<Class<? extends Plugin>> plugins = Collections.singletonList(Netty4Plugin.class);
             Node node = new MockNode(nodeSettings, plugins);
             AbstractClient client = (AbstractClient) node.client();
             nodes.put(id, node);

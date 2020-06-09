@@ -13,7 +13,7 @@ import org.xbib.netty.http.common.HttpResponse;
  */
 public class HttpActionContext<R extends ActionRequest, T extends ActionResponse> {
 
-    private final HttpClientHelper helper;
+    private final HttpClientHelper extendedHttpClient;
 
     private final R request;
 
@@ -23,14 +23,14 @@ public class HttpActionContext<R extends ActionRequest, T extends ActionResponse
 
     private HttpResponse httpResponse;
 
-    HttpActionContext(HttpClientHelper helper, R request, String url) {
-        this.helper = helper;
+    public HttpActionContext(HttpClientHelper extendedHttpClient, R request, String url) {
+        this.extendedHttpClient = extendedHttpClient;
         this.request = request;
         this.url = url;
     }
 
-    public HttpClientHelper getHelper() {
-        return helper;
+    public HttpClientHelper getExtendedHttpClient() {
+        return extendedHttpClient;
     }
 
     public R getRequest() {

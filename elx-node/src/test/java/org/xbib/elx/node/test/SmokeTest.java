@@ -32,9 +32,11 @@ class SmokeTest {
     void smokeTest() throws Exception {
         try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
                 .setAdminClientProvider(NodeAdminClientProvider.class)
+                .put(helper.getNodeSettings())
                 .build();
              NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
+                     .put(helper.getNodeSettings())
                 .build()) {
             IndexDefinition indexDefinition =
                     adminClient.buildIndexDefinitionFromSettings("test_smoke", Settings.EMPTY);
@@ -61,8 +63,8 @@ class SmokeTest {
             adminClient.updateReplicaLevel(indexDefinition, 2);
             int replica = adminClient.getReplicaLevel(indexDefinition);
             assertEquals(2, replica);
-            assertEquals(0, bulkClient.getBulkMetric().getFailed().getCount());
-            assertEquals(6, bulkClient.getBulkMetric().getSucceeded().getCount());
+            assertEquals(0, bulkClient.getBulkController().getBulkMetric().getFailed().getCount());
+            assertEquals(6, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }

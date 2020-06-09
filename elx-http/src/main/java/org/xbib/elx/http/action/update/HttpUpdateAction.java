@@ -12,6 +12,7 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
 
@@ -47,7 +48,7 @@ public class HttpUpdateAction extends HttpAction<UpdateRequest, UpdateResponse> 
             }
             BytesReference source = XContentHelper.toXContent(updateRequest, xContentType, false);
             return newPostRequest(url,
-                    "/" + updateRequest.index() + "/" + updateRequest.type() + "/" + updateRequest.id() + "/_update",
+                    "/" + updateRequest.index() + "/_doc/" + updateRequest.id() + "/_update",
                     source);
         } catch (IOException e) {
             logger.error(e.getMessage(), e);
@@ -56,12 +57,7 @@ public class HttpUpdateAction extends HttpAction<UpdateRequest, UpdateResponse> 
     }
 
     @Override
-    protected CheckedFunction<XContentParser, UpdateResponse, IOException> entityParser() {
+    protected CheckedFunction<XContentParser, UpdateResponse, IOException> entityParser(HttpResponse httpResponse) {
         return UpdateResponse::fromXContent;
-    }
-
-    @Override
-    protected UpdateResponse emptyResponse() {
-        return new UpdateResponse();
     }
 }

@@ -14,6 +14,10 @@ public interface BulkController extends Closeable, Flushable {
 
     void init(Settings settings);
 
+    void inactivate();
+
+    BulkMetric getBulkMetric();
+
     Throwable getLastBulkError();
 
     void startBulkMode(IndexDefinition indexDefinition) throws IOException;
@@ -21,13 +25,13 @@ public interface BulkController extends Closeable, Flushable {
     void startBulkMode(String indexName, long startRefreshIntervalInSeconds,
                        long stopRefreshIntervalInSeconds) throws IOException;
 
-    void index(IndexRequest indexRequest);
+    void bulkIndex(IndexRequest indexRequest);
 
-    void delete(DeleteRequest deleteRequest);
+    void bulkDelete(DeleteRequest deleteRequest);
 
-    void update(UpdateRequest updateRequest);
+    void bulkUpdate(UpdateRequest updateRequest);
 
-    boolean waitForResponses(long timeout, TimeUnit timeUnit);
+    boolean waitForBulkResponses(long timeout, TimeUnit timeUnit);
 
     void stopBulkMode(IndexDefinition indexDefinition) throws IOException;
 

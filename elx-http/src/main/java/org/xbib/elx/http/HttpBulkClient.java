@@ -31,12 +31,12 @@ public class HttpBulkClient extends AbstractBulkClient implements ElasticsearchC
 
     @Override
     protected ElasticsearchClient createClient(Settings settings) throws IOException {
-        return helper.createClient(settings);
+        return this;
     }
 
     @Override
-    protected void closeClient() throws IOException {
-        helper.closeClient();
+    protected void closeClient(Settings settings) throws IOException {
+        helper.closeClient(settings);
     }
 
     @Override
@@ -50,8 +50,10 @@ public class HttpBulkClient extends AbstractBulkClient implements ElasticsearchC
     }
 
     @Override
-    public <Request extends ActionRequest, Response extends ActionResponse, RequestBuilder extends ActionRequestBuilder<Request, Response, RequestBuilder>> RequestBuilder prepareExecute(Action<Request, Response, RequestBuilder> action) {
-        return helper.prepareExecute(action);
+    public <Request extends ActionRequest, Response extends ActionResponse,
+            RequestBuilder extends ActionRequestBuilder<Request, Response, RequestBuilder>> RequestBuilder
+    prepareExecute(Action<Request, Response, RequestBuilder> action) {
+        return action.newRequestBuilder(this);
     }
 
     @Override

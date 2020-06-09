@@ -1,4 +1,7 @@
 module org.xbib.elx.common {
+    uses org.xbib.elx.api.AdminClientProvider;
+    uses org.xbib.elx.api.BulkClientProvider;
+    uses org.xbib.elx.api.SearchClientProvider;
     exports org.xbib.elx.common;
     exports org.xbib.elx.common.io;
     exports org.xbib.elx.common.util;

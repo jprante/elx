@@ -30,13 +30,13 @@ public class HttpSearchClient extends AbstractSearchClient implements Elasticsea
     }
 
     @Override
-    protected ElasticsearchClient createClient(Settings settings) throws IOException {
-        return helper.createClient(settings);
+    protected ElasticsearchClient createClient(Settings settings) {
+        return this;
     }
 
     @Override
-    protected void closeClient() throws IOException {
-        helper.closeClient();
+    protected void closeClient(Settings settings) throws IOException {
+        helper.closeClient(settings);
     }
 
     @Override
@@ -51,7 +51,7 @@ public class HttpSearchClient extends AbstractSearchClient implements Elasticsea
 
     @Override
     public <Request extends ActionRequest, Response extends ActionResponse, RequestBuilder extends ActionRequestBuilder<Request, Response, RequestBuilder>> RequestBuilder prepareExecute(Action<Request, Response, RequestBuilder> action) {
-        return helper.prepareExecute(action);
+        return action.newRequestBuilder(this);
     }
 
     @Override

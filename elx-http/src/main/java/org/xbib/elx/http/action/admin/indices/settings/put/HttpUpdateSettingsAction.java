@@ -11,6 +11,7 @@ import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -37,12 +38,7 @@ public class HttpUpdateSettingsAction extends HttpAction<UpdateSettingsRequest, 
     }
 
     @Override
-    protected CheckedFunction<XContentParser, UpdateSettingsResponse, IOException> entityParser() {
+    protected CheckedFunction<XContentParser, UpdateSettingsResponse, IOException> entityParser(HttpResponse httpResponse) {
         return UpdateSettingsResponse::fromXContent;
-    }
-
-    @Override
-    protected UpdateSettingsResponse emptyResponse() {
-        return new UpdateSettingsResponse();
     }
 }

@@ -10,6 +10,7 @@ import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -34,14 +35,8 @@ public class HttpGetAliasAction extends HttpAction<GetAliasesRequest, GetAliases
     }
 
     @Override
-    protected CheckedFunction<XContentParser, GetAliasesResponse, IOException> entityParser() {
+    protected CheckedFunction<XContentParser, GetAliasesResponse, IOException> entityParser(HttpResponse httpResponse) {
         return this::fromXContent;
-    }
-
-    @Override
-    protected GetAliasesResponse emptyResponse() {
-        ImmutableOpenMap.Builder<String, List<AliasMetaData>> aliasesBuilder = ImmutableOpenMap.builder();
-        return new GetAliasesResponse(aliasesBuilder.build());
     }
 
     private GetAliasesResponse fromXContent(XContentParser parser) throws IOException {

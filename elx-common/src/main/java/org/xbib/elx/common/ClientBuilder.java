@@ -10,10 +10,11 @@ import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.xbib.elx.api.AdminClientProvider;
 import org.xbib.elx.api.BulkClientProvider;
-import org.xbib.elx.api.NativeClient;
+import org.xbib.elx.api.BasicClient;
 import org.xbib.elx.api.SearchClientProvider;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.ServiceLoader;
 
 @SuppressWarnings("rawtypes")
@@ -23,7 +24,7 @@ public class ClientBuilder {
 
     private final ElasticsearchClient client;
 
-    private ClassLoader classLoader;
+    private final ClassLoader classLoader;
 
     private final Settings.Builder settingsBuilder;
 
@@ -54,11 +55,6 @@ public class ClientBuilder {
 
     public static ClientBuilder builder(ElasticsearchClient client) {
         return new ClientBuilder(client);
-    }
-
-    public ClientBuilder setClassLoader(ClassLoader classLoader) {
-        this.classLoader = classLoader;
-        return this;
     }
 
     public ClientBuilder setAdminClientProvider(Class<? extends AdminClientProvider> adminClientProvider) {
@@ -111,8 +107,27 @@ public class ClientBuilder {
         return this;
     }
 
+    public ClientBuilder put(Map<String, ?> map) {
+        for (Map.Entry<String, ?> entry : map.entrySet()) {
+            if (entry.getValue() == null) {
+                continue;
+            }
+            if (entry.getValue() instanceof String ||
+                    entry.getValue() instanceof  Integer ||
+                    entry.getValue() instanceof Long ||
+                    entry.getValue() instanceof Float ||
+                    entry.getValue() instanceof TimeValue) {
+                settingsBuilder.put(entry.getKey(), entry.getValue().toString());
+            } else {
+                logger.log(Level.WARN, "skipping " + entry.getValue() +
+                        " because invalid class type " + entry.getValue().getClass().getName());
+            }
+        }
+        return this;
+    }
+
     @SuppressWarnings("unchecked")
-    public <C extends NativeClient> C build() throws IOException {
+    public <C extends BasicClient> C build() throws IOException {
         Settings settings = settingsBuilder.build();
         logger.log(Level.INFO, "settings = " + settings.toDelimitedString(','));
         if (adminClientProvider != null) {
@@ -145,6 +160,6 @@ public class ClientBuilder {
                 }
             }
         }
-        throw new IllegalArgumentException("no provider found");
+        throw new IllegalArgumentException("no provider");
     }
 }

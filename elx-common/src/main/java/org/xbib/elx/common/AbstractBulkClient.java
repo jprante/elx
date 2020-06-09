@@ -14,50 +14,39 @@ import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.common.Strings;
+import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.DeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.xbib.elx.api.BulkClient;
 import org.xbib.elx.api.BulkController;
-import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.IndexDefinition;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-public abstract class AbstractBulkClient extends AbstractNativeClient implements BulkClient {
+public abstract class AbstractBulkClient extends AbstractBasicClient implements BulkClient {
 
     private static final Logger logger = LogManager.getLogger(AbstractBulkClient.class.getName());
 
-    private BulkMetric bulkMetric;
-
     private BulkController bulkController;
+
+    private final AtomicBoolean closed = new AtomicBoolean(true);
 
     @Override
     public void init(Settings settings) throws IOException {
-        super.init(settings);
-        if (bulkMetric == null) {
-            bulkMetric = new DefaultBulkMetric();
-            logger.log(Level.INFO, "initializing bulk metric with settings = " + settings.toDelimitedString(','));
-            bulkMetric.init(settings);
-        }
-        if (bulkController == null) {
-            bulkController = new DefaultBulkController(this, bulkMetric);
+        if (closed.compareAndSet(true, false)) {
+            super.init(settings);
+            bulkController = new DefaultBulkController(this);
             logger.log(Level.INFO, "initializing bulk controller with settings = " + settings.toDelimitedString(','));
             bulkController.init(settings);
         }
-    }
-
-    @Override
-    public BulkMetric getBulkMetric() {
-        return bulkMetric;
     }
 
     @Override
@@ -74,17 +63,13 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
 
     @Override
     public void close() throws IOException {
-        ensureClientIsPresent();
         if (closed.compareAndSet(false, true)) {
-            if (bulkMetric != null) {
-                logger.info("closing bulk metric");
-                bulkMetric.close();
-            }
+            ensureClientIsPresent();
             if (bulkController != null) {
                 logger.info("closing bulk controller");
                 bulkController.close();
             }
-            closeClient();
+            closeClient(settings);
         }
     }
 
@@ -92,9 +77,9 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
     public void newIndex(IndexDefinition indexDefinition) throws IOException {
         Settings settings = indexDefinition.getSettings() == null ? null :
                 Settings.builder().loadFromSource(indexDefinition.getSettings(), XContentType.JSON).build();
-        Map<String, ?> mappings = indexDefinition.getMappings() == null ? null :
+        Map<String, Object> mappings = indexDefinition.getMappings() == null ? null :
                 JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
-                DeprecationHandler.THROW_UNSUPPORTED_OPERATION, indexDefinition.getMappings()).mapOrdered();
+                        DeprecationHandler.THROW_UNSUPPORTED_OPERATION, indexDefinition.getMappings()).mapOrdered();
         newIndex(indexDefinition.getFullIndexName(), settings, mappings);
     }
 
@@ -109,15 +94,17 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
     }
 
     @Override
-    public void newIndex(String index, Settings settings, Map<String, ?> map) throws IOException {
-        newIndex(index, settings, map == null || map.isEmpty() ? null :
-                JsonXContent.contentBuilder().map(map));
+    public void newIndex(String index, Settings settings, XContentBuilder builder) throws IOException {
+        String mappingString = builder != null ? Strings.toString(builder) : null;
+        Map<String, Object> mappings = mappingString != null ? JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
+                DeprecationHandler.THROW_UNSUPPORTED_OPERATION, mappingString).mapOrdered() : null;
+        newIndex(index, settings, mappings);
     }
 
     @Override
-    public void newIndex(String index, Settings settings, XContentBuilder builder) throws IOException {
+    public void newIndex(String index, Settings settings, Map<String, Object> mapping) {
         if (index == null) {
-            logger.warn("no index name given to create index");
+            logger.warn("no index name give to create index");
             return;
         }
         ensureClientIsPresent();
@@ -126,15 +113,13 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
         if (settings != null) {
             createIndexRequestBuilder.setSettings(settings);
         }
-        if (builder != null) {
-            // NOTE: addMapping(type, ...) API is very fragile. Use XConteBuilder for safe typing.
-            createIndexRequestBuilder.addMapping(TYPE_NAME, builder);
+        if (mapping != null) {
+            createIndexRequestBuilder.addMapping("_doc", mapping);
         }
         CreateIndexResponse createIndexResponse = createIndexRequestBuilder.execute().actionGet();
-        logger.info("index {} created: {}", index,
-                Strings.toString(createIndexResponse.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS)));
-        waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
-        waitForShards(30L, TimeUnit.SECONDS);
+        if (createIndexResponse.isAcknowledged()) {
+            logger.info("index {} created", index);
+        }
     }
 
     @Override
@@ -145,84 +130,75 @@ public abstract class AbstractBulkClient extends AbstractNativeClient implements
     @Override
     public void startBulk(String index, long startRefreshIntervalSeconds, long stopRefreshIntervalSeconds)
             throws IOException {
-        if (bulkController != null) {
-            ensureClientIsPresent();
-            bulkController.startBulkMode(index, startRefreshIntervalSeconds, stopRefreshIntervalSeconds);
-        }
+        ensureClientIsPresent();
+        bulkController.startBulkMode(index, startRefreshIntervalSeconds, stopRefreshIntervalSeconds);
     }
 
     @Override
     public void stopBulk(IndexDefinition indexDefinition) throws IOException {
-        if (bulkController != null) {
-            ensureClientIsPresent();
-            bulkController.stopBulkMode(indexDefinition);
-        }
+        ensureClientIsPresent();
+        bulkController.stopBulkMode(indexDefinition);
     }
 
     @Override
     public void stopBulk(String index, long timeout, TimeUnit timeUnit) throws IOException {
-        if (bulkController != null) {
-            ensureClientIsPresent();
-            bulkController.stopBulkMode(index, timeout, timeUnit);
-        }
+        ensureClientIsPresent();
+        bulkController.stopBulkMode(index, timeout, timeUnit);
     }
 
     @Override
     public BulkClient index(String index, String id, boolean create, String source) {
-        return index(new IndexRequest(index, TYPE_NAME, id).create(create)
-                .source(source.getBytes(StandardCharsets.UTF_8), XContentType.JSON));
+        return index(index, id, create, new BytesArray(source.getBytes(StandardCharsets.UTF_8)));
     }
 
     @Override
     public BulkClient index(String index, String id, boolean create, BytesReference source) {
-        return index(new IndexRequest(index, TYPE_NAME, id).create(create)
+        return index(new IndexRequest().index(index).type("_doc").id(id).create(create)
                 .source(source, XContentType.JSON));
     }
 
     @Override
     public BulkClient index(IndexRequest indexRequest) {
         ensureClientIsPresent();
-        bulkController.index(indexRequest);
+        bulkController.bulkIndex(indexRequest);
         return this;
     }
 
     @Override
     public BulkClient delete(String index, String id) {
-        return delete(new DeleteRequest(index, TYPE_NAME, id));
+        return delete(new DeleteRequest().index(index).type("_doc").id(id));
     }
 
     @Override
     public BulkClient delete(DeleteRequest deleteRequest) {
         ensureClientIsPresent();
-        bulkController.delete(deleteRequest);
+        bulkController.bulkDelete(deleteRequest);
         return this;
     }
 
     @Override
     public BulkClient update(String index, String id, BytesReference source) {
-        return update(new UpdateRequest(index, TYPE_NAME, id)
+        return update(new UpdateRequest().index(index).type("_doc").id(id)
                 .doc(source, XContentType.JSON));
     }
 
     @Override
     public BulkClient update(String index, String id, String source) {
-        return update(new UpdateRequest(index, TYPE_NAME, id)
+        return update(new UpdateRequest().index(index).type("_doc").id(id)
                 .doc(source.getBytes(StandardCharsets.UTF_8), XContentType.JSON));
     }
 
     @Override
     public BulkClient update(UpdateRequest updateRequest) {
         ensureClientIsPresent();
-        bulkController.update(updateRequest);
+        bulkController.bulkUpdate(updateRequest);
         return this;
     }
 
     @Override
     public boolean waitForResponses(long timeout, TimeUnit timeUnit) {
         ensureClientIsPresent();
-        boolean success = bulkController.waitForResponses(timeout, timeUnit);
-        logger.info("waited for all bulk responses: " + success);
-        return success;
+        return bulkController.waitForBulkResponses(timeout, timeUnit);
     }
 
     @Override

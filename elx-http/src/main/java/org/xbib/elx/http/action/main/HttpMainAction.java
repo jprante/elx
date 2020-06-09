@@ -8,6 +8,7 @@ import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
 
@@ -24,12 +25,7 @@ public class HttpMainAction extends HttpAction<MainRequest, MainResponse> {
     }
 
     @Override
-    protected CheckedFunction<XContentParser, MainResponse, IOException> entityParser() {
+    protected CheckedFunction<XContentParser, MainResponse, IOException> entityParser(HttpResponse httpResponse) {
         return MainResponse::fromXContent;
-    }
-
-    @Override
-    protected MainResponse emptyResponse() {
-        return new MainResponse();
     }
 }

@@ -7,6 +7,7 @@ import org.elasticsearch.Version;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequestBuilder;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.client.transport.TransportClient;
@@ -24,17 +25,24 @@ import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.transport.netty4.Netty4Plugin;
 import org.xbib.elx.common.util.NetworkUtils;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+/**
+ * Transport client with additional methods using the BulkProcessor.
+ */
 public class TransportClientHelper {
 
+    private static final Logger logger = LogManager.getLogger(TransportClientHelper.class.getName());
 
-    private static final Logger logger = LogManager.getLogger(TransportAdminClient.class.getName());
+    private static final Map<String, ElasticsearchClient> clientMap = new HashMap<>();
 
     protected ElasticsearchClient createClient(Settings settings) throws IOException {
         if (settings != null) {
@@ -52,6 +60,16 @@ public class TransportClientHelper {
             return new MyTransportClient(transportClientSettings, Collections.singletonList(Netty4Plugin.class));
         }
         return null;
+    }
+
+    public void closeClient(Settings settings) {
+        ElasticsearchClient client = clientMap.remove(settings.get("cluster.name"));
+        if (client != null) {
+            if (client instanceof Client) {
+                ((Client) client).close();
+            }
+            client.threadPool().shutdownNow();
+        }
     }
 
     public void init(TransportClient transportClient, Settings settings) throws IOException {
@@ -96,13 +114,15 @@ public class TransportClientHelper {
         logger.info("connected to nodes = {}", nodes);
         if (nodes != null && !nodes.isEmpty()) {
             if (autodiscover) {
-                logger.debug("trying to auto-discover all nodes...");
+                logger.debug("trying to discover all nodes...");
                 ClusterStateRequestBuilder clusterStateRequestBuilder =
                         new ClusterStateRequestBuilder(transportClient, ClusterStateAction.INSTANCE);
                 ClusterStateResponse clusterStateResponse = clusterStateRequestBuilder.execute().actionGet();
                 DiscoveryNodes discoveryNodes = clusterStateResponse.getState().getNodes();
-                addDiscoveryNodes(transportClient, discoveryNodes);
-                logger.info("after auto-discovery: connected to {}", transportClient.connectedNodes());
+                for (DiscoveryNode discoveryNode : discoveryNodes) {
+                    transportClient.addTransportAddress(discoveryNode.getAddress());
+                }
+                logger.info("after discovery: connected to {}", transportClient.connectedNodes());
             }
             return true;
         }
@@ -114,7 +134,7 @@ public class TransportClientHelper {
                 // "cluster.name"
                 .put(ClusterName.CLUSTER_NAME_SETTING.getKey(),
                         settings.get(ClusterName.CLUSTER_NAME_SETTING.getKey()))
-                // "processors"
+                // "node.processors"
                 .put(EsExecutors.PROCESSORS_SETTING.getKey(),
                         settings.get(EsExecutors.PROCESSORS_SETTING.getKey(),
                                 String.valueOf(Runtime.getRuntime().availableProcessors())))
@@ -122,12 +142,6 @@ public class TransportClientHelper {
                 .put(NetworkModule.TRANSPORT_TYPE_KEY,
                         Netty4Plugin.NETTY_TRANSPORT_NAME)
                 .build();
-    }
-
-    private void addDiscoveryNodes(TransportClient transportClient, DiscoveryNodes discoveryNodes) {
-        for (DiscoveryNode discoveryNode : discoveryNodes) {
-            transportClient.addTransportAddress(discoveryNode.getAddress());
-        }
     }
 
     static class MyTransportClient extends TransportClient {

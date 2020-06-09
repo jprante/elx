@@ -35,6 +35,7 @@ class DuplicateIDTest {
         long numactions = ACTIONS;
         final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
+                .put(helper.getNodeSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .build();
         try {
@@ -49,7 +50,7 @@ class DuplicateIDTest {
             assertTrue(bulkClient.getSearchableDocs("test") < ACTIONS);
         } finally {
             bulkClient.close();
-            assertEquals(numactions, bulkClient.getBulkMetric().getSucceeded().getCount());
+            assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }

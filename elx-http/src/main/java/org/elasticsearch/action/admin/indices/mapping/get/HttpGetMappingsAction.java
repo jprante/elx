@@ -7,6 +7,7 @@ import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
 import java.util.Map;
@@ -29,13 +30,8 @@ public class HttpGetMappingsAction extends HttpAction<GetMappingsRequest, GetMap
     }
 
     @Override
-    protected CheckedFunction<XContentParser, GetMappingsResponse, IOException> entityParser() {
+    protected CheckedFunction<XContentParser, GetMappingsResponse, IOException> entityParser(HttpResponse httpResponse) {
         return this::fromXContent;
-    }
-
-    @Override
-    protected GetMappingsResponse emptyResponse() {
-        return new GetMappingsResponse();
     }
 
     @SuppressWarnings("unchecked")

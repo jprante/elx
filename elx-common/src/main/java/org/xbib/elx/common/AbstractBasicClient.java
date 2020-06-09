@@ -23,31 +23,28 @@ import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.xbib.elx.api.NativeClient;
+import org.xbib.elx.api.BasicClient;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public abstract class AbstractNativeClient implements NativeClient {
+public abstract class AbstractBasicClient implements BasicClient {
 
-    private static final Logger logger = LogManager.getLogger(AbstractNativeClient.class.getName());
-
-    /**
-     * The one and only index type name used in the extended client.
-     * NOTE: all Elasticsearch version less than 6.2.0 forbid a prepending "_".
-     */
-    protected static final String TYPE_NAME = "doc";
+    private static final Logger logger = LogManager.getLogger(AbstractBasicClient.class.getName());
 
     protected ElasticsearchClient client;
 
+    protected Settings settings;
+
     protected final AtomicBoolean closed;
 
-    protected AbstractNativeClient() {
+    protected AbstractBasicClient() {
         closed = new AtomicBoolean(false);
     }
 
     @Override
     public void setClient(ElasticsearchClient client) {
+        logger.log(Level.INFO, "setting client = " + client);
         this.client = client;
     }
 
@@ -56,15 +53,12 @@ public abstract class AbstractNativeClient implements NativeClient {
         return client;
     }
 
-    protected abstract ElasticsearchClient createClient(Settings settings) throws IOException;
-
-    protected abstract void closeClient() throws IOException;
-
     @Override
     public void init(Settings settings) throws IOException {
-        if (client == null) {
+        if (closed.compareAndSet(false, true)) {
             logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
-            client = createClient(settings);
+            this.settings = settings;
+            setClient(createClient(settings));
         }
     }
 
@@ -91,7 +85,6 @@ public abstract class AbstractNativeClient implements NativeClient {
     @Override
     public void waitForCluster(String statusString, long maxWaitTime, TimeUnit timeUnit) {
         ensureClientIsPresent();
-        logger.info("waiting for cluster status " + statusString);
         ClusterHealthStatus status = ClusterHealthStatus.fromString(statusString);
         TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
         ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
@@ -167,9 +160,13 @@ public abstract class AbstractNativeClient implements NativeClient {
     public void close() throws IOException {
         ensureClientIsPresent();
         if (closed.compareAndSet(false, true)) {
-            closeClient();
+            closeClient(settings);
         }
     }
+
+    protected abstract ElasticsearchClient createClient(Settings settings) throws IOException;
+
+    protected abstract void closeClient(Settings settings) throws IOException;
 
     protected void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) throws IOException {
         ensureClientIsPresent();
@@ -215,5 +212,4 @@ public abstract class AbstractNativeClient implements NativeClient {
                 throw new IllegalArgumentException("unknown time unit: " + timeUnit);
         }
     }
-
 }

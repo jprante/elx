@@ -11,11 +11,9 @@ import org.elasticsearch.action.ActionRequestBuilder;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.GenericAction;
 import org.elasticsearch.action.support.PlainActionFuture;
-import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.threadpool.ThreadPool;
-import org.xbib.elx.common.AbstractAdminClient;
 import org.xbib.net.URL;
 import org.xbib.netty.http.client.Client;
 import java.io.IOException;
@@ -32,7 +30,7 @@ import java.util.stream.Stream;
 /**
  * Elasticsearch HTTP client.
  */
-public class HttpClientHelper extends AbstractAdminClient implements ElasticsearchClient {
+public class HttpClientHelper {
 
     private static final Logger logger = LogManager.getLogger(HttpClientHelper.class);
 
@@ -58,10 +56,8 @@ public class HttpClientHelper extends AbstractAdminClient implements Elasticsear
         this.actionMap = new HashMap<>();
     }
 
-    @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public void init(Settings settings) throws IOException {
-        super.init(settings);
+    public void init(Settings settings) {
         if (settings.hasValue("url")) {
             this.url = settings.get("url");
         } else if (settings.hasValue("host")) {
@@ -96,22 +92,10 @@ public class HttpClientHelper extends AbstractAdminClient implements Elasticsear
         return nettyHttpClient;
     }
 
-    @Override
-    public ElasticsearchClient getClient() {
-        return this;
-    }
-
-    @Override
-    protected ElasticsearchClient createClient(Settings settings) {
-        return this;
-    }
-
-    @Override
-    protected void closeClient() throws IOException {
+    protected void closeClient(Settings settings) throws IOException {
         nettyHttpClient.shutdownGracefully();
     }
 
-    @Override
     public <Request extends ActionRequest, Response extends ActionResponse,
             RequestBuilder extends ActionRequestBuilder<Request, Response, RequestBuilder>> ActionFuture<Response>
     execute(Action<Request, Response, RequestBuilder> action, Request request) {
@@ -120,21 +104,12 @@ public class HttpClientHelper extends AbstractAdminClient implements Elasticsear
         return actionFuture;
     }
 
-    @Override
     public <Request extends ActionRequest, Response extends ActionResponse,
             RequestBuilder extends ActionRequestBuilder<Request, Response, RequestBuilder>> void
     execute(Action<Request, Response, RequestBuilder> action, Request request, ActionListener<Response> listener) {
         doExecute(action, request, listener);
     }
 
-    @Override
-    public <Request extends ActionRequest, Response extends ActionResponse,
-            RequestBuilder extends ActionRequestBuilder<Request, Response, RequestBuilder>> RequestBuilder
-    prepareExecute(Action<Request, Response, RequestBuilder> action) {
-        return action.newRequestBuilder(this);
-    }
-
-    @Override
     public ThreadPool threadPool() {
         logger.log(Level.TRACE, "returning null for threadPool() request");
         return null;

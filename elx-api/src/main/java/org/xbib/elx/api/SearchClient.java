@@ -12,7 +12,9 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-public interface SearchClient extends NativeClient {
+public interface SearchClient extends BasicClient {
+
+    SearchMetric getSearchMetric();
 
     Optional<GetResponse> get(Consumer<GetRequestBuilder> getRequestBuilder);
 

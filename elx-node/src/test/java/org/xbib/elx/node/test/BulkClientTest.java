@@ -43,6 +43,7 @@ class BulkClientTest {
     void testSingleDoc() throws Exception {
         final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
+                .put(helper.getNodeSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(30))
                 .build();
@@ -52,7 +53,7 @@ class BulkClientTest {
             bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
         } finally {
-            assertEquals(1, bulkClient.getBulkMetric().getSucceeded().getCount());
+            assertEquals(1, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
@@ -65,6 +66,7 @@ class BulkClientTest {
     void testNewIndex() throws Exception {
         final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
+                .put(helper.getNodeSettings())
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
                 .build();
         bulkClient.newIndex("test");
@@ -75,22 +77,22 @@ class BulkClientTest {
     void testMapping() throws Exception {
         try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
                 .setAdminClientProvider(NodeAdminClientProvider.class)
+                .put(helper.getNodeSettings())
                 .build();
              NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
-                .setBulkClientProvider(NodeBulkClientProvider.class)
-                .build()) {
+                     .setBulkClientProvider(NodeBulkClientProvider.class)
+                     .put(helper.getNodeSettings())
+                     .build()) {
             XContentBuilder builder = JsonXContent.contentBuilder()
                     .startObject()
-                    .startObject("doc")
                     .startObject("properties")
                     .startObject("location")
                     .field("type", "geo_point")
                     .endObject()
                     .endObject()
-                    .endObject()
                     .endObject();
             bulkClient.newIndex("test", Settings.EMPTY, builder);
-            assertTrue(adminClient.getMapping("test", "doc").containsKey("properties"));
+            assertTrue(adminClient.getMapping("test", "_doc").containsKey("properties"));
         }
     }
 
@@ -99,6 +101,7 @@ class BulkClientTest {
         long numactions = ACTIONS;
         final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
+                .put(helper.getNodeSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
                 .build();
@@ -111,7 +114,7 @@ class BulkClientTest {
             bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
         } finally {
-            assertEquals(numactions, bulkClient.getBulkMetric().getSucceeded().getCount());
+            assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
@@ -130,6 +133,7 @@ class BulkClientTest {
         logger.info("maxthreads={} maxactions={} maxloop={}", maxthreads, maxActionsPerRequest, actions);
         final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
+                .put(helper.getNodeSettings())
                 .put(Parameters.MAX_CONCURRENT_REQUESTS.name(), maxthreads)
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), maxActionsPerRequest)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
@@ -165,14 +169,14 @@ class BulkClientTest {
                 logger.warn("latch timeout");
             }
             bulkClient.stopBulk("test", 30L, TimeUnit.SECONDS);
-            assertEquals(maxthreads * actions, bulkClient.getBulkMetric().getSucceeded().getCount());
+            assertEquals(maxthreads * actions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
+            bulkClient.refreshIndex("test");
+            assertEquals(maxthreads * actions, bulkClient.getSearchableDocs("test"));
         } finally {
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
             assertNull(bulkClient.getBulkController().getLastBulkError());
-            bulkClient.refreshIndex("test");
-            assertEquals(maxthreads * actions, bulkClient.getSearchableDocs("test"));
             bulkClient.close();
         }
     }

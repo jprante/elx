@@ -11,6 +11,7 @@ import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
 
@@ -29,12 +30,7 @@ public class HttpCreateIndexAction extends HttpAction<CreateIndexRequest, Create
     }
 
     @Override
-    protected CheckedFunction<XContentParser, CreateIndexResponse, IOException> entityParser() {
+    protected CheckedFunction<XContentParser, CreateIndexResponse, IOException> entityParser(HttpResponse httpResponse) {
         return CreateIndexResponse::fromXContent;
-    }
-
-    @Override
-    protected CreateIndexResponse emptyResponse() {
-        return new CreateIndexResponse();
     }
 }

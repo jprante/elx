@@ -12,6 +12,7 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
 
@@ -37,12 +38,7 @@ public class HttpIndicesAliasesAction extends HttpAction<IndicesAliasesRequest, 
     }
 
     @Override
-    protected CheckedFunction<XContentParser, IndicesAliasesResponse, IOException> entityParser() {
+    protected CheckedFunction<XContentParser, IndicesAliasesResponse, IOException> entityParser(HttpResponse httpResponse) {
         return IndicesAliasesResponse::fromXContent;
-    }
-
-    @Override
-    protected IndicesAliasesResponse emptyResponse() {
-        return new IndicesAliasesResponse();
     }
 }

@@ -36,9 +36,11 @@ class IndexShiftTest {
     void testIndexShift() throws Exception {
         final NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
                 .setAdminClientProvider(NodeAdminClientProvider.class)
+                .put(helper.getNodeSettings())
                 .build();
         final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
+                .put(helper.getNodeSettings())
                 .build();
         try {
             Settings settings = Settings.builder()

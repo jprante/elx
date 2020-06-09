@@ -11,6 +11,7 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.common.HttpResponse;
 import java.io.IOException;
 
 public class HttpClearScrollAction extends HttpAction<ClearScrollRequest, ClearScrollResponse> {
@@ -28,12 +29,7 @@ public class HttpClearScrollAction extends HttpAction<ClearScrollRequest, ClearS
     }
 
     @Override
-    protected CheckedFunction<XContentParser, ClearScrollResponse, IOException> entityParser() {
+    protected CheckedFunction<XContentParser, ClearScrollResponse, IOException> entityParser(HttpResponse httpResponse) {
         return ClearScrollResponse::fromXContent;
-    }
-
-    @Override
-    protected ClearScrollResponse emptyResponse() {
-        return new ClearScrollResponse(true, 0);
     }
 }

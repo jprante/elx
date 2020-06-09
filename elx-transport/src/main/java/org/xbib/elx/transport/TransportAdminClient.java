@@ -19,17 +19,13 @@ public class TransportAdminClient extends AbstractAdminClient {
     }
 
     @Override
-    protected ElasticsearchClient createClient(Settings settings) throws IOException {
+    public ElasticsearchClient createClient(Settings settings) throws IOException {
         return helper.createClient(settings);
     }
 
     @Override
-    protected void closeClient() {
-        if (getClient() != null) {
-            TransportClient client = (TransportClient) getClient();
-            client.close();
-            client.threadPool().shutdown();
-        }
+    public void closeClient(Settings settings) {
+        helper.closeClient(settings);
     }
 
     @Override

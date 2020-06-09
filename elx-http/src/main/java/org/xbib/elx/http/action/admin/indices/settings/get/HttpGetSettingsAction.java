@@ -10,6 +10,7 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentParserUtils;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -30,14 +31,8 @@ public class HttpGetSettingsAction extends HttpAction<GetSettingsRequest, GetSet
     }
 
     @Override
-    protected CheckedFunction<XContentParser, GetSettingsResponse, IOException> entityParser() {
+    protected CheckedFunction<XContentParser, GetSettingsResponse, IOException> entityParser(HttpResponse httpResponse) {
         return this::fromXContent;
-    }
-
-    @Override
-    protected GetSettingsResponse emptyResponse() {
-        ImmutableOpenMap<String, Settings> settingsMap = ImmutableOpenMap.<String, Settings>builder().build();
-        return new GetSettingsResponse(settingsMap);
     }
 
     private GetSettingsResponse fromXContent(XContentParser parser) throws IOException {

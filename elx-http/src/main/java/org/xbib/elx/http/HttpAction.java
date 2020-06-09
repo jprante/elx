@@ -25,6 +25,7 @@ import org.elasticsearch.rest.RestStatus;
 import org.xbib.net.URL;
 import org.xbib.netty.http.client.api.Request;
 import org.xbib.netty.http.client.api.Transport;
+import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -71,13 +72,13 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
                 } else {
                     ElasticsearchStatusException statusException = parseToError(httpActionContext);
                     if (statusException.status().equals(RestStatus.NOT_FOUND)) {
-                        listener.onResponse(emptyResponse());
+                        listener.onResponse(parseToResponse(httpActionContext));
                     } else {
                         listener.onFailure(statusException);
                     }
                 }
             });
-            Transport transport = httpActionContext.getHelper().internalClient().execute(httpRequest);
+            Transport transport = httpActionContext.getExtendedHttpClient().internalClient().execute(httpRequest);
             httpActionContext.setHttpClientTransport(transport);
             if (transport.isFailed()) {
                 listener.onFailure(new Exception(transport.getFailure()));
@@ -155,11 +156,11 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
             throw new IllegalStateException("unsupported content-type: " + mediaType);
         }
         try (XContentParser parser = xContentType.xContent()
-                .createParser(httpActionContext.getHelper().getRegistry(),
+                .createParser(httpActionContext.getExtendedHttpClient().getRegistry(),
                 DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
                 httpActionContext.getHttpResponse().getBody().toString(StandardCharsets.UTF_8))) {
-            return entityParser().apply(parser);
-        } catch (IOException e) {
+            return entityParser(httpActionContext.getHttpResponse()).apply(parser);
+        } catch (Exception e) {
             logger.error(e.getMessage(), e);
             return null;
         }
@@ -167,7 +168,7 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
 
     protected ElasticsearchStatusException parseToError(HttpActionContext<R, T> httpActionContext) {
         try (XContentParser parser = XContentFactory.xContent(XContentType.JSON)
-                .createParser(httpActionContext.getHelper().getRegistry(),
+                .createParser(httpActionContext.getExtendedHttpClient().getRegistry(),
                         DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
                         httpActionContext.getHttpResponse().getBody().toString(StandardCharsets.UTF_8))) {
             return errorParser().apply(parser);
@@ -183,8 +184,5 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
 
     protected abstract Request.Builder createHttpRequest(String baseUrl, R request) throws IOException;
 
-    protected abstract CheckedFunction<XContentParser, T, IOException> entityParser();
-
-    protected abstract T emptyResponse();
-
+    protected abstract CheckedFunction<XContentParser, T, IOException> entityParser(HttpResponse httpResponse);
 }

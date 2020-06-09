@@ -11,6 +11,7 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.common.HttpResponse;
 import java.io.IOException;
 
 public class HttpSearchScrollAction extends HttpAction<SearchScrollRequest, SearchResponse> {
@@ -28,12 +29,7 @@ public class HttpSearchScrollAction extends HttpAction<SearchScrollRequest, Sear
     }
 
     @Override
-    protected SearchResponse emptyResponse() {
-        return new SearchResponse();
-    }
-
-    @Override
-    protected CheckedFunction<XContentParser, SearchResponse, IOException> entityParser() {
+    protected CheckedFunction<XContentParser, SearchResponse, IOException> entityParser(HttpResponse httpResponse) {
         return SearchResponse::fromXContent;
     }
 }

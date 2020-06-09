@@ -28,8 +28,11 @@ import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
 import org.elasticsearch.action.admin.indices.settings.get.GetSettingsAction;
 import org.elasticsearch.action.admin.indices.settings.get.GetSettingsRequest;
 import org.elasticsearch.action.admin.indices.settings.get.GetSettingsResponse;
+import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsAction;
+import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.cluster.metadata.AliasMetaData;
 import org.elasticsearch.cluster.metadata.AliasOrIndex;
@@ -62,7 +65,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -87,9 +89,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-public abstract class AbstractAdminClient extends AbstractNativeClient implements AdminClient {
+public abstract class AbstractAdminClient extends AbstractBasicClient implements AdminClient {
 
     private static final Logger logger = LogManager.getLogger(AbstractAdminClient.class.getName());
+
+    /**
+     * The one and only index type name used in the extended client.
+     * Notr that all Elasticsearch version < 6.2.0 do not allow a prepending "_".
+     */
+    private static final String TYPE_NAME = "doc";
 
     private static final IndexShiftResult EMPTY_INDEX_SHIFT_RESULT = new IndexShiftResult() {
         @Override
@@ -147,13 +155,12 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
 
     @Override
     public AdminClient deleteIndex(String index) {
+        ensureClientIsPresent();
         if (index == null) {
             logger.warn("no index name given to delete index");
             return this;
         }
-        ensureClientIsPresent();
-        DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest()
-                .indices(index);
+        DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest().indices(index);
         client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
         waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
         waitForShards(30L, TimeUnit.SECONDS);
@@ -195,7 +202,6 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
         }
         return replica;
     }
-
 
     @Override
     public String resolveMostRecentIndex(String alias) {
@@ -295,7 +301,7 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
                 String alias = entry.getKey();
                 String filter = entry.getValue();
                 indicesAliasesRequest.addAliasAction(IndicesAliasesRequest.AliasActions.remove()
-                        .indices(oldIndex).alias(alias));
+                        .index(oldIndex).alias(alias));
                 if (filter != null) {
                     indicesAliasesRequest.addAliasAction(IndicesAliasesRequest.AliasActions.add()
                             .index(fullIndexName).alias(alias).filter(filter));
@@ -321,7 +327,7 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
                 } else {
                     String filter = oldAliasMap.get(additionalAlias);
                     indicesAliasesRequest.addAliasAction(IndicesAliasesRequest.AliasActions.remove()
-                            .indices(oldIndex).alias(additionalAlias));
+                            .index(oldIndex).alias(additionalAlias));
                     if (filter != null) {
                         indicesAliasesRequest.addAliasAction(IndicesAliasesRequest.AliasActions.add()
                                 .index(fullIndexName).alias(additionalAlias).filter(filter));
@@ -337,8 +343,8 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
             logger.debug("indices alias request = {}", indicesAliasesRequest.getAliasActions().toString());
             IndicesAliasesResponse indicesAliasesResponse =
                     client.execute(IndicesAliasesAction.INSTANCE, indicesAliasesRequest).actionGet();
-            logger.debug("response isAcknowledged = {} isFragment = {}",
-                    indicesAliasesResponse.isAcknowledged(), indicesAliasesResponse.isFragment());
+            logger.debug("response isAcknowledged = {}",
+                    indicesAliasesResponse.isAcknowledged());
         }
         return new SuccessIndexShiftResult(moveAliases, newAliases);
     }
@@ -358,12 +364,11 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
             return EMPTY_INDEX_PRUNE_RESULT;
         }
         ensureClientIsPresent();
-        GetIndexRequestBuilder getIndexRequestBuilder =
-                new GetIndexRequestBuilder(client, GetIndexAction.INSTANCE);
+        GetIndexRequestBuilder getIndexRequestBuilder = new GetIndexRequestBuilder(client, GetIndexAction.INSTANCE);
         GetIndexResponse getIndexResponse = getIndexRequestBuilder.execute().actionGet();
         Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
         logger.info("found {} indices", getIndexResponse.getIndices().length);
-        Set<String> candidateIndices = new TreeSet<>();
+        List<String> candidateIndices = new ArrayList<>();
         for (String s : getIndexResponse.getIndices()) {
             Matcher m = pattern.matcher(s);
             if (m.matches() && index.equals(m.group(1)) && !s.equals(fullIndexName)) {
@@ -456,7 +461,7 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
     @Override
     public IndexDefinition buildIndexDefinitionFromSettings(String index, Settings settings)
             throws IOException {
-        boolean isEnabled = settings.getAsBoolean("enabled", !(client instanceof MockAdminClient));
+        boolean isEnabled = settings.getAsBoolean("enabled", false);
         String indexName = settings.get("name", index);
         String fullIndexName;
         String dateTimePattern = settings.get("dateTimePattern");
@@ -488,6 +493,35 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
                 .setStopRefreshInterval(settings.getAsLong("bulk.stoprefreshinterval", -1L));
     }
 
+    @Override
+    public void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) throws IOException {
+        ensureClientIsPresent();
+        if (index == null) {
+            throw new IOException("no index name given");
+        }
+        Settings.Builder updateSettingsBuilder = Settings.builder();
+        updateSettingsBuilder.put(key, value.toString());
+        UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(index)
+                .settings(updateSettingsBuilder).timeout(toTimeValue(timeout, timeUnit));
+        client.execute(UpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
+    }
+
+    @Override
+    public void checkMapping(String index) {
+        ensureClientIsPresent();
+        GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices(index);
+        GetMappingsResponse getMappingsResponse = client.execute(GetMappingsAction.INSTANCE, getMappingsRequest).actionGet();
+        ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> map = getMappingsResponse.getMappings();
+        map.keys().forEach((Consumer<ObjectCursor<String>>) stringObjectCursor -> {
+            ImmutableOpenMap<String, MappingMetaData> mappings = map.get(stringObjectCursor.value);
+            for (ObjectObjectCursor<String, MappingMetaData> cursor : mappings) {
+                String mappingName = cursor.key;
+                MappingMetaData mappingMetaData = cursor.value;
+                checkMapping(index, mappingName, mappingMetaData);
+            }
+        });
+    }
+
     private static String findSettingsFrom(String string) throws IOException {
         if (string == null) {
             return null;
@@ -514,7 +548,7 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
             try (InputStream inputStream = url.openStream()) {
                 if (string.endsWith(".json")) {
                     Map<String, ?> mappings = JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
-                                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION, inputStream).mapOrdered();
+                            DeprecationHandler.THROW_UNSUPPORTED_OPERATION, inputStream).mapOrdered();
                     XContentBuilder builder = JsonXContent.contentBuilder();
                     builder.startObject().map(mappings).endObject();
                     return Strings.toString(builder);
@@ -528,7 +562,7 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
                 }
             }
             return string;
-        } catch (MalformedInputException e) {
+        } catch (MalformedURLException e) {
             return string;
         }
     }
@@ -549,37 +583,22 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
         return result;
     }
 
-    public void checkMapping(String index) {
-        ensureClientIsPresent();
-        GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices(index);
-        GetMappingsResponse getMappingsResponse = client.execute(GetMappingsAction.INSTANCE, getMappingsRequest).actionGet();
-        ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> map = getMappingsResponse.getMappings();
-        map.keys().forEach((Consumer<ObjectCursor<String>>) stringObjectCursor -> {
-            ImmutableOpenMap<String, MappingMetaData> mappings = map.get(stringObjectCursor.value);
-            for (ObjectObjectCursor<String, MappingMetaData> cursor : mappings) {
-                String mappingName = cursor.key;
-                MappingMetaData mappingMetaData = cursor.value;
-                checkMapping(index, mappingName, mappingMetaData);
-            }
-        });
-    }
-
     private void checkMapping(String index, String type, MappingMetaData mappingMetaData) {
         try {
             SearchSourceBuilder builder = new SearchSourceBuilder();
             builder.query(QueryBuilders.matchAllQuery());
             builder.size(0);
-            SearchRequest searchRequest = new SearchRequest();
-            searchRequest.indices(index);
-            searchRequest.types(type);
-            searchRequest.source(builder);
-            SearchResponse searchResponse =
-                    client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
+            SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE)
+                    .setIndices(index)
+                    .setQuery(QueryBuilders.matchAllQuery())
+                    .setSize(0)
+                    .setTrackTotalHits(true);
+            SearchResponse searchResponse = searchRequestBuilder.execute().actionGet();
             long total = searchResponse.getHits().getTotalHits();
             if (total > 0L) {
                 Map<String, Long> fields = new TreeMap<>();
                 Map<String, Object> root = mappingMetaData.getSourceAsMap();
-                checkMapping(index, type, "", "", root, fields);
+                checkMapping(index, "", "", root, fields);
                 AtomicInteger empty = new AtomicInteger();
                 Map<String, Long> map = sortByValue(fields);
                 map.forEach((key, value) -> {
@@ -600,7 +619,7 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
     }
 
     @SuppressWarnings("unchecked")
-    private void checkMapping(String index, String type,
+    private void checkMapping(String index,
                               String pathDef, String fieldName, Map<String, Object> map,
                               Map<String, Long> fields) {
         String path = pathDef;
@@ -625,7 +644,7 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
                 String fieldType = o instanceof String ? o.toString() : null;
                 // do not recurse into our custom field mapper
                 if (!"standardnumber".equals(fieldType) && !"ref".equals(fieldType)) {
-                    checkMapping(index, type, path, key, child, fields);
+                    checkMapping(index, path, key, child, fields);
                 }
             } else if ("type".equals(key)) {
                 QueryBuilder filterBuilder = QueryBuilders.existsQuery(path);
@@ -633,12 +652,12 @@ public abstract class AbstractAdminClient extends AbstractNativeClient implement
                 SearchSourceBuilder builder = new SearchSourceBuilder();
                 builder.query(queryBuilder);
                 builder.size(0);
-                SearchRequest searchRequest = new SearchRequest();
-                searchRequest.indices(index);
-                searchRequest.types(type);
-                searchRequest.source(builder);
-                SearchResponse searchResponse =
-                        client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
+                SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE)
+                        .setIndices(index)
+                        .setQuery(queryBuilder)
+                        .setSize(0)
+                        .setTrackTotalHits(true);
+                SearchResponse searchResponse = searchRequestBuilder.execute().actionGet();
                 fields.put(path, searchResponse.getHits().getTotalHits());
             }
         }

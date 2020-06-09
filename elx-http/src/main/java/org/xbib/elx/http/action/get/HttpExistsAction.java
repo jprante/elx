@@ -8,6 +8,7 @@ import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.netty.http.client.api.Request;
+import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
 
@@ -20,16 +21,11 @@ public class HttpExistsAction extends HttpAction<GetRequest, GetResponse> {
 
     @Override
     protected Request.Builder createHttpRequest(String url, GetRequest request) {
-        return newHeadRequest(url, "/" + request.index() + "/" + request.type() + "/" + request.id());
+        return newHeadRequest(url, "/" + request.index() + "/_doc/" + request.id());
     }
 
     @Override
-    protected CheckedFunction<XContentParser, GetResponse, IOException> entityParser() {
+    protected CheckedFunction<XContentParser, GetResponse, IOException> entityParser(HttpResponse httpResponse) {
         return GetResponse::fromXContent;
-    }
-
-    @Override
-    protected GetResponse emptyResponse() {
-        return new GetResponse();
     }
 }
