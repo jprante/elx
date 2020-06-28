@@ -39,12 +39,11 @@ class SearchTest {
     @Test
     void testDocStream() throws Exception {
         long numactions = ACTIONS;
-        final TransportBulkClient bulkClient = ClientBuilder.builder()
+        try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
                 .put(helper.getTransportSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
-                .build();
-        try (bulkClient) {
+                .build()) {
             bulkClient.newIndex("test");
             for (int i = 0; i < ACTIONS; i++) {
                 bulkClient.index("test", null, false,
@@ -54,12 +53,12 @@ class SearchTest {
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
             bulkClient.refreshIndex("test");
             assertEquals(numactions, bulkClient.getSearchableDocs("test"));
+            assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkController().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkController().getLastBulkError());
+            }
+            assertNull(bulkClient.getBulkController().getLastBulkError());
         }
-        assertEquals(numactions, bulkClient.getBulkMetric().getSucceeded().getCount());
-        if (bulkClient.getBulkController().getLastBulkError() != null) {
-            logger.error("error", bulkClient.getBulkController().getLastBulkError());
-        }
-        assertNull(bulkClient.getBulkController().getLastBulkError());
         try (TransportSearchClient searchClient = ClientBuilder.builder()
                 .setSearchClientProvider(TransportSearchClientProvider.class)
                 .put(helper.getTransportSettings())

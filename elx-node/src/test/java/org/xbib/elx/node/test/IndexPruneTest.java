@@ -33,11 +33,11 @@ class IndexPruneTest {
 
     @Test
     void testPrune() throws IOException {
-        try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
+        try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client)
                 .setAdminClientProvider(NodeAdminClientProvider.class)
                 .put(helper.getNodeSettings())
                 .build();
-             NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
+             NodeBulkClient bulkClient = ClientBuilder.builder(helper.client)
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                      .put(helper.getNodeSettings())
                 .build()) {

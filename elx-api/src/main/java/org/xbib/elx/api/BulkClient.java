@@ -14,12 +14,6 @@ import java.util.concurrent.TimeUnit;
 public interface BulkClient extends BasicClient, Flushable {
 
     /**
-     * Get bulk metric.
-     * @return the bulk metric
-     */
-    BulkMetric getBulkMetric();
-
-    /**
      * Get buulk control.
      * @return the bulk control
      */

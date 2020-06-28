@@ -6,13 +6,12 @@ import org.elasticsearch.action.bulk.BulkAction;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchAction;
-import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,16 +53,14 @@ class SearchTest {
         client.execute(RefreshAction.INSTANCE, new RefreshRequest()).actionGet();
         for (int i = 0; i < 1; i++) {
             QueryBuilder queryStringBuilder = QueryBuilders.queryStringQuery("rs:" + 1234);
-            SearchSourceBuilder searchSource = new SearchSourceBuilder();
-            searchSource.query(queryStringBuilder);
-            searchSource.sort("rowcount", SortOrder.DESC);
-            searchSource.from(i * 10);
-            searchSource.size(10);
-            SearchRequest searchRequest = new SearchRequest();
-            searchRequest.indices("pages");
-            searchRequest.types("row");
-            searchRequest.source(searchSource);
-            SearchResponse searchResponse = client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
+            SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE)
+                    .setIndices("pages")
+                    .setTypes("row")
+                    .setQuery(queryStringBuilder)
+                    .addSort("rowcount", SortOrder.DESC)
+                    .setFrom(i * 10)
+                    .setSize(10);
+            SearchResponse searchResponse = searchRequestBuilder.execute().actionGet();
             assertTrue(searchResponse.getHits().getTotalHits() > 0);
         }
     }

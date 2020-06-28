@@ -20,7 +20,7 @@ class DuplicateIDTest {
 
     private static final Long ACTIONS = 100L;
 
-    private static final Long MAX_ACTIONS_PER_REQUEST = 10L;
+    private static final Long MAX_ACTIONS_PER_REQUEST = 5L;
 
     private final TestExtension.Helper helper;
 
@@ -45,7 +45,7 @@ class DuplicateIDTest {
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
             bulkClient.refreshIndex("test");
             assertTrue(bulkClient.getSearchableDocs("test") < ACTIONS);
-            assertEquals(numactions, bulkClient.getBulkMetric().getSucceeded().getCount());
+            assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }

@@ -36,4 +36,5 @@ public interface BulkController extends Closeable, Flushable {
     void stopBulkMode(IndexDefinition indexDefinition) throws IOException;
 
     void stopBulkMode(String index, long timeout, TimeUnit timeUnit) throws IOException;
+
 }

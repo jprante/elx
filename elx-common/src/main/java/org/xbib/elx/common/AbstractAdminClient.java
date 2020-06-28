@@ -32,6 +32,7 @@ import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsAction;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.cluster.metadata.AliasAction;
 import org.elasticsearch.cluster.metadata.AliasMetaData;
@@ -365,7 +366,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         GetIndexRequestBuilder getIndexRequestBuilder = new GetIndexRequestBuilder(client, GetIndexAction.INSTANCE);
         GetIndexResponse getIndexResponse = getIndexRequestBuilder.execute().actionGet();
         Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
-        logger.info("{} indices", getIndexResponse.getIndices().length);
+        logger.info("found {} indices", getIndexResponse.getIndices().length);
         List<String> candidateIndices = new ArrayList<>();
         for (String s : getIndexResponse.getIndices()) {
             Matcher m = pattern.matcher(s);
@@ -459,7 +460,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     @Override
     public IndexDefinition buildIndexDefinitionFromSettings(String index, Settings settings)
             throws IOException {
-        boolean isEnabled = settings.getAsBoolean("enabled", !(client instanceof MockAdminClient));
+        boolean isEnabled = settings.getAsBoolean("enabled", false);
         String indexName = settings.get("name", index);
         String fullIndexName;
         String dateTimePattern = settings.get("dateTimePattern");
@@ -502,6 +503,22 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(index)
                 .settings(updateSettingsBuilder).timeout(toTimeValue(timeout, timeUnit));
         client.execute(UpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
+    }
+
+    @Override
+    public void checkMapping(String index) {
+        ensureClientIsPresent();
+        GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices(index);
+        GetMappingsResponse getMappingsResponse = client.execute(GetMappingsAction.INSTANCE, getMappingsRequest).actionGet();
+        ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> map = getMappingsResponse.getMappings();
+        map.keys().forEach((Consumer<ObjectCursor<String>>) stringObjectCursor -> {
+            ImmutableOpenMap<String, MappingMetaData> mappings = map.get(stringObjectCursor.value);
+            for (ObjectObjectCursor<String, MappingMetaData> cursor : mappings) {
+                String mappingName = cursor.key;
+                MappingMetaData mappingMetaData = cursor.value;
+                checkMapping(index, mappingName, mappingMetaData);
+            }
+        });
     }
 
     private static String findSettingsFrom(String string) throws IOException {
@@ -563,32 +580,14 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         return result;
     }
 
-    public void checkMapping(String index) {
-        ensureClientIsPresent();
-        GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices(index);
-        GetMappingsResponse getMappingsResponse = client.execute(GetMappingsAction.INSTANCE, getMappingsRequest).actionGet();
-        ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> map = getMappingsResponse.getMappings();
-        map.keys().forEach((Consumer<ObjectCursor<String>>) stringObjectCursor -> {
-            ImmutableOpenMap<String, MappingMetaData> mappings = map.get(stringObjectCursor.value);
-            for (ObjectObjectCursor<String, MappingMetaData> cursor : mappings) {
-                String mappingName = cursor.key;
-                MappingMetaData mappingMetaData = cursor.value;
-                checkMapping(index, mappingName, mappingMetaData);
-            }
-        });
-    }
-
     private void checkMapping(String index, String type, MappingMetaData mappingMetaData) {
         try {
-            SearchSourceBuilder builder = new SearchSourceBuilder();
-            builder.query(QueryBuilders.matchAllQuery());
-            builder.size(0);
-            SearchRequest searchRequest = new SearchRequest();
-            searchRequest.indices(index);
-            searchRequest.types(type);
-            searchRequest.source(builder);
-            SearchResponse searchResponse =
-                    client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
+            SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE)
+                    .setIndices(index)
+                    .setTypes(type)
+                    .setQuery(QueryBuilders.matchAllQuery())
+                    .setSize(0);
+            SearchResponse searchResponse = searchRequestBuilder.execute().actionGet();
             long total = searchResponse.getHits().getTotalHits();
             if (total > 0L) {
                 Map<String, Long> fields = new TreeMap<>();
@@ -644,15 +643,12 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             } else if ("type".equals(key)) {
                 QueryBuilder filterBuilder = QueryBuilders.existsQuery(path);
                 QueryBuilder queryBuilder = QueryBuilders.constantScoreQuery(filterBuilder);
-                SearchSourceBuilder builder = new SearchSourceBuilder();
-                builder.query(queryBuilder);
-                builder.size(0);
-                SearchRequest searchRequest = new SearchRequest();
-                searchRequest.indices(index);
-                searchRequest.types(type);
-                searchRequest.source(builder);
-                SearchResponse searchResponse =
-                        client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
+                SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE)
+                        .setIndices(index)
+                        .setTypes(type)
+                        .setQuery(queryBuilder)
+                        .setSize(0);
+                SearchResponse searchResponse = searchRequestBuilder.execute().actionGet();
                 fields.put(path, searchResponse.getHits().getTotalHits());
             }
         }

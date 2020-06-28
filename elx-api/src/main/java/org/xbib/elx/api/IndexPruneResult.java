@@ -4,7 +4,7 @@ import java.util.Collection;
 
 public interface IndexPruneResult {
 
-    enum State { NOTHING_TO_DO, SUCCESS, NONE, FAIL };
+    enum State { NOTHING_TO_DO, SUCCESS, NONE };
 
     State getState();
 

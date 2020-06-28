@@ -8,6 +8,8 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.plugins.Plugin;
+import org.xbib.elx.common.Parameters;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -34,7 +36,7 @@ public class NodeClientHelper {
                 key -> innerCreateClient(settings));
     }
 
-    public void closeClient(Settings settings) {
+    public void closeClient(Settings settings) throws IOException {
         ElasticsearchClient client = clientMap.remove(settings.get("cluster.name"));
         if (client != null) {
             logger.debug("closing node...");
@@ -49,18 +51,36 @@ public class NodeClientHelper {
                 + " " + System.getProperty("java.vm.vendor")
                 + " " + System.getProperty("java.runtime.version")
                 + " " + System.getProperty("java.vm.version");
-        Settings effectiveSettings = Settings.builder().put(settings)
+        Settings effectiveSettings = Settings.builder()
+                .put(filterSettings(settings))
                 .put("node.client", true)
                 .put("node.master", false)
                 .put("node.data", false)
                 .put("path.home", settings.get("path.home"))
                 .build();
         logger.info("creating node client on {} with effective settings {}",
-                version, effectiveSettings.getAsMap());
+                version, effectiveSettings.toDelimitedString(','));
         Collection<Class<? extends Plugin>> plugins = Collections.emptyList();
         node = new BulkNode(new Environment(effectiveSettings), plugins);
         node.start();
         return node.client();
+    }
+
+    private static Settings filterSettings(Settings settings) {
+        Settings.Builder builder = Settings.builder();
+        for (Map.Entry<String, String> entry : settings.getAsMap().entrySet()) {
+            if (!isPrivateSettings(entry.getKey())) {
+                builder.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return builder.build();
+    }
+
+    private static boolean isPrivateSettings(String key) {
+        return key.equals(Parameters.MAX_ACTIONS_PER_REQUEST.name()) ||
+            key.equals(Parameters.MAX_CONCURRENT_REQUESTS.name()) ||
+            key.equals(Parameters.MAX_VOLUME_PER_REQUEST.name()) ||
+            key.equals(Parameters.FLUSH_INTERVAL.name());
     }
 
     private static class BulkNode extends Node {

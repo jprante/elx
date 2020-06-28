@@ -19,7 +19,7 @@ public class TransportSearchClient extends AbstractSearchClient {
 
     @Override
     public ElasticsearchClient createClient(Settings settings) throws IOException {
-        return helper.createClient(settings, null);
+        return helper.createClient(settings);
     }
 
     @Override
@@ -29,7 +29,7 @@ public class TransportSearchClient extends AbstractSearchClient {
     }
 
     @Override
-    public void closeClient(Settings settings) {
+    public void closeClient(Settings settings) throws IOException {
         helper.closeClient(settings);
     }
 }

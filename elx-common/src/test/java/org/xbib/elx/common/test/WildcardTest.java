@@ -5,12 +5,11 @@ import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.index.IndexAction;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchAction;
-import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -52,13 +51,11 @@ class WildcardTest {
     }
 
     private long count(ElasticsearchClient client, QueryBuilder queryBuilder) {
-        SearchSourceBuilder builder = new SearchSourceBuilder()
-                .query(queryBuilder);
-        SearchRequest searchRequest = new SearchRequest()
-                .indices("index")
-                .types("type")
-                .source(builder);
-        return client.execute(SearchAction.INSTANCE, searchRequest).actionGet().getHits().getTotalHits();
+        SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE)
+                .setIndices("index")
+                .setTypes("type")
+                .setQuery(queryBuilder);
+        return searchRequestBuilder.execute().actionGet().getHits().getTotalHits();
     }
 
     private void validateCount(ElasticsearchClient client, QueryBuilder queryBuilder, long expectedHits) {

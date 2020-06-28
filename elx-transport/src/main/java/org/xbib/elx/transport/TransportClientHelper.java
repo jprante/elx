@@ -29,23 +29,16 @@ public class TransportClientHelper {
 
     private static final Logger logger = LogManager.getLogger(TransportClientHelper.class.getName());
 
-    private static Object configurationObject;
-
     private static final Map<String, ElasticsearchClient> clientMap = new HashMap<>();
 
-    public ElasticsearchClient createClient(Settings settings, Object object) {
-        if (configurationObject == null && object != null) {
-            configurationObject = object;
-        }
-        if (configurationObject instanceof ElasticsearchClient) {
-            return (ElasticsearchClient) configurationObject;
-        }
-        return clientMap.computeIfAbsent(settings.get("cluster.name"),
-                key -> innerCreateClient(settings));
+    public ElasticsearchClient createClient(Settings settings) {
+        String clusterName = settings.get("cluster.name", "elasticsearch");
+        return clientMap.computeIfAbsent(clusterName, key -> innerCreateClient(settings));
     }
 
     public void closeClient(Settings settings) {
-        ElasticsearchClient client = clientMap.remove(settings.get("cluster.name"));
+        String clusterName = settings.get("cluster.name", "elasticsearch");
+        ElasticsearchClient client = clientMap.remove(clusterName);
         if (client != null) {
             if (client instanceof Client) {
                 ((Client) client).close();
@@ -57,8 +50,8 @@ public class TransportClientHelper {
     public void init(TransportClient transportClient, Settings settings) throws IOException {
         Collection<TransportAddress> addrs = findAddresses(settings);
         if (!connect(transportClient, addrs, settings.getAsBoolean("autodiscover", false))) {
-            throw new NoNodeAvailableException("no cluster nodes available, check settings "
-                    + settings.getAsMap());
+            throw new NoNodeAvailableException("no cluster nodes available, check settings = "
+                    + settings.toDelimitedString(','));
         }
     }
 
@@ -77,12 +70,13 @@ public class TransportClientHelper {
                 } catch (NumberFormatException e) {
                     logger.warn(e.getMessage(), e);
                 }
-            }
-            if (splitHost.length == 1) {
+            } else if (splitHost.length == 1) {
                 String host = splitHost[0];
                 InetAddress inetAddress = NetworkUtils.resolveInetAddress(host, null);
                 TransportAddress address = new InetSocketTransportAddress(inetAddress, defaultPort);
                 addresses.add(address);
+            } else {
+                throw new IOException("invalid hostname specification: " + hostname);
             }
         }
         return addresses;
@@ -96,23 +90,19 @@ public class TransportClientHelper {
         logger.info("connected to nodes = {}", nodes);
         if (nodes != null && !nodes.isEmpty()) {
             if (autodiscover) {
-                logger.debug("trying to auto-discover all nodes...");
+                logger.debug("trying to discover all nodes...");
                 ClusterStateRequestBuilder clusterStateRequestBuilder =
                         new ClusterStateRequestBuilder(transportClient, ClusterStateAction.INSTANCE);
                 ClusterStateResponse clusterStateResponse = clusterStateRequestBuilder.execute().actionGet();
                 DiscoveryNodes discoveryNodes = clusterStateResponse.getState().getNodes();
-                addDiscoveryNodes(transportClient, discoveryNodes);
-                logger.info("after auto-discovery: connected to {}", transportClient.connectedNodes());
+                for (DiscoveryNode discoveryNode : discoveryNodes) {
+                    transportClient.addTransportAddress(discoveryNode.getAddress());
+                }
+                logger.info("after discovery: connected to {}", transportClient.connectedNodes());
             }
             return true;
         }
         return false;
-    }
-
-    private void addDiscoveryNodes(TransportClient transportClient, DiscoveryNodes discoveryNodes) {
-        for (DiscoveryNode discoveryNode : discoveryNodes) {
-            transportClient.addTransportAddress(discoveryNode.getAddress());
-        }
     }
 
     private ElasticsearchClient innerCreateClient(Settings settings) {
@@ -121,22 +111,24 @@ public class TransportClientHelper {
                 + " " + System.getProperty("java.vm.vendor")
                 + " " + System.getProperty("java.vm.version")
                 + " Elasticsearch " + Version.CURRENT.toString();
-        Settings effectiveSettings = Settings.builder()
-                // for thread pool size
-                .put("processors",
-                        settings.getAsInt("processors", Runtime.getRuntime().availableProcessors()))
+        logger.info("creating transport client on {} with custom settings {}",
+                systemIdentifier, settings.getAsMap());
+        // we need to disable dead lock check because we may have mixed node/transport clients
+        DefaultChannelFuture.setUseDeadLockChecker(false);
+        return TransportClient.builder()
+                .settings(getTransportClientSettings(settings))
+                .build();
+    }
+
+    private Settings getTransportClientSettings(Settings settings) {
+        return Settings.builder()
+                .put("cluster.name", settings.get("cluster.name", "elasticsearch"))
+                .put("path.home", settings.get("path.home", "."))
+                .put("processors", settings.getAsInt("processors", Runtime.getRuntime().availableProcessors())) // for thread pool size
                 .put("client.transport.sniff", false) // do not sniff
                 .put("client.transport.nodes_sampler_interval", "1m") // do not ping
                 .put("client.transport.ping_timeout", "1m") // wait for unresponsive nodes a very long time before disconnect
                 .put("client.transport.ignore_cluster_name", true) // connect to any cluster
-                // custom settings may override defaults
-                .put(settings)
                 .build();
-        logger.info("creating transport client on {} with custom settings {} and effective settings {}",
-                systemIdentifier, settings.getAsMap(), effectiveSettings.getAsMap());
-
-        // we need to disable dead lock check because we may have mixed node/transport clients
-        DefaultChannelFuture.setUseDeadLockChecker(false);
-        return TransportClient.builder().settings(effectiveSettings).build();
     }
 }

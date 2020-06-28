@@ -24,8 +24,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * A bulk processor is a thread safe bulk processing class, allowing to easily set when to "flush" a new bulk request
- * (either based on number of actions, based on the size, or time), and to easily control the number of concurrent bulk
+ * A bulk processor is a thread safe bulk processing class, allowing to easily
+ * set when to "flush" a new bulk request
+ * (either based on number of actions, based on the size, or time), and
+ * to easily control the number of concurrent bulk
  * requests allowed to be executed in parallel.
  * In order to create a new bulk processor, use the {@link Builder}.
  */
@@ -78,11 +80,9 @@ public class DefaultBulkProcessor implements BulkProcessor {
         }
     }
 
-    public static Builder builder(ElasticsearchClient client,
-                                  BulkListener listener) {
-        Objects.requireNonNull(client, "The client you specified while building a BulkProcessor is null");
-        Objects.requireNonNull(listener, "A listener for the BulkProcessor is required but null");
-        return new Builder(client, listener);
+    public static Builder builder(ElasticsearchClient client, BulkListener bulkListener) {
+        Objects.requireNonNull(bulkListener, "A listener for the BulkProcessor is required but null");
+        return new Builder(client, bulkListener);
     }
 
     @Override
@@ -149,9 +149,8 @@ public class DefaultBulkProcessor implements BulkProcessor {
      * @param request request
      * @return his bulk processor
      */
-    @SuppressWarnings("rawtypes")
     @Override
-    public DefaultBulkProcessor add(ActionRequest request) {
+    public DefaultBulkProcessor add(ActionRequest<?> request) {
         internalAdd(request);
         return this;
     }
@@ -335,24 +334,25 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
         private final ElasticsearchClient client;
 
-        private final BulkListener listener;
+        private final BulkListener bulkListener;
 
-        SyncBulkRequestHandler(ElasticsearchClient client, BulkListener listener) {
+        SyncBulkRequestHandler(ElasticsearchClient client, BulkListener bulkListener) {
+            Objects.requireNonNull(bulkListener, "A listener is required for SyncBulkRequestHandler but null");
             this.client = client;
-            this.listener = listener;
+            this.bulkListener = bulkListener;
         }
 
         @Override
         public void execute(BulkRequest bulkRequest, long executionId) {
             boolean afterCalled = false;
             try {
-                listener.beforeBulk(executionId, bulkRequest);
+                bulkListener.beforeBulk(executionId, bulkRequest);
                 BulkResponse bulkResponse = client.execute(BulkAction.INSTANCE, bulkRequest).actionGet();
                 afterCalled = true;
-                listener.afterBulk(executionId, bulkRequest, bulkResponse);
+                bulkListener.afterBulk(executionId, bulkRequest, bulkResponse);
             } catch (Exception e) {
                 if (!afterCalled) {
-                    listener.afterBulk(executionId, bulkRequest, e);
+                    bulkListener.afterBulk(executionId, bulkRequest, e);
                 }
             }
         }
@@ -367,15 +367,16 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
         private final ElasticsearchClient client;
 
-        private final BulkListener listener;
+        private final BulkListener bulkListener;
 
         private final Semaphore semaphore;
 
         private final int concurrentRequests;
 
-        private AsyncBulkRequestHandler(ElasticsearchClient client, BulkListener listener, int concurrentRequests) {
+        private AsyncBulkRequestHandler(ElasticsearchClient client, BulkListener bulkListener, int concurrentRequests) {
+            Objects.requireNonNull(bulkListener, "A listener is required for AsyncBulkRequestHandler but null");
             this.client = client;
-            this.listener = listener;
+            this.bulkListener = bulkListener;
             this.concurrentRequests = concurrentRequests;
             this.semaphore = new Semaphore(concurrentRequests);
         }
@@ -385,14 +386,14 @@ public class DefaultBulkProcessor implements BulkProcessor {
             boolean bulkRequestSetupSuccessful = false;
             boolean acquired = false;
             try {
-                listener.beforeBulk(executionId, bulkRequest);
+                bulkListener.beforeBulk(executionId, bulkRequest);
                 semaphore.acquire();
                 acquired = true;
                 client.execute(BulkAction.INSTANCE, bulkRequest, new ActionListener<>() {
                     @Override
                     public void onResponse(BulkResponse response) {
                         try {
-                            listener.afterBulk(executionId, bulkRequest, response);
+                            bulkListener.afterBulk(executionId, bulkRequest, response);
                         } finally {
                             semaphore.release();
                         }
@@ -401,7 +402,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
                     @Override
                     public void onFailure(Throwable e) {
                         try {
-                            listener.afterBulk(executionId, bulkRequest, e);
+                            bulkListener.afterBulk(executionId, bulkRequest, e);
                         } finally {
                             semaphore.release();
                         }
@@ -410,9 +411,9 @@ public class DefaultBulkProcessor implements BulkProcessor {
                 bulkRequestSetupSuccessful = true;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                listener.afterBulk(executionId, bulkRequest, e);
+                bulkListener.afterBulk(executionId, bulkRequest, e);
             } catch (Exception e) {
-                listener.afterBulk(executionId, bulkRequest, e);
+                bulkListener.afterBulk(executionId, bulkRequest, e);
             } finally {
                 if (!bulkRequestSetupSuccessful && acquired) {
                     // if we fail on client.bulk() release the semaphore

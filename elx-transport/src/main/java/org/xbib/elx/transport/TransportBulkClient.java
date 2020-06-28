@@ -18,8 +18,8 @@ public class TransportBulkClient extends AbstractBulkClient {
     }
 
     @Override
-    public ElasticsearchClient createClient(Settings settings) {
-        return helper.createClient(settings, null);
+    public ElasticsearchClient createClient(Settings settings) throws IOException {
+        return helper.createClient(settings);
     }
 
     @Override
@@ -29,7 +29,7 @@ public class TransportBulkClient extends AbstractBulkClient {
     }
 
     @Override
-    public void closeClient(Settings settings) {
+    public void closeClient(Settings settings) throws IOException {
         helper.closeClient(settings);
     }
 }

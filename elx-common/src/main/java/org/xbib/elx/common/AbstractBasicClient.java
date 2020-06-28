@@ -50,7 +50,7 @@ public abstract class AbstractBasicClient implements BasicClient {
 
     @Override
     public void setClient(ElasticsearchClient client) {
-        logger.log(Level.INFO, "setting client = " + client);
+        logger.log(Level.DEBUG, "setting client = " + client);
         this.client = client;
     }
 
@@ -65,8 +65,6 @@ public abstract class AbstractBasicClient implements BasicClient {
             logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
             this.settings = settings;
             setClient(createClient(settings));
-        } else {
-            logger.log(Level.WARN, "not initializing");
         }
     }
 
@@ -95,23 +93,24 @@ public abstract class AbstractBasicClient implements BasicClient {
         ensureClientIsPresent();
         ClusterHealthStatus status = ClusterHealthStatus.fromString(statusString);
         TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
-        ClusterHealthResponse healthResponse = client.execute(ClusterHealthAction.INSTANCE,
-                new ClusterHealthRequest().timeout(timeout).waitForStatus(status)).actionGet();
+        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
+                .timeout(timeout)
+                .waitForStatus(status);
+        ClusterHealthResponse healthResponse =
+                client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
         if (healthResponse != null && healthResponse.isTimedOut()) {
             String message = "timeout, cluster state is " + healthResponse.getStatus().name() + " and not " + status.name();
-            if (logger.isErrorEnabled()) {
-                logger.error(message);
-            }
+            logger.error(message);
             throw new IllegalStateException(message);
         }
     }
+
     @Override
     public void waitForShards(long maxWaitTime, TimeUnit timeUnit) {
         ensureClientIsPresent();
         logger.info("waiting for cluster shard settling");
         TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
         ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
-                //.waitForActiveShards(0)
                 .waitForRelocatingShards(0)
                 .timeout(timeout);
         ClusterHealthResponse healthResponse =
@@ -194,9 +193,6 @@ public abstract class AbstractBasicClient implements BasicClient {
     }
 
     protected void ensureClientIsPresent() {
-        if (this instanceof MockAdminClient) {
-            return;
-        }
         if (client == null) {
             throw new IllegalStateException("no client");
         }

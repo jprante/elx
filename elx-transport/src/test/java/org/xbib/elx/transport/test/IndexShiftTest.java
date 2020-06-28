@@ -33,7 +33,7 @@ class IndexShiftTest {
         this.helper = helper;
     }
 
-      @Test
+    @Test
     void testIndexShift() throws Exception {
         try (TransportAdminClient adminClient = ClientBuilder.builder()
                 .setAdminClientProvider(TransportAdminClientProvider.class)

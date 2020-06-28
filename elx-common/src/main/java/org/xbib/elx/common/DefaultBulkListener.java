@@ -11,7 +11,7 @@ import org.xbib.elx.api.BulkMetric;
 
 public class DefaultBulkListener implements BulkListener {
 
-    private final Logger logger = LogManager.getLogger(BulkListener.class.getName());
+    private final Logger logger = LogManager.getLogger(DefaultBulkListener.class.getName());
 
     private final BulkController bulkController;
 
@@ -31,15 +31,12 @@ public class DefaultBulkListener implements BulkListener {
 
     @Override
     public void beforeBulk(long executionId, BulkRequest request) {
-        long l = 0;
-        if (bulkMetric != null) {
-            l = bulkMetric.getCurrentIngest().getCount();
-            bulkMetric.getCurrentIngest().inc();
-            int n = request.numberOfActions();
-            bulkMetric.getSubmitted().inc(n);
-            bulkMetric.getCurrentIngestNumDocs().inc(n);
-            bulkMetric.getTotalIngestSizeInBytes().inc(request.estimatedSizeInBytes());
-        }
+        long l = bulkMetric.getCurrentIngest().getCount();
+        bulkMetric.getCurrentIngest().inc();
+        int n = request.numberOfActions();
+        bulkMetric.getSubmitted().inc(n);
+        bulkMetric.getCurrentIngestNumDocs().inc(n);
+        bulkMetric.getTotalIngestSizeInBytes().inc(request.estimatedSizeInBytes());
         if (isBulkLoggingEnabled && logger.isDebugEnabled()) {
             logger.debug("before bulk [{}] [actions={}] [bytes={}] [concurrent requests={}]",
                     executionId,
@@ -51,26 +48,19 @@ public class DefaultBulkListener implements BulkListener {
 
     @Override
     public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
-        long l = 0;
-        if (bulkMetric != null) {
-            l = bulkMetric.getCurrentIngest().getCount();
-            bulkMetric.getCurrentIngest().dec();
-            bulkMetric.getSucceeded().inc(response.getItems().length);
-        }
+        long l = bulkMetric.getCurrentIngest().getCount();
+        bulkMetric.getCurrentIngest().dec();
+        bulkMetric.getSucceeded().inc(response.getItems().length);
         int n = 0;
         for (BulkItemResponse itemResponse : response.getItems()) {
-            if (bulkMetric != null) {
-                bulkMetric.getCurrentIngest().dec(itemResponse.getIndex(), itemResponse.getType(), itemResponse.getId());
-            }
+            bulkMetric.getCurrentIngest().dec(itemResponse.getIndex(), itemResponse.getType(), itemResponse.getId());
             if (itemResponse.isFailed()) {
                 n++;
-                if (bulkMetric != null) {
-                    bulkMetric.getSucceeded().dec(1);
-                    bulkMetric.getFailed().inc(1);
-                }
+                bulkMetric.getSucceeded().dec(1);
+                bulkMetric.getFailed().inc(1);
             }
         }
-        if (isBulkLoggingEnabled && bulkMetric != null && logger.isDebugEnabled()) {
+        if (isBulkLoggingEnabled && logger.isDebugEnabled()) {
             logger.debug("after bulk [{}] [succeeded={}] [failed={}] [{}ms] {} concurrent requests",
                     executionId,
                     bulkMetric.getSucceeded().getCount(),
@@ -84,17 +74,13 @@ public class DefaultBulkListener implements BulkListener {
                         executionId, n, response.buildFailureMessage());
             }
         } else {
-            if (bulkMetric != null) {
-                bulkMetric.getCurrentIngestNumDocs().dec(response.getItems().length);
-            }
+            bulkMetric.getCurrentIngestNumDocs().dec(response.getItems().length);
         }
     }
 
     @Override
     public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
-        if (bulkMetric != null) {
-            bulkMetric.getCurrentIngest().dec();
-        }
+        bulkMetric.getCurrentIngest().dec();
         lastBulkError = failure;
         if (logger.isErrorEnabled()) {
             logger.error("after bulk [" + executionId + "] error", failure);

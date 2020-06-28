@@ -3,6 +3,7 @@ package org.xbib.elx.node;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 import org.xbib.elx.common.AbstractSearchClient;
+import java.io.IOException;
 
 public class NodeSearchClient extends AbstractSearchClient {
 
@@ -13,12 +14,12 @@ public class NodeSearchClient extends AbstractSearchClient {
     }
 
     @Override
-    public ElasticsearchClient createClient(Settings settings) {
+    protected ElasticsearchClient createClient(Settings settings) {
         return helper.createClient(settings, null);
     }
 
     @Override
-    public void closeClient(Settings settings) {
+    public void closeClient(Settings settings) throws IOException {
         helper.closeClient(settings);
     }
 }

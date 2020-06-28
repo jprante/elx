@@ -27,9 +27,11 @@ public class DefaultBulkController implements BulkController {
 
     private static final Logger logger = LogManager.getLogger(DefaultBulkController.class);
 
-    private final BulkClient client;
+    private final BulkClient bulkClient;
 
     private final BulkMetric bulkMetric;
+
+    private BulkProcessor bulkProcessor;
 
     private final List<String> indexNames;
 
@@ -41,15 +43,11 @@ public class DefaultBulkController implements BulkController {
 
     private final TimeUnit maxWaitTimeUnit;
 
-    private BulkProcessor bulkProcessor;
-
-    private BulkListener bulkListener;
-
     private final AtomicBoolean active;
 
-    public DefaultBulkController(BulkClient client, BulkMetric bulkMetric) {
-        this.client = client;
-        this.bulkMetric = bulkMetric;
+    public DefaultBulkController(BulkClient bulkClient) {
+        this.bulkClient = bulkClient;
+        this.bulkMetric = new DefaultBulkMetric();
         this.indexNames = new ArrayList<>();
         this.active = new AtomicBoolean(false);
         this.startBulkRefreshIntervals = new HashMap<>();
@@ -65,11 +63,12 @@ public class DefaultBulkController implements BulkController {
 
     @Override
     public Throwable getLastBulkError() {
-        return bulkListener.getLastBulkError();
+        return bulkProcessor.getBulkListener().getLastBulkError();
     }
 
     @Override
     public void init(Settings settings) {
+        bulkMetric.init(settings);
         int maxActionsPerRequest = settings.getAsInt(Parameters.MAX_ACTIONS_PER_REQUEST.name(),
                 Parameters.DEFAULT_MAX_ACTIONS_PER_REQUEST.getNum());
         int maxConcurrentRequests = settings.getAsInt(Parameters.MAX_CONCURRENT_REQUESTS.name(),
@@ -81,8 +80,8 @@ public class DefaultBulkController implements BulkController {
                         "maxVolumePerRequest"));
         boolean enableBulkLogging = settings.getAsBoolean(Parameters.ENABLE_BULK_LOGGING.name(),
                 Parameters.ENABLE_BULK_LOGGING.getValue());
-        this.bulkListener = new DefaultBulkListener(this, bulkMetric, enableBulkLogging);
-        this.bulkProcessor = DefaultBulkProcessor.builder(client.getClient(), bulkListener)
+        BulkListener bulkListener = new DefaultBulkListener(this, bulkMetric, enableBulkLogging);
+        this.bulkProcessor = DefaultBulkProcessor.builder(bulkClient.getClient(), bulkListener)
                 .setBulkActions(maxActionsPerRequest)
                 .setConcurrentRequests(maxConcurrentRequests)
                 .setFlushInterval(flushIngestInterval)
@@ -117,7 +116,7 @@ public class DefaultBulkController implements BulkController {
             startBulkRefreshIntervals.put(indexName, startRefreshIntervalInSeconds);
             stopBulkRefreshIntervals.put(indexName, stopRefreshIntervalInSeconds);
             if (startRefreshIntervalInSeconds != 0L) {
-                client.updateIndexSetting(indexName, "refresh_interval", startRefreshIntervalInSeconds + "s",
+                bulkClient.updateIndexSetting(indexName, "refresh_interval", startRefreshIntervalInSeconds + "s",
                         30L, TimeUnit.SECONDS);
             }
         }
@@ -189,7 +188,7 @@ public class DefaultBulkController implements BulkController {
             if (indexNames.contains(index)) {
                 Long secs = stopBulkRefreshIntervals.get(index);
                 if (secs != null && secs != 0L) {
-                    client.updateIndexSetting(index, "refresh_interval", secs + "s",
+                    bulkClient.updateIndexSetting(index, "refresh_interval", secs + "s",
                             30L, TimeUnit.SECONDS);
                 }
                 indexNames.remove(index);
@@ -207,11 +206,11 @@ public class DefaultBulkController implements BulkController {
     @Override
     public void close() throws IOException {
         flush();
-        if (client.waitForResponses(maxWaitTime, maxWaitTimeUnit)) {
+        if (bulkClient.waitForResponses(maxWaitTime, maxWaitTimeUnit)) {
             for (String index : indexNames) {
                 Long secs = stopBulkRefreshIntervals.get(index);
                 if (secs != null && secs != 0L)
-                client.updateIndexSetting(index, "refresh_interval", secs + "s",
+                bulkClient.updateIndexSetting(index, "refresh_interval", secs + "s",
                         30L, TimeUnit.SECONDS);
             }
             indexNames.clear();
@@ -228,9 +227,5 @@ public class DefaultBulkController implements BulkController {
         if (bulkProcessor == null) {
             throw new UnsupportedOperationException("bulk processor not present");
         }
-        if (bulkListener == null) {
-            throw new UnsupportedOperationException("bulk listener not present");
-        }
     }
-
 }

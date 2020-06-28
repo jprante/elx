@@ -26,6 +26,8 @@ public interface AdminClient extends BasicClient {
 
     Map<String, ?> getMapping(String index, String type) throws IOException;
 
+    void checkMapping(String index);
+
     /**
      * Delete an index.
      * @param indexDefinition the index definition

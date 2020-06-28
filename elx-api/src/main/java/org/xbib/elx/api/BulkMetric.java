@@ -10,6 +10,8 @@ public interface BulkMetric extends Closeable {
 
     void init(Settings settings);
 
+    void markTotalIngest(long n);
+
     Metered getTotalIngest();
 
     Count getTotalIngestSizeInBytes();

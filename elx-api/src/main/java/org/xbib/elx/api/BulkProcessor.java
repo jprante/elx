@@ -8,8 +8,7 @@ import java.util.concurrent.TimeUnit;
 
 public interface BulkProcessor extends Closeable, Flushable {
 
-    @SuppressWarnings("rawtypes")
-    BulkProcessor add(ActionRequest request);
+    BulkProcessor add(ActionRequest<?> request);
 
     boolean awaitFlush(long timeout, TimeUnit unit) throws InterruptedException;
 
