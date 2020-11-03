@@ -124,11 +124,11 @@ public class TransportClientHelper {
         return Settings.builder()
                 .put("cluster.name", settings.get("cluster.name", "elasticsearch"))
                 .put("path.home", settings.get("path.home", "."))
-                .put("processors", settings.getAsInt("processors", Runtime.getRuntime().availableProcessors())) // for thread pool size
-                .put("client.transport.sniff", false) // do not sniff
-                .put("client.transport.nodes_sampler_interval", "1m") // do not ping
-                .put("client.transport.ping_timeout", "1m") // wait for unresponsive nodes a very long time before disconnect
-                .put("client.transport.ignore_cluster_name", true) // connect to any cluster
+                .put("processors", settings.getAsInt("processors", Runtime.getRuntime().availableProcessors())) // for thread pool size / worker count
+                .put("client.transport.sniff", settings.getAsBoolean("client.transport.sniff", false)) // always disable sniff
+                .put("client.transport.nodes_sampler_interval", settings.get("client.transport.nodes_sampler_interval", "1h")) // ridculous long ping, default is 5 seconds
+                .put("client.transport.ping_timeout", settings.get("client.transport.ping_timeout", "1h")) // ridiculous  ping for unresponsive nodes, defauult is 5 seconds
+                .put("client.transport.ignore_cluster_name", settings.getAsBoolean("client.transport.ignore_cluster_name", true)) // connect to any cluster
                 .build();
     }
 }
