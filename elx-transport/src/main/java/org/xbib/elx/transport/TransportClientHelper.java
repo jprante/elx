@@ -126,8 +126,8 @@ public class TransportClientHelper {
                 .put("path.home", settings.get("path.home", "."))
                 .put("processors", settings.getAsInt("processors", Runtime.getRuntime().availableProcessors())) // for thread pool size / worker count
                 .put("client.transport.sniff", settings.getAsBoolean("client.transport.sniff", false)) // always disable sniff
-                .put("client.transport.nodes_sampler_interval", settings.get("client.transport.nodes_sampler_interval", "1h")) // ridculous long ping, default is 5 seconds
-                .put("client.transport.ping_timeout", settings.get("client.transport.ping_timeout", "1h")) // ridiculous  ping for unresponsive nodes, defauult is 5 seconds
+                .put("client.transport.nodes_sampler_interval", settings.get("client.transport.nodes_sampler_interval", "10000s")) // ridculous long ping, default is 5 seconds
+                .put("client.transport.ping_timeout", settings.get("client.transport.ping_timeout", "10000s")) // ridiculous  ping for unresponsive nodes, defauult is 5 seconds
                 .put("client.transport.ignore_cluster_name", settings.getAsBoolean("client.transport.ignore_cluster_name", true)) // connect to any cluster
                 .build();
     }
