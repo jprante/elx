@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 class MockClientProviderTest {
 
     @Test
-    void testMockAdminProvider() throws IOException {
+    void testMockAdminClientProvider() throws IOException {
         MockAdminClient client = ClientBuilder.builder()
                 .setAdminClientProvider(MockAdminClientProvider.class)
                 .build();
@@ -24,7 +24,7 @@ class MockClientProviderTest {
     }
 
     @Test
-    void testMockBulkProvider() throws IOException {
+    void testMockBulkClientProvider() throws IOException {
         MockBulkClient client = ClientBuilder.builder()
                 .setBulkClientProvider(MockBulkClientProvider.class)
                 .build();
@@ -32,7 +32,7 @@ class MockClientProviderTest {
     }
 
     @Test
-    void testMockSearchProvider() throws IOException {
+    void testMockSearchClientProvider() throws IOException {
         MockSearchClient client = ClientBuilder.builder()
                 .setSearchClientProvider(MockSearchClientProvider.class)
                 .build();

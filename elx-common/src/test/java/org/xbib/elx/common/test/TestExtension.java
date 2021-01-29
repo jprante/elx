@@ -13,7 +13,6 @@ import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.client.ElasticsearchClient;
-import org.elasticsearch.client.support.AbstractClient;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
@@ -118,10 +117,6 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
     }
 
     private void closeNodes(Helper helper) throws IOException {
-        logger.info("closing all clients");
-        for (AbstractClient client : helper.clients.values()) {
-            client.close();
-        }
         logger.info("closing all nodes");
         for (Node node : helper.nodes.values()) {
             if (node != null) {
@@ -165,8 +160,6 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
 
         Map<String, Node> nodes = new HashMap<>();
 
-        Map<String, AbstractClient> clients = new HashMap<>();
-
         void setHome(String home) {
             this.home = home;
         }
@@ -187,8 +180,6 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return Settings.builder()
                     .put("cluster.name", getClusterName())
                     .put("path.home", getHome())
-                    .put("cluster.initial_master_nodes", "1")
-                    .put("discovery.seed_hosts",  "127.0.0.1:9300")
                     .build();
         }
 
@@ -197,7 +188,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         }
 
         ElasticsearchClient client(String id) {
-            return clients.get(id);
+            return nodes.get(id).client();
         }
 
         String randomString(int len) {
@@ -216,9 +207,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
                     .build();
             List<Class<? extends Plugin>> plugins = Collections.singletonList(Netty4Plugin.class);
             Node node = new MockNode(nodeSettings, plugins);
-            AbstractClient client = (AbstractClient) node.client();
             nodes.put(id, node);
-            clients.put(id, client);
             return node;
         }
     }

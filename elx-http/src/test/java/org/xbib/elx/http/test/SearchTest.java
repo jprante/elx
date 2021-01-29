@@ -56,6 +56,7 @@ class SearchTest {
             assertEquals(numactions, bulkClient.getSearchableDocs("test"));
             bulkClient.index("test", "0", false, "{\"name\":\"Hello\"}");
             bulkClient.flush();
+            bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
             bulkClient.refreshIndex("test");
             assertEquals(numactions + 1, bulkClient.getSearchableDocs("test"));
         }

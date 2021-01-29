@@ -35,15 +35,14 @@ class IndexPruneTest {
 
     @Test
     void testPrune() throws IOException {
-        final NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
+        try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
                 .setAdminClientProvider(NodeAdminClientProvider.class)
                 .put(helper.getNodeSettings("1"))
                 .build();
-        final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
+             NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(helper.getNodeSettings("1"))
-                .build();
-        try {
+                .build()) {
             Settings settings = Settings.builder()
                     .put("index.number_of_shards", 1)
                     .put("index.number_of_replicas", 0)
@@ -71,9 +70,6 @@ class IndexPruneTest {
             assertFalse(list.get(1));
             assertTrue(list.get(2));
             assertTrue(list.get(3));
-        } finally {
-            adminClient.close();
-            bulkClient.close();
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }

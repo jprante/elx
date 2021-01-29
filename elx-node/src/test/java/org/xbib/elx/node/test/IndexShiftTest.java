@@ -35,15 +35,14 @@ class IndexShiftTest {
 
     @Test
     void testIndexShift() throws Exception {
-        final NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
+        try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
                 .setAdminClientProvider(NodeAdminClientProvider.class)
                 .put(helper.getNodeSettings("1"))
                 .build();
-        final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
+             NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(helper.getNodeSettings("1"))
-                .build();
-        try {
+                .build()) {
             Settings settings = Settings.builder()
                     .put("index.number_of_shards", 1)
                     .put("index.number_of_replicas", 0)
@@ -105,9 +104,6 @@ class IndexShiftTest {
             assertTrue(aliases.containsKey("d"));
             assertTrue(aliases.containsKey("e"));
             assertTrue(aliases.containsKey("f"));
-        } finally {
-            adminClient.close();
-            bulkClient.close();
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }

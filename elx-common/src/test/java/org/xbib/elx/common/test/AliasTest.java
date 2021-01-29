@@ -3,6 +3,8 @@ package org.xbib.elx.common.test;
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction;
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesAction;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesAction;
@@ -39,11 +41,10 @@ class AliasTest {
     @Test
     void testAlias() {
         ElasticsearchClient client = helper.client("1");
-        CreateIndexRequest indexRequest = new CreateIndexRequest("test");
+        CreateIndexRequest indexRequest = new CreateIndexRequest("test_index");
         client.execute(CreateIndexAction.INSTANCE, indexRequest).actionGet();
-        // put alias
         IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
-        String[] indices = new String[] { "test" };
+        String[] indices = new String[] { "test_index" };
         String[] aliases = new String[] { "test_alias" };
         IndicesAliasesRequest.AliasActions aliasAction =
                 new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.ADD)
@@ -51,13 +52,14 @@ class AliasTest {
                         .aliases(aliases);
         indicesAliasesRequest.addAliasAction(aliasAction);
         client.execute(IndicesAliasesAction.INSTANCE, indicesAliasesRequest).actionGet();
-        // get alias
         GetAliasesRequest getAliasesRequest = new GetAliasesRequest(Strings.EMPTY_ARRAY);
         long t0 = System.nanoTime();
-        GetAliasesResponse getAliasesResponse = client.execute(GetAliasesAction.INSTANCE, getAliasesRequest).actionGet();
+        GetAliasesResponse getAliasesResponse =
+                client.execute(GetAliasesAction.INSTANCE, getAliasesRequest).actionGet();
         long t1 = (System.nanoTime() - t0) / 1000000;
         logger.info("{} time(ms) = {}", getAliasesResponse.getAliases(), t1);
         assertTrue(t1 >= 0);
+        client.execute(ClusterHealthAction.INSTANCE, new ClusterHealthRequest());
     }
 
     @Test
