@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -36,11 +37,11 @@ class IndexShiftTest {
     void testIndexShift() throws Exception {
         final NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
                 .setAdminClientProvider(NodeAdminClientProvider.class)
-                .put(helper.getNodeSettings())
+                .put(helper.getNodeSettings("1"))
                 .build();
         final NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                .put(helper.getNodeSettings())
+                .put(helper.getNodeSettings("1"))
                 .build();
         try {
             Settings settings = Settings.builder()
@@ -65,7 +66,8 @@ class IndexShiftTest {
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
             assertTrue(aliases.containsKey("test"));
-            String resolved = adminClient.resolveAlias("test");
+            String resolved = adminClient.resolveAlias("test").stream().findFirst().orElse(null);
+            assertEquals("test_shift", resolved);
             aliases = adminClient.getAliases(resolved);
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
@@ -95,7 +97,7 @@ class IndexShiftTest {
             assertTrue(aliases.containsKey("d"));
             assertTrue(aliases.containsKey("e"));
             assertTrue(aliases.containsKey("f"));
-            resolved = adminClient.resolveAlias("test");
+            resolved = adminClient.resolveAlias("test").stream().findFirst().orElse(null);
             aliases = adminClient.getAliases(resolved);
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));

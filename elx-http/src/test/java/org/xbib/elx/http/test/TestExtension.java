@@ -1,5 +1,6 @@
 package org.xbib.elx.http.test;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchTimeoutException;
@@ -18,6 +19,7 @@ import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.http.HttpInfo;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.node.NodeValidationException;
 import org.elasticsearch.plugins.Plugin;
@@ -84,11 +86,14 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
                 .getOrComputeIfAbsent(key + count.get(), key -> create(), Helper.class);
         logger.info("starting cluster with helper " + helper + " at " + helper.getHome());
         helper.startNode("1");
-        NodesInfoRequest nodesInfoRequest = new NodesInfoRequest().transport(true);
+        NodesInfoRequest nodesInfoRequest = new NodesInfoRequest()
+                .clear()
+                .addMetric(NodesInfoRequest.Metric.HTTP.metricName());
         NodesInfoResponse response = helper.client("1"). execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
-        TransportAddress address = response.getNodes().get(0).getHttp().getAddress().publishAddress();
+        TransportAddress address = response.getNodes().get(0).getInfo(HttpInfo.class).getAddress().publishAddress();
         helper.httpHost = address.address().getHostName();
         helper.httpPort = address.address().getPort();
+        logger.log(Level.INFO, "http host = " + helper.httpHost + " port = " + helper.httpPort);
         try {
             ClusterHealthResponse healthResponse = helper.client("1").execute(ClusterHealthAction.INSTANCE,
                     new ClusterHealthRequest().waitForStatus(ClusterHealthStatus.GREEN)
@@ -191,8 +196,8 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return Settings.builder()
                     .put("cluster.name", getClusterName())
                     .put("path.home", getHome())
-                    .put("cluster.initial_master_nodes", "1")
-                    .put("discovery.seed_hosts",  "127.0.0.1:9300")
+                    //.put("cluster.initial_master_nodes", "1")
+                    //.put("discovery.seed_hosts",  "127.0.0.1:9300")
                     .build();
         }
 
@@ -226,6 +231,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             Settings nodeSettings = Settings.builder()
                     .put(getNodeSettings())
                     .put("node.name", id)
+                    .put("path.data", getHome() + "/data-" + id)
                     .build();
             List<Class<? extends Plugin>> plugins = Collections.singletonList(Netty4Plugin.class);
             Node node = new MockNode(nodeSettings, plugins);

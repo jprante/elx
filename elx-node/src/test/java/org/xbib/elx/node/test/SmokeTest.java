@@ -32,11 +32,11 @@ class SmokeTest {
     void smokeTest() throws Exception {
         try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
                 .setAdminClientProvider(NodeAdminClientProvider.class)
-                .put(helper.getNodeSettings())
+                .put(helper.getNodeSettings("1"))
                 .build();
              NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
                      .setBulkClientProvider(NodeBulkClientProvider.class)
-                     .put(helper.getNodeSettings())
+                     .put(helper.getNodeSettings("1"))
                      .build()) {
             IndexDefinition indexDefinition =
                     adminClient.buildIndexDefinitionFromSettings("test_smoke", Settings.EMPTY);

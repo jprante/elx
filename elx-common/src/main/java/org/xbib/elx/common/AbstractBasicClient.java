@@ -44,7 +44,6 @@ public abstract class AbstractBasicClient implements BasicClient {
 
     @Override
     public void setClient(ElasticsearchClient client) {
-        logger.log(Level.INFO, "setting client = " + client);
         this.client = client;
     }
 
@@ -56,7 +55,7 @@ public abstract class AbstractBasicClient implements BasicClient {
     @Override
     public void init(Settings settings) throws IOException {
         if (closed.compareAndSet(false, true)) {
-            logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
+            logger.log(Level.DEBUG, "initializing with settings = " + settings.toDelimitedString(','));
             this.settings = settings;
             setClient(createClient(settings));
         } else {
@@ -102,7 +101,6 @@ public abstract class AbstractBasicClient implements BasicClient {
     @Override
     public void waitForShards(long maxWaitTime, TimeUnit timeUnit) {
         ensureClientIsPresent();
-        logger.info("waiting for cluster shard settling");
         TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
         ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
                 .waitForNoInitializingShards(true)

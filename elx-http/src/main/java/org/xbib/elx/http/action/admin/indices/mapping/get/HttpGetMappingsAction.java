@@ -3,7 +3,7 @@ package org.xbib.elx.http.action.admin.indices.mapping.get;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsAction;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
-import org.elasticsearch.cluster.metadata.MappingMetaData;
+import org.elasticsearch.cluster.metadata.MappingMetadata;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
@@ -41,12 +41,12 @@ public class HttpGetMappingsAction extends HttpAction<GetMappingsRequest, GetMap
             parser.nextToken();
         }
         Map<String, Object> map = parser.map();
-        ImmutableOpenMap.Builder<String, ImmutableOpenMap<String, MappingMetaData>> builder = new ImmutableOpenMap.Builder<>();
+        ImmutableOpenMap.Builder<String, ImmutableOpenMap<String, MappingMetadata>> builder = new ImmutableOpenMap.Builder<>();
         for (Map.Entry<String, Object> entry : map.entrySet()) {
             final String indexName = entry.getKey();
             final Map<String, Object> mapping = (Map<String, Object>) ((Map<String, Object>) entry.getValue()).get(MAPPINGS.getPreferredName());
-            ImmutableOpenMap.Builder<String, MappingMetaData> typeBuilder = new ImmutableOpenMap.Builder<>();
-            MappingMetaData mmd = new MappingMetaData("_doc", mapping);
+            ImmutableOpenMap.Builder<String, MappingMetadata> typeBuilder = new ImmutableOpenMap.Builder<>();
+            MappingMetadata mmd = new MappingMetadata("_doc", mapping);
             typeBuilder.put("_doc", mmd);
             builder.put(indexName, typeBuilder.build());
         }

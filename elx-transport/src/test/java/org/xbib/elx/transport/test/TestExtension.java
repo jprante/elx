@@ -84,9 +84,9 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
                 .getOrComputeIfAbsent(key + count.get(), key -> create(), Helper.class);
         logger.info("starting cluster with helper " + helper + " at " + helper.getHome());
         helper.startNode("1");
-        NodesInfoRequest nodesInfoRequest = new NodesInfoRequest().transport(true);
+        NodesInfoRequest nodesInfoRequest = new NodesInfoRequest().addMetric(NodesInfoRequest.Metric.TRANSPORT.metricName());
         NodesInfoResponse response = helper.client("1"). execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
-        TransportAddress address = response.getNodes().get(0).getTransport().getAddress().publishAddress();
+        TransportAddress address = response.getNodes().get(0).getNode().getAddress();
         helper.host = address.address().getHostName();
         helper.port = address.address().getPort();
         try {

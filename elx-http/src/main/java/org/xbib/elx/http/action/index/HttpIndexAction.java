@@ -1,6 +1,7 @@
 package org.xbib.elx.http.action.index;
 
 import org.elasticsearch.action.ActionType;
+import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.index.IndexAction;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
@@ -21,7 +22,8 @@ public class HttpIndexAction extends HttpAction<IndexRequest, IndexResponse> {
 
     @Override
     protected Request.Builder createHttpRequest(String url, IndexRequest request) {
-        return newPutRequest(url, "/" + request.index() + "/_doc/" + request.id(),
+        String optype = request.opType() == DocWriteRequest.OpType.CREATE ? "_create" : "_doc";
+        return newPutRequest(url, "/" + request.index() + "/" + optype + "/" + request.id(),
                 request.source());
     }
 

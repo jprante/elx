@@ -29,7 +29,7 @@ public class HttpBulkClient extends AbstractBulkClient implements ElasticsearchC
     }
 
     @Override
-    protected ElasticsearchClient createClient(Settings settings) throws IOException {
+    protected ElasticsearchClient createClient(Settings settings) {
         return this;
     }
 

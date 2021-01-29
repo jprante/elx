@@ -84,11 +84,12 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
                 .getOrComputeIfAbsent(key + count.get(), key -> create(), Helper.class);
         logger.info("starting cluster with helper " + helper + " at " + helper.getHome());
         helper.startNode("1");
-        NodesInfoRequest nodesInfoRequest = new NodesInfoRequest().transport(true);
+        NodesInfoRequest nodesInfoRequest = new NodesInfoRequest().addMetric(NodesInfoRequest.Metric.TRANSPORT.metricName());
         NodesInfoResponse response = helper.client("1"). execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
-        TransportAddress address = response.getNodes().get(0).getTransport().getAddress().publishAddress();
+        TransportAddress address = response.getNodes().get(0).getNode().getAddress();
         helper.host = address.address().getHostName();
         helper.port = address.address().getPort();
+        logger.info("host = " + helper.host + " port = " + helper.port);
         try {
             ClusterHealthResponse healthResponse = helper.client("1").execute(ClusterHealthAction.INSTANCE,
                     new ClusterHealthRequest().waitForStatus(ClusterHealthStatus.GREEN)
@@ -103,7 +104,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         ClusterStateRequest clusterStateRequest = new ClusterStateRequest().all();
         ClusterStateResponse clusterStateResponse =
                 helper.client("1").execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
-        logger.info("cluster name = {}", clusterStateResponse.getClusterName().value());
+        logger.info("cluster up, name = {}", clusterStateResponse.getClusterName().value());
     }
 
     @Override
@@ -117,10 +118,6 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
     }
 
     private void closeNodes(Helper helper) throws IOException {
-        logger.info("closing all clients");
-        for (AbstractClient client : helper.clients.values()) {
-            client.close();
-        }
         logger.info("closing all nodes");
         for (Node node : helper.nodes.values()) {
             if (node != null) {
@@ -169,8 +166,6 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
 
         Map<String, Node> nodes = new HashMap<>();
 
-        Map<String, AbstractClient> clients = new HashMap<>();
-
         void setHome(String home) {
             this.home = home;
         }
@@ -187,13 +182,11 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return cluster;
         }
 
-        Settings getNodeSettings() {
+        Settings getNodeSettings(String id) {
             return Settings.builder()
                     .put("cluster.name", getClusterName())
                     .put("path.home", getHome())
-                    .put("cluster.initial_master_nodes", "1")
-                    .put("discovery.seed_hosts",  "127.0.0.1:9300")
-                    .put("node.max_local_storage_nodes", "2")
+                    .put("node.max_local_storage_nodes", 2)
                     .build();
         }
 
@@ -202,7 +195,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         }
 
         ElasticsearchClient client(String id) {
-            return clients.get(id);
+            return nodes.get(id).client();
         }
 
         String randomString(int len) {
@@ -216,14 +209,12 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
 
         private Node buildNode(String id) {
             Settings nodeSettings = Settings.builder()
-                    .put(getNodeSettings())
+                    .put(getNodeSettings(id))
                     .put("node.name", id)
                     .build();
             List<Class<? extends Plugin>> plugins = Collections.singletonList(Netty4Plugin.class);
             Node node = new MockNode(nodeSettings, plugins);
-            AbstractClient client = (AbstractClient) node.client();
             nodes.put(id, node);
-            clients.put(id, client);
             return node;
         }
     }

@@ -4,7 +4,6 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.client.ElasticsearchClient;
-import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.common.network.NetworkModule;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
@@ -58,6 +57,8 @@ public class NodeClientHelper {
                 + " " + System.getProperty("java.vm.version");
         Settings effectiveSettings = Settings.builder()
                 .put(settings.filter(key -> !isPrivateSettings(key)))
+                // We have to keep the legacy settings. This means a lot of noise in the log files abut deprecation and failed handshaking.
+                // Clearly, ES wants to annoy users of embedded master-less, data-less nodes.
                 .put("node.master", false)
                 .put("node.data", false)
                 // "node.processors"

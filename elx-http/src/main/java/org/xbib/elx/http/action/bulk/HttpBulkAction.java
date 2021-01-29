@@ -2,7 +2,6 @@ package org.xbib.elx.http.action.bulk;
 
 import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.bulk.BulkAction;
-import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
@@ -33,7 +32,6 @@ public class HttpBulkAction extends HttpAction<BulkRequest, BulkResponse> {
                 IndexRequest indexRequest = (IndexRequest) actionRequest;
                 bulkContent.append("{\"").append(indexRequest.opType().getLowercase()).append("\":{");
                 bulkContent.append("\"_index\":\"").append(indexRequest.index()).append("\"");
-                bulkContent.append(",\"_type\":\"").append("_doc").append("\"");
                 if (indexRequest.id() != null) {
                     bulkContent.append(",\"_id\":\"").append(indexRequest.id()).append("\"");
                 }
@@ -53,7 +51,6 @@ public class HttpBulkAction extends HttpAction<BulkRequest, BulkResponse> {
                 UpdateRequest updateRequest = (UpdateRequest) actionRequest;
                 bulkContent.append("{\"update\":{");
                 bulkContent.append("\"_index\":\"").append(updateRequest.index()).append("\"");
-                bulkContent.append(",\"_type\":\"").append("_doc").append("\"");
                 bulkContent.append(",\"_id\":\"").append(updateRequest.id()).append("\"");
                 if (updateRequest.routing() != null) {
                     bulkContent.append(",\"_routing\":\"").append(updateRequest.routing()).append("\"");
@@ -75,7 +72,6 @@ public class HttpBulkAction extends HttpAction<BulkRequest, BulkResponse> {
                 DeleteRequest deleteRequest = (DeleteRequest) actionRequest;
                 bulkContent.append("{\"delete\":{");
                 bulkContent.append("\"_index\":\"").append(deleteRequest.index()).append("\"");
-                bulkContent.append(",\"_type\":\"").append("_doc").append("\"");
                 bulkContent.append(",\"_id\":\"").append(deleteRequest.id()).append("\"");
                 if (deleteRequest.routing() != null) {
                     bulkContent.append(",\"_routing\":\"").append(deleteRequest.routing()).append("\""); // _routing

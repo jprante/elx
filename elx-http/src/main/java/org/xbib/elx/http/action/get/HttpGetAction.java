@@ -21,7 +21,7 @@ public class HttpGetAction extends HttpAction<GetRequest, GetResponse> {
 
     @Override
     protected Request.Builder createHttpRequest(String url, GetRequest request) {
-        return newGetRequest(url, "/" + request.index() + "/_doc/" + "/" + request.id());
+        return newGetRequest(url, "/" + request.index() + "/_doc/" + request.id());
     }
 
     @Override

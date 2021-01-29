@@ -42,28 +42,28 @@ public class HttpNodesInfoAction extends HttpAction<NodesInfoRequest, NodesInfoR
             path.append("/_all");
         }
         List<String> metrics = new LinkedList<>();
-        if (request.http()) {
+        if (request.requestedMetrics().contains(NodesInfoRequest.Metric.HTTP.metricName())) {
             metrics.add("http");
         }
-        if (request.jvm()) {
+        if (request.requestedMetrics().contains(NodesInfoRequest.Metric.JVM.metricName())) {
             metrics.add("jvm");
         }
-        if (request.os()) {
+        if (request.requestedMetrics().contains(NodesInfoRequest.Metric.OS.metricName())) {
             metrics.add("os");
         }
-        if (request.plugins()) {
+        if (request.requestedMetrics().contains(NodesInfoRequest.Metric.PLUGINS.metricName())) {
             metrics.add("plugins");
         }
-        if (request.process()) {
+        if (request.requestedMetrics().contains(NodesInfoRequest.Metric.PROCESS.metricName())) {
             metrics.add("process");
         }
-        if (request.settings()) {
+        if (request.requestedMetrics().contains(NodesInfoRequest.Metric.SETTINGS.metricName())) {
             metrics.add("settings");
         }
-        if (request.threadPool()) {
+        if (request.requestedMetrics().contains(NodesInfoRequest.Metric.THREAD_POOL.metricName())) {
             metrics.add("thread_pool");
         }
-        if (request.transport()) {
+        if (request.requestedMetrics().contains(NodesInfoRequest.Metric.TRANSPORT.metricName())) {
             metrics.add("transport");
         }
         if (!metrics.isEmpty()) {

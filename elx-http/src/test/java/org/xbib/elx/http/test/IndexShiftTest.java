@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -67,7 +68,7 @@ class IndexShiftTest {
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
             assertTrue(aliases.containsKey("test"));
-            String resolved = adminClient.resolveAlias("test");
+            String resolved = adminClient.resolveAlias("test").stream().findFirst().orElse(null);
             logger.log(Level.DEBUG, "resolved = " + resolved);
             aliases = adminClient.getAliases(resolved);
             logger.log(Level.DEBUG, "aliases = " + aliases);
@@ -99,7 +100,8 @@ class IndexShiftTest {
             assertTrue(aliases.containsKey("d"));
             assertTrue(aliases.containsKey("e"));
             assertTrue(aliases.containsKey("f"));
-            resolved = adminClient.resolveAlias("test");
+            resolved = adminClient.resolveAlias("test").stream().findFirst().orElse(null);
+            assertNotNull(resolved);
             aliases = adminClient.getAliases(resolved);
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));

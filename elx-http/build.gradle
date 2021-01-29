@@ -5,9 +5,5 @@ dependencies{
     api "org.elasticsearch.plugin:transport-netty4-client:${rootProject.property('elasticsearch.version')}"
     api "org.xbib:netty-http-client:${project.property('xbib-netty-http.version')}"
     runtimeOnly "org.bouncycastle:bcpkix-jdk15on:${project.property('bouncycastle.version')}"
-    if (Os.isFamily(Os.FAMILY_MAC)) {
-        runtimeOnly "io.netty:netty-tcnative-boringssl-static:${project.property('tcnative-legacy-macosx.version')}"
-    } else if (Os.isFamily(Os.FAMILY_UNIX)) {
-        runtimeOnly "io.netty:netty-tcnative-boringssl-static:${project.property('tcnative.version')}"
-    }
+    runtimeOnly "io.netty:netty-tcnative-boringssl-static:${project.property('tcnative.version')}"
 }

@@ -9,5 +9,9 @@
         <Root level="info">
             <AppenderRef ref="Console" />
         </Root>
+        <!-- Remove WARN on elastic embedded because dangling indices cannot be detected -->
+        <Logger name="org.elasticsearch.gateway.DanglingIndicesState" level="error" />
+        <!-- Remove WARN on elastic embedded because node and cluster identifiers change between test suites -->
+        <Logger name="org.elasticsearch.cluster.service.ClusterApplierService" level="error" />
     </Loggers>
 </configuration>

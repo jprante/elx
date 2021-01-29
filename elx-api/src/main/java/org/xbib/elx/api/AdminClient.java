@@ -99,9 +99,9 @@ public interface AdminClient extends BasicClient {
      * Resolve alias.
      *
      * @param alias the alias
-     * @return this index name behind the alias or the alias if there is no index
+     * @return the index names behind the alias or an empty list if there is no such index
      */
-    String resolveAlias(String alias);
+    List<String> resolveAlias(String alias);
 
     /**
      * Resolve alias to all connected indices, sort index names with most recent timestamp on top, return this index

@@ -23,8 +23,8 @@ import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestStatus;
 import org.xbib.net.URL;
+import org.xbib.netty.http.client.api.ClientTransport;
 import org.xbib.netty.http.client.api.Request;
-import org.xbib.netty.http.client.api.Transport;
 import org.xbib.netty.http.common.HttpResponse;
 
 import java.io.IOException;
@@ -78,7 +78,10 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
                     }
                 }
             });
-            Transport transport = httpActionContext.getExtendedHttpClient().internalClient().execute(httpRequest);
+            if (logger.isDebugEnabled()) {
+                logger.log(Level.DEBUG, "executing HTTP request " + httpRequest);
+            }
+            ClientTransport transport = httpActionContext.getExtendedHttpClient().internalClient().execute(httpRequest);
             httpActionContext.setHttpClientTransport(transport);
             if (transport.isFailed()) {
                 listener.onFailure(new Exception(transport.getFailure()));

@@ -4,7 +4,7 @@ import org.elasticsearch.action.ActionType;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesAction;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesResponse;
-import org.elasticsearch.cluster.metadata.AliasMetaData;
+import org.elasticsearch.cluster.metadata.AliasMetadata;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -43,13 +43,13 @@ public class HttpGetAliasAction extends HttpAction<GetAliasesRequest, GetAliases
         if (parser.currentToken() == null) {
             parser.nextToken();
         }
-        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser::getTokenLocation);
-        ImmutableOpenMap.Builder<String, List<AliasMetaData>> aliasesBuilder = ImmutableOpenMap.builder();
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
+        ImmutableOpenMap.Builder<String, List<AliasMetadata>> aliasesBuilder = ImmutableOpenMap.builder();
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             if (parser.currentToken() == XContentParser.Token.FIELD_NAME) {
                 String indexName = parser.currentName();
                 if (parser.nextToken() == XContentParser.Token.START_OBJECT) {
-                    List<AliasMetaData> parseInside = parseAliases(parser);
+                    List<AliasMetadata> parseInside = parseAliases(parser);
                     aliasesBuilder.put(indexName, parseInside);
                 }
             }
@@ -57,8 +57,8 @@ public class HttpGetAliasAction extends HttpAction<GetAliasesRequest, GetAliases
         return new GetAliasesResponse(aliasesBuilder.build());
     }
 
-    private static List<AliasMetaData> parseAliases(XContentParser parser) throws IOException {
-        List<AliasMetaData> aliases = new ArrayList<>();
+    private static List<AliasMetadata> parseAliases(XContentParser parser) throws IOException {
+        List<AliasMetadata> aliases = new ArrayList<>();
         XContentParser.Token token;
         String currentFieldName = null;
         while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
@@ -67,7 +67,7 @@ public class HttpGetAliasAction extends HttpAction<GetAliasesRequest, GetAliases
             } else if (token == XContentParser.Token.START_OBJECT) {
                 if ("aliases".equals(currentFieldName)) {
                     while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
-                        AliasMetaData fromXContent = AliasMetaData.Builder.fromXContent(parser);
+                        AliasMetadata fromXContent = AliasMetadata.Builder.fromXContent(parser);
                         aliases.add(fromXContent);
                     }
                 } else {

@@ -33,9 +33,10 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.support.master.AcknowledgedResponse;
-import org.elasticsearch.cluster.metadata.AliasMetaData;
-import org.elasticsearch.cluster.metadata.AliasOrIndex;
-import org.elasticsearch.cluster.metadata.MappingMetaData;
+import org.elasticsearch.cluster.metadata.AliasMetadata;
+import org.elasticsearch.cluster.metadata.IndexAbstraction;
+import org.elasticsearch.cluster.metadata.IndexMetadata;
+import org.elasticsearch.cluster.metadata.MappingMetadata;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.settings.Settings;
@@ -64,7 +65,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -76,7 +76,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
@@ -231,19 +230,30 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     }
 
     @Override
-    public String resolveAlias(String alias) {
+    public List<String> resolveAlias(String alias) {
+        if (alias == null) {
+            return List.of();
+        }
         ensureClientIsPresent();
         ClusterStateRequest clusterStateRequest = new ClusterStateRequest();
         clusterStateRequest.blocks(false);
-        clusterStateRequest.metaData(true);
+        clusterStateRequest.metadata(true);
         clusterStateRequest.nodes(false);
         clusterStateRequest.routingTable(false);
         clusterStateRequest.customs(false);
         ClusterStateResponse clusterStateResponse =
                 client.execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
-        SortedMap<String, AliasOrIndex> map = clusterStateResponse.getState().getMetaData().getAliasAndIndexLookup();
-        AliasOrIndex aliasOrIndex = map.get(alias);
-        return aliasOrIndex != null ? aliasOrIndex.getIndices().iterator().next().getIndex().getName() : null;
+        IndexAbstraction indexAbstraction = clusterStateResponse.getState().getMetadata()
+                .getIndicesLookup().get(alias);
+        if (indexAbstraction == null) {
+            return List.of();
+        }
+        List<IndexMetadata> indexMetadata = indexAbstraction.getIndices();
+        if (indexMetadata == null) {
+            return List.of();
+        }
+        return indexMetadata.stream().map(im -> im.getIndex().getName())
+                .sorted().collect(Collectors.toList());
     }
 
     @Override
@@ -283,8 +293,9 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         }
         waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
         // two situations: 1. a new alias 2. there is already an old index with the alias
-        String oldIndex = resolveAlias(index);
-        Map<String, String> oldAliasMap = index.equals(oldIndex) ? null : getAliases(oldIndex);
+        List<String> oldIndices = resolveAlias(index);
+        String oldIndex = oldIndices.stream().findFirst().orElse(null);
+        Map<String, String> oldAliasMap = getAliases(oldIndex);
         logger.debug("old index = {} old alias map = {}", oldIndex, oldAliasMap);
         final List<String> newAliases = new ArrayList<>();
         final List<String> moveAliases = new ArrayList<>();
@@ -466,9 +477,10 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         String dateTimePattern = settings.get("dateTimePattern");
         if (dateTimePattern != null) {
             // check if index name with current date already exists, resolve to it
-            fullIndexName = resolveAlias(indexName + DateTimeFormatter.ofPattern(dateTimePattern)
-                            .withZone(ZoneId.systemDefault()) // not GMT
-                            .format(LocalDate.now()));
+            String dateAppendix = DateTimeFormatter.ofPattern(dateTimePattern)
+                    .withZone(ZoneId.systemDefault()) // not GMT
+                    .format(LocalDate.now());
+            fullIndexName = resolveAlias(indexName + dateAppendix).stream().findFirst().orElse(index);
         } else {
             // check if index name already exists, resolve to it
             fullIndexName = resolveMostRecentIndex(indexName);
@@ -510,12 +522,12 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         ensureClientIsPresent();
         GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices(index);
         GetMappingsResponse getMappingsResponse = client.execute(GetMappingsAction.INSTANCE, getMappingsRequest).actionGet();
-        ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> map = getMappingsResponse.getMappings();
+        ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetadata>> map = getMappingsResponse.getMappings();
         map.keys().forEach((Consumer<ObjectCursor<String>>) stringObjectCursor -> {
-            ImmutableOpenMap<String, MappingMetaData> mappings = map.get(stringObjectCursor.value);
-            for (ObjectObjectCursor<String, MappingMetaData> cursor : mappings) {
+            ImmutableOpenMap<String, MappingMetadata> mappings = map.get(stringObjectCursor.value);
+            for (ObjectObjectCursor<String, MappingMetadata> cursor : mappings) {
                 String mappingName = cursor.key;
-                MappingMetaData mappingMetaData = cursor.value;
+                MappingMetadata mappingMetaData = cursor.value;
                 checkMapping(index, mappingName, mappingMetaData);
             }
         });
@@ -568,21 +580,20 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     private Map<String, String> getFilters(GetAliasesResponse getAliasesResponse) {
         Map<String, String> result = new HashMap<>();
-        for (ObjectObjectCursor<String, List<AliasMetaData>> object : getAliasesResponse.getAliases()) {
-            List<AliasMetaData> aliasMetaDataList = object.value;
-            for (AliasMetaData aliasMetaData : aliasMetaDataList) {
-                if (aliasMetaData.filteringRequired()) {
-                    result.put(aliasMetaData.alias(),
-                            new String(aliasMetaData.getFilter().uncompressed(), StandardCharsets.UTF_8));
+        for (ObjectObjectCursor<String, List<AliasMetadata>> object : getAliasesResponse.getAliases()) {
+            List<AliasMetadata> aliasMetadataList = object.value;
+            for (AliasMetadata aliasMetadata : aliasMetadataList) {
+                if (aliasMetadata.filteringRequired()) {
+                    result.put(aliasMetadata.alias(),aliasMetadata.getFilter().string());
                 } else {
-                    result.put(aliasMetaData.alias(), null);
+                    result.put(aliasMetadata.alias(), null);
                 }
             }
         }
         return result;
     }
 
-    private void checkMapping(String index, String type, MappingMetaData mappingMetaData) {
+    private void checkMapping(String index, String type, MappingMetadata mappingMetaData) {
         try {
             SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE)
                     .setIndices(index)
