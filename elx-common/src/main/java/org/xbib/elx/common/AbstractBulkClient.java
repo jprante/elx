@@ -113,7 +113,6 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
             createIndexRequestBuilder.addMapping(TYPE_NAME, builder);
             logger.debug("adding mapping = {}", builder.string());
         } else {
-            // empty mapping
             createIndexRequestBuilder.addMapping(TYPE_NAME,
                     JsonXContent.contentBuilder().startObject().startObject(TYPE_NAME).endObject().endObject());
             logger.debug("empty mapping");
@@ -124,6 +123,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         } else {
             logger.warn("index creation of {} not acknowledged", index);
         }
+        refreshIndex(index);
     }
 
     @Override

@@ -3,6 +3,8 @@ package org.xbib.elx.common.test;
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction;
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesAction;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesAction;
@@ -10,6 +12,8 @@ import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexAction;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
+import org.elasticsearch.action.admin.indices.refresh.RefreshAction;
+import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.cluster.metadata.AliasAction;
 import org.elasticsearch.common.Strings;
@@ -42,6 +46,7 @@ class AliasTest {
         ElasticsearchClient client = helper.client("1");
         CreateIndexRequest indexRequest = new CreateIndexRequest("test_index");
         client.execute(CreateIndexAction.INSTANCE, indexRequest).actionGet();
+        client.execute(RefreshAction.INSTANCE, new RefreshRequest()).actionGet();
         IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
         String[] indices = new String[]{"test_index"};
         String[] aliases = new String[]{"test_alias"};
@@ -57,6 +62,7 @@ class AliasTest {
         long t1 = (System.nanoTime() - t0) / 1000000;
         logger.info("{} time(ms) = {}", getAliasesResponse.getAliases(), t1);
         assertTrue(t1 >= 0);
+        client.execute(ClusterHealthAction.INSTANCE, new ClusterHealthRequest());
     }
 
     @Test
