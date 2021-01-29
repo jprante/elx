@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static org.xbib.elx.api.IndexDefinition.TYPE_NAME;
+
 public class DefaultBulkController implements BulkController {
 
     private static final Logger logger = LogManager.getLogger(DefaultBulkController.class);
@@ -126,8 +128,8 @@ public class DefaultBulkController implements BulkController {
     public void bulkIndex(IndexRequest indexRequest) {
         ensureActiveAndBulk();
         try {
-            bulkMetric.getCurrentIngest().inc(indexRequest.index(), "_doc", indexRequest.id());
             bulkProcessor.add(indexRequest);
+            bulkMetric.getCurrentIngest().inc(indexRequest.index(), TYPE_NAME, indexRequest.id());
         } catch (Exception e) {
             if (logger.isErrorEnabled()) {
                 logger.error("bulk add of index failed: " + e.getMessage(), e);
@@ -140,8 +142,8 @@ public class DefaultBulkController implements BulkController {
     public void bulkDelete(DeleteRequest deleteRequest) {
         ensureActiveAndBulk();
         try {
-            bulkMetric.getCurrentIngest().inc(deleteRequest.index(), "_doc", deleteRequest.id());
             bulkProcessor.add(deleteRequest);
+            bulkMetric.getCurrentIngest().inc(deleteRequest.index(), TYPE_NAME, deleteRequest.id());
         } catch (Exception e) {
             if (logger.isErrorEnabled()) {
                 logger.error("bulk add of delete failed: " + e.getMessage(), e);
@@ -154,8 +156,8 @@ public class DefaultBulkController implements BulkController {
     public void bulkUpdate(UpdateRequest updateRequest) {
         ensureActiveAndBulk();
         try {
-            bulkMetric.getCurrentIngest().inc(updateRequest.index(), "_doc", updateRequest.id());
             bulkProcessor.add(updateRequest);
+            bulkMetric.getCurrentIngest().inc(updateRequest.index(), TYPE_NAME, updateRequest.id());
         } catch (Exception e) {
             if (logger.isErrorEnabled()) {
                 logger.error("bulk add of update failed: " + e.getMessage(), e);

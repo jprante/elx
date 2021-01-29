@@ -4,6 +4,12 @@ import java.util.concurrent.TimeUnit;
 
 public interface IndexDefinition {
 
+    /**
+     * The one and only index type name used in the extended client.
+     * Note that all Elasticsearch version &lt; 6.2.0 do not allow a prepending "_".
+     */
+    String TYPE_NAME = "_doc";
+
     IndexDefinition setIndex(String index);
 
     String getIndex();

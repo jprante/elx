@@ -92,7 +92,7 @@ class BulkClientTest {
                     .endObject()
                     .endObject();
             bulkClient.newIndex("test", Settings.EMPTY, builder);
-            assertTrue(adminClient.getMapping("test", "_doc").containsKey("properties"));
+            assertTrue(adminClient.getMapping("test").containsKey("properties"));
         }
     }
 

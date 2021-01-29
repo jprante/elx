@@ -24,8 +24,6 @@ public interface AdminClient extends BasicClient {
 
     Map<String, ?> getMapping(String index) throws IOException;
 
-    Map<String, ?> getMapping(String index, String type) throws IOException;
-
     void checkMapping(String index);
 
     /**

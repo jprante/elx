@@ -1,13 +1,10 @@
 package org.xbib.elx.common;
 
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.ActionRequest;
+import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.bulk.BulkAction;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
@@ -83,6 +80,11 @@ public class DefaultBulkProcessor implements BulkProcessor {
         }
     }
 
+    @Override
+    public BulkListener getBulkListener() {
+        return bulkListener;
+    }
+
     public static Builder builder(ElasticsearchClient client,
                                   BulkListener bulkListener) {
         Objects.requireNonNull(client, "The client you specified while building a BulkProcessor is null");
@@ -143,11 +145,6 @@ public class DefaultBulkProcessor implements BulkProcessor {
         return bulkRequestHandler.close(timeout, unit);
     }
 
-    @Override
-    public BulkListener getBulkListener() {
-        return bulkListener;
-    }
-
     /**
      * Adds either a delete or an index request.
      *
@@ -155,8 +152,14 @@ public class DefaultBulkProcessor implements BulkProcessor {
      * @return his bulk processor
      */
     @Override
-    public DefaultBulkProcessor add(ActionRequest request) {
-        internalAdd(request);
+    public synchronized DefaultBulkProcessor add(DocWriteRequest<?> request) {
+        ensureOpen();
+        bulkRequest.add(request);
+        if (bulkActions != -1 &&
+            bulkRequest.numberOfActions() >= bulkActions ||
+            bulkSize != -1 && bulkRequest.estimatedSizeInBytes() >= bulkSize) {
+            execute();
+        }
         return this;
     }
 
@@ -190,39 +193,11 @@ public class DefaultBulkProcessor implements BulkProcessor {
         }
     }
 
-    private synchronized void internalAdd(ActionRequest request) {
-        ensureOpen();
-        if (request instanceof IndexRequest) {
-            bulkRequest.add((IndexRequest) request);
-        } else if (request instanceof DeleteRequest) {
-            bulkRequest.add((DeleteRequest) request);
-        } else if (request instanceof UpdateRequest) {
-            bulkRequest.add((UpdateRequest) request);
-        } else {
-            throw new UnsupportedOperationException();
-        }
-        executeIfNeeded();
-    }
-
-    private void executeIfNeeded() {
-        ensureOpen();
-        if (!isOverTheLimit()) {
-            return;
-        }
-        execute();
-    }
-
     private void execute() {
-        final BulkRequest myBulkRequest = this.bulkRequest;
-        final long executionId = executionIdGen.incrementAndGet();
+        BulkRequest myBulkRequest = this.bulkRequest;
+        long executionId = executionIdGen.incrementAndGet();
         this.bulkRequest = new BulkRequest();
         this.bulkRequestHandler.execute(myBulkRequest, executionId);
-    }
-
-    private boolean isOverTheLimit() {
-        return bulkActions != -1 &&
-                bulkRequest.numberOfActions() >= bulkActions ||
-                bulkSize != -1 && bulkRequest.estimatedSizeInBytes() >= bulkSize;
     }
 
     /**
@@ -393,7 +368,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
         }
 
         @Override
-        public void execute(final BulkRequest bulkRequest, final long executionId) {
+        public void execute(BulkRequest bulkRequest, long executionId) {
             boolean bulkRequestSetupSuccessful = false;
             boolean acquired = false;
             try {

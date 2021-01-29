@@ -56,6 +56,8 @@ class SearchTest {
             assertEquals(numactions, bulkClient.getSearchableDocs("test"));
             bulkClient.index("test", "0", false, "{\"name\":\"Hello\"}");
             bulkClient.flush();
+            bulkClient.refreshIndex("test");
+            assertEquals(numactions + 1, bulkClient.getSearchableDocs("test"));
         }
         assertEquals(numactions + 1, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
         if (bulkClient.getBulkController().getLastBulkError() != null) {
@@ -84,8 +86,8 @@ class SearchTest {
             });
             assertEquals(numactions + 1, idcount.get());
             assertEquals(15, searchClient.getSearchMetric().getQueries().getCount());
-            assertEquals(3, searchClient.getSearchMetric().getSucceededQueries().getCount());
-            assertEquals(0, searchClient.getSearchMetric().getEmptyQueries().getCount());
+            assertEquals(13, searchClient.getSearchMetric().getSucceededQueries().getCount());
+            assertEquals(2, searchClient.getSearchMetric().getEmptyQueries().getCount());
         }
     }
 }

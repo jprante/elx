@@ -132,8 +132,7 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
         searchMetric.getCurrentQueries().dec();
         searchMetric.getQueries().inc();
         searchMetric.markTotalQueries(1);
-        boolean isempty = originalSearchResponse.getHits().getTotalHits().value == 0;
-        if (isempty) {
+        if (originalSearchResponse.getHits().getTotalHits().value == 0) {
             searchMetric.getEmptyQueries().inc();
         } else {
             searchMetric.getSucceededQueries().inc();
@@ -150,6 +149,11 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
                     searchMetric.getCurrentQueries().dec();
                     searchMetric.getQueries().inc();
                     searchMetric.markTotalQueries(1);
+                    if ( searchResponse1.getHits().getHits().length == 0) {
+                        searchMetric.getEmptyQueries().inc();
+                    } else {
+                        searchMetric.getSucceededQueries().inc();
+                    }
                     return searchResponse1;
                 });
         Predicate<SearchResponse> condition = searchResponse -> searchResponse.getHits().getHits().length > 0;

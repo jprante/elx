@@ -4,7 +4,7 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.indices.create.CreateIndexAction;
-import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
+import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.flush.FlushAction;
 import org.elasticsearch.action.admin.indices.flush.FlushRequest;
@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static org.xbib.elx.api.IndexDefinition.TYPE_NAME;
+
 public abstract class AbstractBulkClient extends AbstractBasicClient implements BulkClient {
 
     private static final Logger logger = LogManager.getLogger(AbstractBulkClient.class.getName());
@@ -43,7 +45,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     public void init(Settings settings) throws IOException {
         if (closed.compareAndSet(true, false)) {
             super.init(settings);
-            logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
+            logger.log(Level.INFO, "initializing bulk controller with settings = " + settings.toDelimitedString(','));
             bulkController = new DefaultBulkController(this);
             bulkController.init(settings);
         } else {
@@ -96,32 +98,43 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     }
 
     @Override
-    public void newIndex(String index, Settings settings, XContentBuilder builder) throws IOException {
-        String mappingString = Strings.toString(builder);
-        Map<String, ?> mappings = JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
-                DeprecationHandler.THROW_UNSUPPORTED_OPERATION, mappingString).mapOrdered();
-        newIndex(index, settings, mappings);
+    public void newIndex(String index, Settings settings, Map<String, ?> mapping) throws IOException {
+        if (mapping == null || mapping.isEmpty()) {
+            newIndex(index, settings, (XContentBuilder) null);
+        } else {
+            newIndex(index, settings, JsonXContent.contentBuilder().map(mapping));
+        }
     }
 
     @Override
-    public void newIndex(String index, Settings settings, Map<String, ?> mapping) throws IOException {
+    public void newIndex(String index, Settings settings, XContentBuilder builder) throws IOException {
         if (index == null) {
-            logger.warn("no index name given to create index");
+            logger.warn("unable to create index, no index name given");
             return;
         }
         ensureClientIsPresent();
         waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
-        CreateIndexRequest createIndexRequest = new CreateIndexRequest().index(index);
+        CreateIndexRequestBuilder createIndexRequestBuilder = new CreateIndexRequestBuilder(client, CreateIndexAction.INSTANCE)
+                .setIndex(index);
         if (settings != null) {
-            createIndexRequest.settings(settings);
+            createIndexRequestBuilder.setSettings(settings);
         }
-        if (mapping != null) {
-            createIndexRequest.mapping("_doc", mapping);
-        }
-        CreateIndexResponse createIndexResponse = client.execute(CreateIndexAction.INSTANCE, createIndexRequest).actionGet();
+        if (builder != null) {
+            createIndexRequestBuilder.addMapping(TYPE_NAME, builder);
+            logger.debug("adding mapping = {}", Strings.toString(builder));
+        } else {
+            createIndexRequestBuilder.addMapping(TYPE_NAME,
+                    JsonXContent.contentBuilder().startObject().startObject(TYPE_NAME).endObject().endObject());
+            logger.debug("empty mapping");
+         }
+
+        CreateIndexResponse createIndexResponse = createIndexRequestBuilder.execute().actionGet();
         if (createIndexResponse.isAcknowledged()) {
             logger.info("index {} created", index);
+        } else {
+            logger.warn("index creation of {} not acknowledged", index);
         }
+        refreshIndex(index);
     }
 
     @Override
@@ -156,7 +169,8 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public BulkClient index(String index, String id, boolean create, String source) {
-        return index(index, id, create, new BytesArray(source.getBytes(StandardCharsets.UTF_8)));
+        return index(new IndexRequest().index(index).id(id).create(create)
+                .source(new BytesArray(source.getBytes(StandardCharsets.UTF_8)), XContentType.JSON));
     }
 
     @Override
@@ -167,8 +181,10 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public BulkClient index(IndexRequest indexRequest) {
-        ensureClientIsPresent();
-        bulkController.bulkIndex(indexRequest);
+        if (bulkController != null) {
+            ensureClientIsPresent();
+            bulkController.bulkIndex(indexRequest);
+        }
         return this;
     }
 
@@ -179,8 +195,10 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public BulkClient delete(DeleteRequest deleteRequest) {
-        ensureClientIsPresent();
-        bulkController.bulkDelete(deleteRequest);
+        if (bulkController != null) {
+            ensureClientIsPresent();
+            bulkController.bulkDelete(deleteRequest);
+        }
         return this;
     }
 

@@ -4,7 +4,7 @@ import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 
 /**
- * A bulk listener for the execution.
+ * A bulk listener for following executions of bulk operations.
  */
 public interface BulkListener {
 

@@ -55,7 +55,7 @@ public abstract class AbstractBasicClient implements BasicClient {
     @Override
     public void init(Settings settings) throws IOException {
         if (closed.compareAndSet(false, true)) {
-            logger.log(Level.DEBUG, "initializing with settings = " + settings.toDelimitedString(','));
+            logger.log(Level.INFO, "initializing client with settings = " + settings.toDelimitedString(','));
             this.settings = settings;
             setClient(createClient(settings));
         } else {
@@ -102,6 +102,7 @@ public abstract class AbstractBasicClient implements BasicClient {
     public void waitForShards(long maxWaitTime, TimeUnit timeUnit) {
         ensureClientIsPresent();
         TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
+        logger.log(Level.DEBUG, "waiting " + timeout + " for shard settling down");
         ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
                 .waitForNoInitializingShards(true)
                 .waitForNoRelocatingShards(true)

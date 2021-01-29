@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
@@ -15,6 +16,8 @@ import org.xbib.elx.node.NodeBulkClient;
 import org.xbib.elx.node.NodeBulkClientProvider;
 import org.xbib.elx.node.NodeSearchClient;
 import org.xbib.elx.node.NodeSearchClientProvider;
+
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
@@ -52,8 +55,13 @@ class SearchTest {
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
             bulkClient.refreshIndex("test");
             assertEquals(numactions, bulkClient.getSearchableDocs("test"));
+            bulkClient.index("test", "0", false, "{\"name\":\"Hello\"}");
+            bulkClient.flush();
+            bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
+            bulkClient.refreshIndex("test");
+            assertEquals(numactions + 1, bulkClient.getSearchableDocs("test"));
         }
-        assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
+        assertEquals(numactions + 1, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
         if (bulkClient.getBulkController().getLastBulkError() != null) {
             logger.error("error", bulkClient.getBulkController().getLastBulkError());
         }
@@ -62,12 +70,14 @@ class SearchTest {
                 .setSearchClientProvider(NodeSearchClientProvider.class)
                 .put(helper.getNodeSettings("1"))
                 .build()) {
+            Optional<GetResponse> responseOptional = searchClient.get(grb -> grb.setIndex("test").setId("0"));
+            assertEquals("{\"name\":\"Hello\"}", responseOptional.get().getSourceAsString());
             Stream<SearchHit> stream = searchClient.search(qb -> qb
                             .setIndices("test")
                             .setQuery(QueryBuilders.matchAllQuery()),
                     TimeValue.timeValueMinutes(1), 10);
             long count = stream.count();
-            assertEquals(numactions, count);
+            assertEquals(numactions + 1, count);
             Stream<String> ids = searchClient.getIds(qb -> qb
                     .setIndices("test")
                     .setQuery(QueryBuilders.matchAllQuery()));
@@ -76,10 +86,10 @@ class SearchTest {
                 logger.info(id);
                 idcount.incrementAndGet();
             });
-            assertEquals(numactions, idcount.get());
-            assertEquals(13, searchClient.getSearchMetric().getQueries().getCount());
-            assertEquals(2, searchClient.getSearchMetric().getSucceededQueries().getCount());
-            assertEquals(0, searchClient.getSearchMetric().getEmptyQueries().getCount());
+            assertEquals(numactions + 1, idcount.get());
+            assertEquals(15, searchClient.getSearchMetric().getQueries().getCount());
+            assertEquals(13, searchClient.getSearchMetric().getSucceededQueries().getCount());
+            assertEquals(2, searchClient.getSearchMetric().getEmptyQueries().getCount());
         }
     }
 }

@@ -87,15 +87,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static org.xbib.elx.api.IndexDefinition.TYPE_NAME;
+
 public abstract class AbstractAdminClient extends AbstractBasicClient implements AdminClient {
 
     private static final Logger logger = LogManager.getLogger(AbstractAdminClient.class.getName());
-
-    /**
-     * The one and only index type name used in the extended client.
-     * Notr that all Elasticsearch version < 6.2.0 do not allow a prepending "_".
-     */
-    private static final String TYPE_NAME = "doc";
 
     private static final IndexShiftResult EMPTY_INDEX_SHIFT_RESULT = new IndexShiftResult() {
         @Override
@@ -133,17 +129,11 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public Map<String, ?> getMapping(String index) {
-        return getMapping(index, TYPE_NAME);
-    }
-
-    @Override
-    public Map<String, ?> getMapping(String index, String mapping) {
         GetMappingsRequestBuilder getMappingsRequestBuilder = new GetMappingsRequestBuilder(client, GetMappingsAction.INSTANCE)
                 .setIndices(index)
-                .setTypes(mapping);
+                .setTypes(TYPE_NAME);
         GetMappingsResponse getMappingsResponse = getMappingsRequestBuilder.execute().actionGet();
-        logger.info("get mappings response = {}", getMappingsResponse.getMappings().get(index).get(mapping).getSourceAsMap());
-        return getMappingsResponse.getMappings().get(index).get(mapping).getSourceAsMap();
+        return getMappingsResponse.getMappings().get(index).get(TYPE_NAME).getSourceAsMap();
     }
 
     @Override
@@ -377,7 +367,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         GetIndexRequestBuilder getIndexRequestBuilder = new GetIndexRequestBuilder(client, GetIndexAction.INSTANCE);
         GetIndexResponse getIndexResponse = getIndexRequestBuilder.execute().actionGet();
         Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
-        logger.info("{} indices", getIndexResponse.getIndices().length);
+        logger.info("found {} indices for pruning", getIndexResponse.getIndices().length);
         List<String> candidateIndices = new ArrayList<>();
         for (String s : getIndexResponse.getIndices()) {
             Matcher m = pattern.matcher(s);
