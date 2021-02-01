@@ -110,7 +110,7 @@ public abstract class AbstractBasicClient implements BasicClient {
         ClusterHealthResponse healthResponse =
                 client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
         if (healthResponse.isTimedOut()) {
-            String message = "timeout waiting for cluster shards";
+            String message = "timeout waiting for cluster shards: " + timeout;
             logger.error(message);
             throw new IllegalStateException(message);
         }

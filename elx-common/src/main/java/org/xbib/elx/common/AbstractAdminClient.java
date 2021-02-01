@@ -151,7 +151,6 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest().indices(index);
         client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
         waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
-        waitForShards(30L, TimeUnit.SECONDS);
         return this;
     }
 
@@ -168,7 +167,6 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             return this;
         }
         updateIndexSetting(index, "number_of_replicas", level, maxWaitTime, timeUnit);
-        waitForShards(maxWaitTime, timeUnit);
         return this;
     }
 
@@ -367,7 +365,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         GetIndexRequestBuilder getIndexRequestBuilder = new GetIndexRequestBuilder(client, GetIndexAction.INSTANCE);
         GetIndexResponse getIndexResponse = getIndexRequestBuilder.execute().actionGet();
         Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
-        logger.info("found {} indices for pruning", getIndexResponse.getIndices().length);
+        logger.info("found {} indices in the cluster", getIndexResponse.getIndices().length);
         List<String> candidateIndices = new ArrayList<>();
         for (String s : getIndexResponse.getIndices()) {
             Matcher m = pattern.matcher(s);
@@ -375,10 +373,13 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                 candidateIndices.add(s);
             }
         }
+        logger.info("found {} as candidates for pruning", candidateIndices);
         if (candidateIndices.isEmpty()) {
+            logger.info("empty pruning");
             return EMPTY_INDEX_PRUNE_RESULT;
         }
         if (mintokeep > 0 && candidateIndices.size() <= mintokeep) {
+            logger.info("nothing to prune, min to keep = " + mintokeep);
             return new NothingToDoPruneResult(candidateIndices, Collections.emptyList());
         }
         List<String> indicesToDelete = new ArrayList<>();
@@ -396,6 +397,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                 }
             }
         }
+        logger.warn("removing {}", indicesToDelete);
         if (indicesToDelete.isEmpty()) {
             return new NothingToDoPruneResult(candidateIndices, indicesToDelete);
         }
@@ -403,6 +405,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest()
                 .indices(indicesToDelete.toArray(s));
         AcknowledgedResponse response = client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
+        logger.info("removed {}", indicesToDelete);
         return new SuccessPruneResult(candidateIndices, indicesToDelete, response);
     }
 
@@ -628,9 +631,17 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             path = path + fieldName;
         }
         if (map.containsKey("index")) {
-            String mode = (String) map.get("index");
-            if ("no".equals(mode)) {
-                return;
+            Object mode = map.get("index");
+            if (mode instanceof String) {
+                if ("no".equals(mode)) {
+                    return;
+                }
+            }
+            if (mode instanceof Boolean) {
+                Boolean b = (Boolean) mode;
+                if (!b) {
+                    return;
+                }
             }
         }
         for (Map.Entry<String, Object> entry : map.entrySet()) {
