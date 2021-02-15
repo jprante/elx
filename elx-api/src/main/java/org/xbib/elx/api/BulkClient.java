@@ -14,11 +14,10 @@ import java.util.concurrent.TimeUnit;
 public interface BulkClient extends BasicClient, Flushable {
 
     /**
-     * Get buulk control.
+     * Get bulk control.
      * @return the bulk control
      */
     BulkController getBulkController();
-
 
     /**
      * Create a new index.

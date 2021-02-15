@@ -16,7 +16,9 @@ import org.xbib.elx.transport.TransportBulkClient;
 import org.xbib.elx.transport.TransportBulkClientProvider;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -65,8 +67,8 @@ class IndexShiftTest {
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
             assertTrue(aliases.containsKey("test"));
-            String resolved = adminClient.resolveAlias("test");
-            aliases = adminClient.getAliases(resolved);
+            Optional<String> resolved = adminClient.resolveAlias("test").stream().findFirst();
+            aliases = resolved.isPresent() ? adminClient.getAliases(resolved.get()) : Collections.emptyMap();
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
@@ -95,8 +97,8 @@ class IndexShiftTest {
             assertTrue(aliases.containsKey("d"));
             assertTrue(aliases.containsKey("e"));
             assertTrue(aliases.containsKey("f"));
-            resolved = adminClient.resolveAlias("test");
-            aliases = adminClient.getAliases(resolved);
+            resolved = adminClient.resolveAlias("test").stream().findFirst();
+            aliases = resolved.isPresent() ? adminClient.getAliases(resolved.get()) : Collections.emptyMap();
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));

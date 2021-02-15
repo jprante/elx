@@ -24,8 +24,6 @@ public interface AdminClient extends BasicClient {
 
     Map<String, ?> getMapping(String index) throws IOException;
 
-    Map<String, ?> getMapping(String index, String type) throws IOException;
-
     void checkMapping(String index);
 
     /**
@@ -101,7 +99,7 @@ public interface AdminClient extends BasicClient {
      * @param alias the alias
      * @return this index name behind the alias or the alias if there is no index
      */
-    String resolveAlias(String alias);
+    List<String> resolveAlias(String alias);
 
     /**
      * Resolve alias to all connected indices, sort index names with most recent timestamp on top, return this index
