@@ -112,27 +112,6 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         }
     };
 
-    private static final IndexPruneResult EMPTY_INDEX_PRUNE_RESULT = new IndexPruneResult() {
-        @Override
-        public State getState() {
-            return State.NONE;
-        }
-
-        @Override
-        public List<String> getCandidateIndices() {
-            return Collections.emptyList();
-        }
-
-        @Override
-        public List<String> getDeletedIndices() {
-            return Collections.emptyList();
-        }
-
-        @Override
-        public boolean isAcknowledged() {
-            return false;
-        }
-    };
 
     @Override
     public Map<String, ?> getMapping(String index) throws IOException {
@@ -240,7 +219,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                 client.execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
         SortedMap<String, AliasOrIndex> map = clusterStateResponse.getState().getMetaData().getAliasAndIndexLookup();
         AliasOrIndex aliasOrIndex = map.get(alias);
-        return aliasOrIndex != null ? aliasOrIndex.getIndices().stream().map(IndexMetaData::getIndex).collect(Collectors.toList()) : null;
+        return aliasOrIndex != null ? aliasOrIndex.getIndices().stream().map(IndexMetaData::getIndex).collect(Collectors.toList()) : Collections.emptyList();
     }
 
     @Override
@@ -270,7 +249,8 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public IndexShiftResult shiftIndex(String index, String fullIndexName,
-                                     List<String> additionalAliases, IndexAliasAdder adder) {
+                                       List<String> additionalAliases,
+                                       IndexAliasAdder adder) {
         ensureClientIsPresent();
         if (index == null) {
             return EMPTY_INDEX_SHIFT_RESULT; // nothing to shift to
@@ -282,7 +262,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         // two situations: 1. a new alias 2. there is already an old index with the alias
         Optional<String> oldIndex = resolveAlias(index).stream().sorted().findFirst();
         Map<String, String> oldAliasMap = oldIndex.map(this::getAliases).orElse(null);
-        logger.debug("old index = {} old alias map = {}", oldIndex, oldAliasMap);
+        logger.debug("old index = {} old alias map = {}", oldIndex.orElse(""), oldAliasMap);
         final List<String> newAliases = new ArrayList<>();
         final List<String> moveAliases = new ArrayList<>();
         IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
@@ -347,38 +327,50 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public IndexPruneResult pruneIndex(IndexDefinition indexDefinition) {
-        return pruneIndex(indexDefinition.getIndex(), indexDefinition.getFullIndexName(),
-                indexDefinition.getRetention().getDelta(), indexDefinition.getRetention().getMinToKeep(), true);
+        return indexDefinition.isPruneEnabled() ?
+                pruneIndex(indexDefinition.getIndex(),
+                indexDefinition.getFullIndexName(),
+                indexDefinition.getDateTimePattern(),
+                indexDefinition.getRetention().getDelta(),
+                indexDefinition.getRetention().getMinToKeep()) : new EmptyPruneResult();
     }
 
-    @Override
-    public IndexPruneResult pruneIndex(String index, String fullIndexName, int delta, int mintokeep, boolean perform) {
+    private IndexPruneResult pruneIndex(String index,
+                                        String protectedIndexName,
+                                        Pattern pattern,
+                                        int delta,
+                                        int mintokeep) {
+        logger.info("before pruning: index = {} full index = {} delta = {} mintokeep = {} pattern = {}",
+                index, protectedIndexName, delta, mintokeep, pattern);
         if (delta == 0 && mintokeep == 0) {
-            return EMPTY_INDEX_PRUNE_RESULT;
+            return new EmptyPruneResult();
         }
-        if (index.equals(fullIndexName)) {
-            return EMPTY_INDEX_PRUNE_RESULT;
+        if (index.equals(protectedIndexName)) {
+            return new EmptyPruneResult();
         }
         ensureClientIsPresent();
         GetIndexRequestBuilder getIndexRequestBuilder = new GetIndexRequestBuilder(client, GetIndexAction.INSTANCE);
         GetIndexResponse getIndexResponse = getIndexRequestBuilder.execute().actionGet();
-        Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
-        logger.info("found {} indices", getIndexResponse.getIndices().length);
+        logger.info("before pruning: found total of {} indices", getIndexResponse.getIndices().length);
         List<String> candidateIndices = new ArrayList<>();
         for (String s : getIndexResponse.getIndices()) {
             Matcher m = pattern.matcher(s);
-            if (m.matches() && index.equals(m.group(1)) && !s.equals(fullIndexName)) {
+            if (m.matches() && m.group(1).equals(index) && !s.equals(protectedIndexName)) {
                 candidateIndices.add(s);
+            } else {
+                logger.info("not a candidate: " + s);
             }
         }
         if (candidateIndices.isEmpty()) {
-            return EMPTY_INDEX_PRUNE_RESULT;
+            return new EmptyPruneResult();
         }
         if (mintokeep > 0 && candidateIndices.size() <= mintokeep) {
             return new NothingToDoPruneResult(candidateIndices, Collections.emptyList());
         }
+        Collections.sort(candidateIndices);
+        logger.info("found {} candidates", candidateIndices);
         List<String> indicesToDelete = new ArrayList<>();
-        Matcher m1 = pattern.matcher(fullIndexName);
+        Matcher m1 = pattern.matcher(protectedIndexName);
         if (m1.matches()) {
             Integer i1 = Integer.parseInt(m1.group(2));
             for (String s : candidateIndices) {
@@ -395,6 +387,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         if (indicesToDelete.isEmpty()) {
             return new NothingToDoPruneResult(candidateIndices, indicesToDelete);
         }
+        logger.warn("deleting {}", indicesToDelete);
         String[] s = new String[indicesToDelete.size()];
         DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest()
                 .indices(indicesToDelete.toArray(s));
@@ -413,8 +406,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.indices(index);
         searchRequest.source(builder);
-        SearchResponse searchResponse =
-                client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
+        SearchResponse searchResponse = client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
         if (searchResponse.getHits().getHits().length == 1) {
             SearchHit hit = searchResponse.getHits().getHits()[0];
             if (hit.getFields().get(timestampfieldname) != null) {
@@ -428,7 +420,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public boolean forceMerge(IndexDefinition indexDefinition) {
-        if (indexDefinition.hasForceMerge()) {
+        if (indexDefinition.isForceMergeEnabled()) {
             return forceMerge(indexDefinition.getFullIndexName(), indexDefinition.getMaxWaitTime(),
                     indexDefinition.getMaxWaitTimeUnit());
         }
@@ -459,19 +451,13 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             throws IOException {
         boolean isEnabled = settings.getAsBoolean("enabled", false);
         String indexName = settings.get("name", index);
-        String fullIndexName;
-        String dateTimePattern = settings.get("dateTimePattern");
-        if (dateTimePattern != null) {
-            // check if index name with current date already exists, resolve to it
-            String fullName = indexName + DateTimeFormatter.ofPattern(dateTimePattern)
-                    .withZone(ZoneId.systemDefault()) // not GMT
-                    .format(LocalDate.now());
-            Optional<String> optional = resolveAlias(fullName).stream().findFirst();
-            fullIndexName = optional.orElse(fullName);
-        } else {
-            // check if index name already exists, resolve to it
-            fullIndexName = resolveMostRecentIndex(indexName);
-        }
+        String dateTimePatternStr = settings.get("dateTimePattern", "^(.*?)(\\\\d+)$");
+        Pattern dateTimePattern = Pattern.compile(dateTimePatternStr);
+        String dateTimeFormat = settings.get("dateTimeFormat", "yyyyMMdd");
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimeFormat)
+                .withZone(ZoneId.systemDefault());
+        String fullName = indexName + dateTimeFormatter.format(LocalDate.now());
+        String fullIndexName = resolveAlias(fullName).stream().findFirst().orElse(fullName);
         IndexRetention indexRetention = new DefaultIndexRetention()
                 .setMinToKeep(settings.getAsInt("retention.mintokeep", 0))
                 .setDelta(settings.getAsInt("retention.delta", 0));
@@ -481,9 +467,11 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                 .setFullIndexName(fullIndexName)
                 .setSettings(findSettingsFrom(settings.get("settings")))
                 .setMappings(findMappingsFrom(settings.get("mapping")))
+                .setDateTimeFormatter(dateTimeFormatter)
                 .setDateTimePattern(dateTimePattern)
                 .setIgnoreErrors(settings.getAsBoolean("skiperrors", false))
                 .setShift(settings.getAsBoolean("shift", true))
+                .setPrune(settings.getAsBoolean("prune", true))
                 .setReplicaLevel(settings.getAsInt("replica", 0))
                 .setMaxWaitTime(settings.getAsLong("timeout", 30L), TimeUnit.SECONDS)
                 .setRetention(indexRetention)
@@ -717,6 +705,11 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         public boolean isAcknowledged() {
             return response.isAcknowledged();
         }
+
+        @Override
+        public String toString() {
+            return "PRUNED: " + indicesToDelete;
+        }
     }
 
     private static class NothingToDoPruneResult implements IndexPruneResult {
@@ -749,5 +742,39 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         public boolean isAcknowledged() {
             return false;
         }
+
+        @Override
+        public String toString() {
+            return "NOTHING TO DO";
+        }
     }
+
+    private static class EmptyPruneResult implements IndexPruneResult {
+
+        @Override
+        public State getState() {
+            return State.NONE;
+        }
+
+        @Override
+        public List<String> getCandidateIndices() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<String> getDeletedIndices() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public boolean isAcknowledged() {
+            return false;
+        }
+
+        @Override
+        public String toString() {
+            return "EMPTY PRUNE";
+        }
+    }
+
 }

@@ -8,6 +8,11 @@ public class DefaultIndexRetention implements IndexRetention {
 
     private int minToKeep;
 
+    public DefaultIndexRetention() {
+        this.delta = 2;
+        this.minToKeep = 2;
+    }
+
     @Override
     public IndexRetention setDelta(int delta) {
         this.delta = delta;

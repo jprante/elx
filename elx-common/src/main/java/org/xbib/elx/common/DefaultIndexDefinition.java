@@ -3,7 +3,9 @@ package org.xbib.elx.common;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.api.IndexRetention;
 
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 public class DefaultIndexDefinition implements IndexDefinition {
 
@@ -11,7 +13,9 @@ public class DefaultIndexDefinition implements IndexDefinition {
 
     private String fullIndexName;
 
-    private String dateTimePattern;
+    private DateTimeFormatter formatter;
+
+    private Pattern pattern;
 
     private String settings;
 
@@ -21,9 +25,11 @@ public class DefaultIndexDefinition implements IndexDefinition {
 
     private boolean ignoreErrors;
 
-    private boolean switchAliases;
+    private boolean shift;
 
-    private boolean hasForceMerge;
+    private boolean prune;
+
+    private boolean forcemerge;
 
     private int replicaLevel;
 
@@ -82,14 +88,25 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public IndexDefinition setDateTimePattern(String timeWindow) {
-        this.dateTimePattern = timeWindow;
+    public IndexDefinition setDateTimeFormatter(DateTimeFormatter formatter) {
+        this.formatter = formatter;
         return this;
     }
 
     @Override
-    public String getDateTimePattern() {
-        return dateTimePattern;
+    public DateTimeFormatter getDateTimeFormatter() {
+        return formatter;
+    }
+
+    @Override
+    public IndexDefinition setDateTimePattern(Pattern pattern) {
+        this.pattern = pattern;
+        return this;
+    }
+
+    @Override
+    public Pattern getDateTimePattern() {
+        return pattern;
     }
 
     @Override
@@ -115,25 +132,36 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public IndexDefinition setShift(boolean switchAliases) {
-        this.switchAliases = switchAliases;
+    public IndexDefinition setShift(boolean shift) {
+        this.shift = shift;
         return this;
     }
 
     @Override
     public boolean isShiftEnabled() {
-        return switchAliases;
+        return shift;
     }
 
     @Override
-    public IndexDefinition setForceMerge(boolean hasForceMerge) {
-        this.hasForceMerge = hasForceMerge;
+    public IndexDefinition setPrune(boolean prune) {
+        this.prune = prune;
         return this;
     }
 
     @Override
-    public boolean hasForceMerge() {
-        return hasForceMerge;
+    public boolean isPruneEnabled() {
+        return prune;
+    }
+
+    @Override
+    public IndexDefinition setForceMerge(boolean forcemerge) {
+        this.forcemerge = forcemerge;
+        return this;
+    }
+
+    @Override
+    public boolean isForceMergeEnabled() {
+        return forcemerge;
     }
 
     @Override
