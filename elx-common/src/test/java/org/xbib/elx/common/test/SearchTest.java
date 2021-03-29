@@ -31,7 +31,7 @@ class SearchTest {
     void testSearch() throws Exception {
         ElasticsearchClient client = helper.client("1");
         BulkRequestBuilder builder = new BulkRequestBuilder(client, BulkAction.INSTANCE);
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 1; i++) {
             IndexRequest indexRequest = new IndexRequest().index("pages")
                     .source(XContentFactory.jsonBuilder()
                             .startObject()
@@ -51,7 +51,7 @@ class SearchTest {
         }
         client.execute(BulkAction.INSTANCE, builder.request()).actionGet();
         client.execute(RefreshAction.INSTANCE, new RefreshRequest()).actionGet();
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 1; i++) {
             QueryBuilder queryStringBuilder = QueryBuilders.queryStringQuery("rs:" + 1234);
             SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE)
                     .setIndices("pages")

@@ -7,8 +7,10 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.api.IndexShiftResult;
 import org.xbib.elx.common.ClientBuilder;
+import org.xbib.elx.common.DefaultIndexDefinition;
 import org.xbib.elx.node.NodeAdminClient;
 import org.xbib.elx.node.NodeAdminClientProvider;
 import org.xbib.elx.node.NodeBulkClient;
@@ -54,8 +56,11 @@ class IndexShiftTest {
             }
             bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-            IndexShiftResult indexShiftResult =
-                    adminClient.shiftIndex("test", "test_shift", Arrays.asList("a", "b", "c"));
+            IndexDefinition indexDefinition = new DefaultIndexDefinition();
+            indexDefinition.setIndex("test");
+            indexDefinition.setFullIndexName("test_shift");
+            indexDefinition.setShift(true);
+            IndexShiftResult indexShiftResult = adminClient.shiftIndex(indexDefinition, Arrays.asList("a", "b", "c"));
             assertTrue(indexShiftResult.getNewAliases().contains("a"));
             assertTrue(indexShiftResult.getNewAliases().contains("b"));
             assertTrue(indexShiftResult.getNewAliases().contains("c"));
@@ -79,7 +84,9 @@ class IndexShiftTest {
             }
             bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-            indexShiftResult = adminClient.shiftIndex("test", "test_shift2", Arrays.asList("d", "e", "f"),
+            indexDefinition.setFullIndexName("test_shift2");
+            indexDefinition.setShift(true);
+            indexShiftResult = adminClient.shiftIndex(indexDefinition, Arrays.asList("d", "e", "f"),
                     (request, index, alias) -> request.addAliasAction(IndicesAliasesRequest.AliasActions.add()
                             .index(index).alias(alias).filter(QueryBuilders.termQuery("my_key", alias)))
             );

@@ -223,7 +223,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
          * Creates a builder of bulk processor with the client to use and the listener that will be used
          * to be notified on the completion of bulk requests.
          *
-         * @param client   the client
+         * @param client the client
          * @param bulkListener the listener
          */
         Builder(ElasticsearchClient client, BulkListener bulkListener) {

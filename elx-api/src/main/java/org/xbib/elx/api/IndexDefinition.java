@@ -1,6 +1,8 @@
 package org.xbib.elx.api;
 
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 public interface IndexDefinition {
 
@@ -26,9 +28,13 @@ public interface IndexDefinition {
 
     String getMappings();
 
-    IndexDefinition setDateTimePattern(String timeWindow);
+    IndexDefinition setDateTimeFormatter(DateTimeFormatter formatter);
 
-    String getDateTimePattern();
+    DateTimeFormatter getDateTimeFormatter();
+
+    IndexDefinition setDateTimePattern(Pattern pattern);
+
+    Pattern getDateTimePattern();
 
     IndexDefinition setEnabled(boolean enabled);
 
@@ -42,9 +48,13 @@ public interface IndexDefinition {
 
     boolean isShiftEnabled();
 
-    IndexDefinition setForceMerge(boolean hasForceMerge);
+    IndexDefinition setPrune(boolean prune);
 
-    boolean hasForceMerge();
+    boolean isPruneEnabled();
+
+    IndexDefinition setForceMerge(boolean forcemerge);
+
+    boolean isForceMergeEnabled();
 
     IndexDefinition setReplicaLevel(int replicaLevel);
 

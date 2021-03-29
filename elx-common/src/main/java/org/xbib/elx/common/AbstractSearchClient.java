@@ -126,7 +126,7 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE);
         queryBuilder.accept(searchRequestBuilder);
         searchRequestBuilder.setScroll(scrollTime).setSize(scrollSize);
-        ActionFuture<SearchResponse> actionFuture =  searchRequestBuilder.execute();
+        ActionFuture<SearchResponse> actionFuture = searchRequestBuilder.execute();
         searchMetric.getCurrentQueries().inc();
         SearchResponse originalSearchResponse = actionFuture.actionGet();
         searchMetric.getCurrentQueries().dec();
@@ -149,7 +149,7 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
                     searchMetric.getCurrentQueries().dec();
                     searchMetric.getQueries().inc();
                     searchMetric.markTotalQueries(1);
-                    if ( searchResponse1.getHits().getHits().length == 0) {
+                    if (searchResponse1.getHits().getHits().length == 0) {
                         searchMetric.getEmptyQueries().inc();
                     } else {
                         searchMetric.getSucceededQueries().inc();

@@ -39,8 +39,8 @@ public interface BulkListener {
     void afterBulk(long executionId, BulkRequest request, Throwable failure);
 
     /**
-     * Get the last bulk error
-     * @return the lst bulk error
+     * Get the last bulk error.
+     * @return the last bulk error
      */
     Throwable getLastBulkError();
 }

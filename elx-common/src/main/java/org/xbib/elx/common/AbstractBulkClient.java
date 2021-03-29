@@ -126,8 +126,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
             createIndexRequestBuilder.addMapping(TYPE_NAME,
                     JsonXContent.contentBuilder().startObject().startObject(TYPE_NAME).endObject().endObject());
             logger.debug("empty mapping");
-         }
-
+        }
         CreateIndexResponse createIndexResponse = createIndexRequestBuilder.execute().actionGet();
         if (createIndexResponse.isAcknowledged()) {
             logger.info("index {} created", index);

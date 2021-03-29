@@ -123,7 +123,8 @@ public interface AdminClient extends BasicClient {
      * @param additionalAliases new aliases
      * @return this
      */
-    IndexShiftResult shiftIndex(IndexDefinition indexDefinition, List<String> additionalAliases);
+    IndexShiftResult shiftIndex(IndexDefinition indexDefinition,
+                                List<String> additionalAliases);
 
     /**
      * Shift from one index to another.
@@ -132,28 +133,9 @@ public interface AdminClient extends BasicClient {
      * @param indexAliasAdder method to add aliases
      * @return this
      */
-    IndexShiftResult shiftIndex(IndexDefinition indexDefinition, List<String> additionalAliases,
+    IndexShiftResult shiftIndex(IndexDefinition indexDefinition,
+                                List<String> additionalAliases,
                                 IndexAliasAdder indexAliasAdder);
-
-    /**
-     * Shift from one index to another.
-     * @param index         the index name
-     * @param fullIndexName the index name with timestamp
-     * @param additionalAliases  a list of names that should be set as index aliases
-     * @return this
-     */
-    IndexShiftResult shiftIndex(String index, String fullIndexName, List<String> additionalAliases);
-
-    /**
-     * Shift from one index to another.
-     * @param index         the index name
-     * @param fullIndexName the index name with timestamp
-     * @param additionalAliases  a list of names that should be set as index aliases
-     * @param adder         an adder method to create alias term queries
-     * @return this
-     */
-    IndexShiftResult shiftIndex(String index, String fullIndexName, List<String> additionalAliases,
-                                IndexAliasAdder adder);
 
     /**
      * Prune index.
@@ -161,19 +143,6 @@ public interface AdminClient extends BasicClient {
      * @return the index prune result
      */
     IndexPruneResult pruneIndex(IndexDefinition indexDefinition);
-
-    /**
-     * Apply retention policy to prune indices. All indices before delta should be deleted,
-     * but the number of mintokeep indices must be kept.
-     *
-     * @param index         index name
-     * @param fullIndexName index name with timestamp
-     * @param delta timestamp delta (for index timestamps)
-     * @param mintokeep     minimum number of indices to keep
-     * @param perform true if pruning should be executed, false if not
-     * @return the index prune result
-     */
-    IndexPruneResult pruneIndex(String index, String fullIndexName, int delta, int mintokeep, boolean perform);
 
     /**
      * Find the timestamp of the most recently indexed document in the index.

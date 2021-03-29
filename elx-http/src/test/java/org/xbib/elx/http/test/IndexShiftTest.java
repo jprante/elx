@@ -8,8 +8,10 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.api.IndexShiftResult;
 import org.xbib.elx.common.ClientBuilder;
+import org.xbib.elx.common.DefaultIndexDefinition;
 import org.xbib.elx.http.HttpAdminClient;
 import org.xbib.elx.http.HttpAdminClientProvider;
 import org.xbib.elx.http.HttpBulkClient;
@@ -56,8 +58,11 @@ class IndexShiftTest {
             }
             bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-            IndexShiftResult indexShiftResult =
-                    adminClient.shiftIndex("test", "test1234",  Arrays.asList("a", "b", "c"));
+            IndexDefinition indexDefinition = new DefaultIndexDefinition();
+            indexDefinition.setIndex("test");
+            indexDefinition.setFullIndexName("test1234");
+            indexDefinition.setShift(true);
+            IndexShiftResult indexShiftResult = adminClient.shiftIndex(indexDefinition, Arrays.asList("a", "b", "c"));
             assertTrue(indexShiftResult.getNewAliases().contains("a"));
             assertTrue(indexShiftResult.getNewAliases().contains("b"));
             assertTrue(indexShiftResult.getNewAliases().contains("c"));
@@ -83,7 +88,9 @@ class IndexShiftTest {
             }
             bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-            indexShiftResult = adminClient.shiftIndex("test", "test5678", Arrays.asList("d", "e", "f"),
+            indexDefinition.setFullIndexName("test5678");
+            indexDefinition.setShift(true);
+            indexShiftResult = adminClient.shiftIndex(indexDefinition, Arrays.asList("d", "e", "f"),
                     (request, index, alias) -> request.addAliasAction(IndicesAliasesRequest.AliasActions.add()
                             .index(index).alias(alias).filter(QueryBuilders.termQuery("my_key", alias)))
             );

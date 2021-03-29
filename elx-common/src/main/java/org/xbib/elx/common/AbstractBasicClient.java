@@ -92,12 +92,11 @@ public abstract class AbstractBasicClient implements BasicClient {
                 new ClusterHealthRequest().timeout(timeout).waitForStatus(status)).actionGet();
         if (healthResponse != null && healthResponse.isTimedOut()) {
             String message = "timeout, cluster state is " + healthResponse.getStatus().name() + " and not " + status.name();
-            if (logger.isErrorEnabled()) {
-                logger.error(message);
-            }
+            logger.error(message);
             throw new IllegalStateException(message);
         }
     }
+
     @Override
     public void waitForShards(long maxWaitTime, TimeUnit timeUnit) {
         ensureClientIsPresent();
