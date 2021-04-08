@@ -26,7 +26,7 @@ public interface IndexDefinition {
 
     DateTimeFormatter getDateTimeFormatter();
 
-    IndexDefinition setDateTimePattern(Pattern timeWindow);
+    IndexDefinition setDateTimePattern(Pattern pattern);
 
     Pattern getDateTimePattern();
 

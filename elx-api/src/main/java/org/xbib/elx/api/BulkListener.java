@@ -3,6 +3,9 @@ package org.xbib.elx.api;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 
+/**
+ * A bulk listener for following executions of bulk operations.
+ */
 public interface BulkListener {
 
     /**

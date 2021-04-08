@@ -122,12 +122,12 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
 
     @Override
     public Stream<SearchHit> search(Consumer<SearchRequestBuilder> queryBuilder,
-                                         TimeValue scrollTime, int scrollSize) {
+                                    TimeValue scrollTime, int scrollSize) {
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE);
         queryBuilder.accept(searchRequestBuilder);
         searchRequestBuilder.setScroll(scrollTime).setSize(scrollSize);
         SearchResponse originalSearchResponse = searchRequestBuilder.execute().actionGet();
-        Stream<SearchResponse> infiniteResponses = Stream.iterate(originalSearchResponse,
+        Stream<SearchResponse> responseStream = Stream.iterate(originalSearchResponse,
                 searchResponse ->  {
                     SearchScrollRequestBuilder searchScrollRequestBuilder =
                             new SearchScrollRequestBuilder(client, SearchScrollAction.INSTANCE)
@@ -139,8 +139,11 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
                     searchMetric.getCurrentQueries().dec();
                     searchMetric.getQueries().inc();
                     searchMetric.markTotalQueries(1);
-                    boolean isempty = searchResponse1.getHits().getHits().length == 0;
-                    if (isempty) {
+                    if (searchResponse1.getFailedShards() > 0) {
+                        searchMetric.getFailedQueries().inc();
+                    } else if (searchResponse1.isTimedOut()) {
+                        searchMetric.getTimeoutQueries().inc();
+                    } else if (searchResponse1.getHits().getHits().length == 0) {
                         searchMetric.getEmptyQueries().inc();
                     } else {
                         searchMetric.getSucceededQueries().inc();
@@ -154,9 +157,9 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
                             .addScrollId(searchResponse.getScrollId());
             clearScrollRequestBuilder.execute().actionGet();
         };
-        return StreamSupport.stream(TakeWhileSpliterator.over(infiniteResponses.spliterator(),
+        return StreamSupport.stream(TakeWhileSpliterator.over(responseStream.spliterator(),
                 condition, lastAction), false)
-                .onClose(infiniteResponses::close)
+                .onClose(responseStream::close)
                 .flatMap(searchResponse -> Arrays.stream(searchResponse.getHits().getHits()));
     }
 
@@ -165,7 +168,7 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
         return search(queryBuilder, TimeValue.timeValueMinutes(1), 1000).map(SearchHit::getId);
     }
 
-    static class TakeWhileSpliterator<T> implements Spliterator<T> {
+    private static class TakeWhileSpliterator<T> implements Spliterator<T> {
 
         private final Spliterator<T> source;
 

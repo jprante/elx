@@ -21,6 +21,10 @@ public interface SearchMetric extends Closeable {
 
     Count getEmptyQueries();
 
+    Count getFailedQueries();
+
+    Count getTimeoutQueries();
+
     long elapsed();
 
     void start();

@@ -123,7 +123,8 @@ public interface AdminClient extends BasicClient {
      * @param additionalAliases new aliases
      * @return this
      */
-    IndexShiftResult shiftIndex(IndexDefinition indexDefinition, List<String> additionalAliases);
+    IndexShiftResult shiftIndex(IndexDefinition indexDefinition,
+                                List<String> additionalAliases);
 
     /**
      * Shift from one index to another.
@@ -137,34 +138,9 @@ public interface AdminClient extends BasicClient {
                                 IndexAliasAdder indexAliasAdder);
 
     /**
-     * Shift from one index to another.
-     * @param index         the index name
-     * @param fullIndexName the index name with timestamp
-     * @param additionalAliases  a list of names that should be set as index aliases
-     * @return this
-     */
-    IndexShiftResult shiftIndex(String index,
-                                String fullIndexName,
-                                List<String> additionalAliases);
-
-    /**
-     * Shift from one index to another.
-     * @param index         the index name
-     * @param fullIndexName the index name with timestamp
-     * @param additionalAliases  a list of names that should be set as index aliases
-     * @param adder         an adder method to create alias term queries
-     * @return this
-     */
-    IndexShiftResult shiftIndex(String index,
-                                String fullIndexName, List<String> additionalAliases,
-                                IndexAliasAdder adder);
-
-
-    /**
-     * Apply retention policy to prune indices. All indices before delta should be deleted,
-     * but the number of mintokeep indices must be kept.
+     * Prune index.
      *
-     * @param indexDefinition         index definition
+     * @param indexDefinition the index definition
      * @return the index prune result
      */
     IndexPruneResult pruneIndex(IndexDefinition indexDefinition);

@@ -164,7 +164,6 @@ public interface BulkClient extends BasicClient, Flushable {
     void startBulk(String index, long startRefreshIntervalSeconds,
                           long stopRefreshIntervalSeconds) throws IOException;
 
-
     /**
      * Stop bulk mode.
      *
@@ -216,5 +215,4 @@ public interface BulkClient extends BasicClient, Flushable {
      * @param index index
      */
     void flushIndex(String index);
-
 }

@@ -100,19 +100,6 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
      */
     private static final String TYPE_NAME = "doc";
 
-    private static final IndexShiftResult EMPTY_INDEX_SHIFT_RESULT = new IndexShiftResult() {
-        @Override
-        public List<String> getMovedAliases() {
-            return Collections.emptyList();
-        }
-
-        @Override
-        public List<String> getNewAliases() {
-            return Collections.emptyList();
-        }
-    };
-
-
     @Override
     public Map<String, ?> getMapping(String index) throws IOException {
         GetMappingsRequestBuilder getMappingsRequestBuilder = new GetMappingsRequestBuilder(client, GetMappingsAction.INSTANCE)
@@ -138,7 +125,6 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest().indices(index);
         client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
         waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
-        waitForShards(30L, TimeUnit.SECONDS);
         return this;
     }
 
@@ -155,7 +141,6 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             return this;
         }
         updateIndexSetting(index, "number_of_replicas", level, maxWaitTime, timeUnit);
-        waitForShards(maxWaitTime, timeUnit);
         return this;
     }
 
@@ -208,6 +193,9 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public List<String> resolveAlias(String alias) {
+        if (alias == null) {
+            return Collections.emptyList();
+        }
         ensureClientIsPresent();
         ClusterStateRequest clusterStateRequest = new ClusterStateRequest();
         clusterStateRequest.blocks(false);
@@ -223,15 +211,17 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     }
 
     @Override
-    public IndexShiftResult shiftIndex(IndexDefinition indexDefinition, List<String> additionalAliases) {
+    public IndexShiftResult shiftIndex(IndexDefinition indexDefinition,
+                                       List<String> additionalAliases) {
         return shiftIndex(indexDefinition, additionalAliases, null);
     }
 
     @Override
     public IndexShiftResult shiftIndex(IndexDefinition indexDefinition,
-                                     List<String> additionalAliases, IndexAliasAdder indexAliasAdder) {
+                                       List<String> additionalAliases,
+                                       IndexAliasAdder indexAliasAdder) {
         if (additionalAliases == null) {
-            return EMPTY_INDEX_SHIFT_RESULT;
+            return new EmptyIndexShiftResult();
         }
         if (indexDefinition.isShiftEnabled()) {
             return shiftIndex(indexDefinition.getIndex(),
@@ -239,30 +229,24 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                             .filter(a -> a != null && !a.isEmpty())
                             .collect(Collectors.toList()), indexAliasAdder);
         }
-        return EMPTY_INDEX_SHIFT_RESULT;
+        return new EmptyIndexShiftResult();
     }
 
-    @Override
-    public IndexShiftResult shiftIndex(String index, String fullIndexName, List<String> additionalAliases) {
-        return shiftIndex(index, fullIndexName, additionalAliases, null);
-    }
-
-    @Override
-    public IndexShiftResult shiftIndex(String index, String fullIndexName,
+    private IndexShiftResult shiftIndex(String index, String fullIndexName,
                                        List<String> additionalAliases,
                                        IndexAliasAdder adder) {
         ensureClientIsPresent();
         if (index == null) {
-            return EMPTY_INDEX_SHIFT_RESULT; // nothing to shift to
+            return new EmptyIndexShiftResult(); // nothing to shift to
         }
         if (index.equals(fullIndexName)) {
-            return EMPTY_INDEX_SHIFT_RESULT; // nothing to shift to
+            return new EmptyIndexShiftResult(); // nothing to shift to
         }
         waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
         // two situations: 1. a new alias 2. there is already an old index with the alias
         Optional<String> oldIndex = resolveAlias(index).stream().sorted().findFirst();
         Map<String, String> oldAliasMap = oldIndex.map(this::getAliases).orElse(null);
-        logger.debug("old index = {} old alias map = {}", oldIndex.orElse(""), oldAliasMap);
+        logger.info("old index = {} old alias map = {}", oldIndex.orElse(""), oldAliasMap);
         final List<String> newAliases = new ArrayList<>();
         final List<String> moveAliases = new ArrayList<>();
         IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
@@ -667,6 +651,20 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         @Override
         public Collection<String> getNewAliases() {
             return newAliases;
+        }
+    }
+
+
+    private static class EmptyIndexShiftResult implements IndexShiftResult {
+
+        @Override
+        public List<String> getMovedAliases() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<String> getNewAliases() {
+            return Collections.emptyList();
         }
     }
 

@@ -4,6 +4,7 @@ import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.api.IndexRetention;
 
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -42,6 +43,11 @@ public class DefaultIndexDefinition implements IndexDefinition {
     private long startRefreshInterval;
 
     private long stopRefreshInterval;
+
+    public DefaultIndexDefinition() {
+        setDateTimeFormatter(DateTimeFormatter.ofPattern("yyyyMMdd", Locale.getDefault()));
+        setDateTimePattern(Pattern.compile("^(.*?)(\\d+)$"));
+    }
 
     @Override
     public IndexDefinition setIndex(String index) {

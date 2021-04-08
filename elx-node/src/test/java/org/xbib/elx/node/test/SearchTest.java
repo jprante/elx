@@ -24,9 +24,9 @@ class SearchTest {
 
     private static final Logger logger = LogManager.getLogger(SearchTest.class.getName());
 
-    private static final Long ACTIONS = 100L;
+    private static final Long ACTIONS = 100000L;
 
-    private static final Long MAX_ACTIONS_PER_REQUEST = 10L;
+    private static final Long MAX_ACTIONS_PER_REQUEST = 100L;
 
     private final TestExtension.Helper helper;
 
@@ -36,21 +36,22 @@ class SearchTest {
 
     @Test
     void testDocStream() throws Exception {
+        long numactions = ACTIONS;
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client)
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(helper.getNodeSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .build()) {
             bulkClient.newIndex("test");
-            for (int i = 0; i < ACTIONS; i++) {
+            for (int i = 0; i < numactions; i++) {
                 bulkClient.index("test", null, false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
             bulkClient.refreshIndex("test");
-            assertEquals(ACTIONS, bulkClient.getSearchableDocs("test"));
-            assertEquals(ACTIONS, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
+            assertEquals(numactions, bulkClient.getSearchableDocs("test"));
+            assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
@@ -60,24 +61,39 @@ class SearchTest {
                 .setSearchClientProvider(NodeSearchClientProvider.class)
                 .put(helper.getNodeSettings())
                 .build()) {
+            // test stream count
             Stream<SearchHit> stream = searchClient.search(qb -> qb
                             .setIndices("test")
                             .setQuery(QueryBuilders.matchAllQuery()),
-                    TimeValue.timeValueMinutes(1), 10);
+                    TimeValue.timeValueMillis(100), 570);
             long count = stream.count();
-            assertEquals(ACTIONS, count);
+            assertEquals(numactions, count);
+            assertEquals(0L, searchClient.getSearchMetric().getFailedQueries().getCount());
+            assertEquals(0L, searchClient.getSearchMetric().getTimeoutQueries().getCount());
+            assertEquals(1L, searchClient.getSearchMetric().getEmptyQueries().getCount());
+            // test stream docs
+            stream = searchClient.search(qb -> qb
+                            .setIndices("test")
+                            .setQuery(QueryBuilders.matchAllQuery()),
+                    TimeValue.timeValueMillis(10), 79);
+            final AtomicInteger hitcount = new AtomicInteger();
+            stream.forEach(hit -> hitcount.incrementAndGet());
+            assertEquals(numactions, hitcount.get());
+            assertEquals(0L, searchClient.getSearchMetric().getFailedQueries().getCount());
+            assertEquals(0L, searchClient.getSearchMetric().getTimeoutQueries().getCount());
+            assertEquals(2L, searchClient.getSearchMetric().getEmptyQueries().getCount());
+            // test stream doc ids
             Stream<String> ids = searchClient.getIds(qb -> qb
                     .setIndices("test")
                     .setQuery(QueryBuilders.matchAllQuery()));
             final AtomicInteger idcount = new AtomicInteger();
             ids.forEach(id -> {
-                logger.info(id);
                 idcount.incrementAndGet();
             });
-            assertEquals(ACTIONS, idcount.get());
-            assertEquals(11, searchClient.getSearchMetric().getQueries().getCount());
-            assertEquals(9, searchClient.getSearchMetric().getSucceededQueries().getCount());
-            assertEquals(2, searchClient.getSearchMetric().getEmptyQueries().getCount());
+            assertEquals(numactions, idcount.get());
+            assertEquals(0L, searchClient.getSearchMetric().getFailedQueries().getCount());
+            assertEquals(0L, searchClient.getSearchMetric().getTimeoutQueries().getCount());
+            assertEquals(3L, searchClient.getSearchMetric().getEmptyQueries().getCount());
         }
     }
 }

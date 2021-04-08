@@ -24,6 +24,10 @@ public class DefaultSearchMetric implements SearchMetric {
 
     private final Count emptyQueries;
 
+    private final Count failedQueries;
+
+    private final Count timeoutQueries;
+
     private Long started;
 
     private Long stopped;
@@ -34,6 +38,8 @@ public class DefaultSearchMetric implements SearchMetric {
         queries = new CountMetric();
         succeededQueries = new CountMetric();
         emptyQueries = new CountMetric();
+        failedQueries = new CountMetric();
+        timeoutQueries = new CountMetric();
     }
 
     @Override
@@ -70,6 +76,16 @@ public class DefaultSearchMetric implements SearchMetric {
     @Override
     public Count getEmptyQueries() {
         return emptyQueries;
+    }
+
+    @Override
+    public Count getFailedQueries() {
+        return failedQueries;
+    }
+
+    @Override
+    public Count getTimeoutQueries() {
+        return timeoutQueries;
     }
 
     @Override
