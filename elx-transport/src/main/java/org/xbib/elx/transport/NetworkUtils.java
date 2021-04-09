@@ -1,4 +1,4 @@
-package org.xbib.elx.common.util;
+package org.xbib.elx.transport;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,9 +16,6 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
 
-/**
- *
- */
 public class NetworkUtils {
 
     private static final Logger logger = LogManager.getLogger(NetworkUtils.class.getName());

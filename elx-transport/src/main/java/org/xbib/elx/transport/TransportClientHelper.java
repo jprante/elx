@@ -24,7 +24,6 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.transport.Netty4Plugin;
-import org.xbib.elx.common.util.NetworkUtils;
 
 import java.io.IOException;
 import java.net.InetAddress;
