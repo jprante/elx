@@ -20,14 +20,14 @@ public enum Parameters {
 
     FLUSH_INTERVAL("flush_interval");
 
-    boolean flag;
+    boolean value;
 
     int num;
 
     String string;
 
-    Parameters(boolean flag) {
-        this.flag = flag;
+    Parameters(boolean value) {
+        this.value = value;
     }
 
     Parameters(int num) {
@@ -38,15 +38,15 @@ public enum Parameters {
         this.string = string;
     }
 
-    public boolean asBool() {
-        return flag;
+    public boolean getValue() {
+        return value;
     }
 
-    public int asInteger() {
-        return  num;
+    public int getNum() {
+        return num;
     }
 
-    public String asString() {
+    public String getString() {
         return string;
     }
 }

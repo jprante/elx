@@ -1,7 +1,5 @@
 package org.xbib.elx.common;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.elasticsearch.common.settings.Settings;
 import org.xbib.elx.api.SearchMetric;
 import org.xbib.metrics.api.Count;
@@ -11,8 +9,6 @@ import org.xbib.metrics.common.Meter;
 import java.util.concurrent.Executors;
 
 public class DefaultSearchMetric implements SearchMetric {
-
-    private static final Logger logger = LogManager.getLogger(DefaultSearchMetric.class.getName());
 
     private final Meter totalQuery;
 
@@ -24,6 +20,10 @@ public class DefaultSearchMetric implements SearchMetric {
 
     private final Count emptyQueries;
 
+    private final Count failedQueries;
+
+    private final Count timeoutQueries;
+
     private Long started;
 
     private Long stopped;
@@ -34,11 +34,12 @@ public class DefaultSearchMetric implements SearchMetric {
         queries = new CountMetric();
         succeededQueries = new CountMetric();
         emptyQueries = new CountMetric();
+        failedQueries = new CountMetric();
+        timeoutQueries = new CountMetric();
     }
 
     @Override
     public void init(Settings settings) {
-        logger.info("init");
         start();
     }
 
@@ -70,6 +71,16 @@ public class DefaultSearchMetric implements SearchMetric {
     @Override
     public Count getEmptyQueries() {
         return emptyQueries;
+    }
+
+    @Override
+    public Count getFailedQueries() {
+        return failedQueries;
+    }
+
+    @Override
+    public Count getTimeoutQueries() {
+        return timeoutQueries;
     }
 
     @Override

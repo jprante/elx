@@ -33,9 +33,9 @@ class DuplicateIDTest {
     @Test
     void testDuplicateDocIDs() throws Exception {
         long numactions = ACTIONS;
-        try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
+        try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                .put(helper.getNodeSettings("1"))
+                .put(helper.getNodeSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .build()) {
             bulkClient.newIndex("test");

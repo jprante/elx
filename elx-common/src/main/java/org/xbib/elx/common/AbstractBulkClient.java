@@ -113,7 +113,6 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
             return;
         }
         ensureClientIsPresent();
-        waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
         CreateIndexRequestBuilder createIndexRequestBuilder = new CreateIndexRequestBuilder(client, CreateIndexAction.INSTANCE)
                 .setIndex(index);
         if (settings != null) {

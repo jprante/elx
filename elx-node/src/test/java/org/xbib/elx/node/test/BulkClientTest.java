@@ -41,14 +41,14 @@ class BulkClientTest {
 
     @Test
     void testSingleDoc() throws Exception {
-        try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
+        try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                .put(helper.getNodeSettings("1"))
+                .put(helper.getNodeSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(30))
                 .build()) {
             bulkClient.newIndex("test");
-            bulkClient.index("test", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
+            bulkClient.index("test", "doc1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
             bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
             assertEquals(1, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
@@ -61,9 +61,9 @@ class BulkClientTest {
 
     @Test
     void testNewIndex() throws Exception {
-        try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
+        try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                .put(helper.getNodeSettings("1"))
+                .put(helper.getNodeSettings())
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
                 .build()) {
             bulkClient.newIndex("test");
@@ -72,13 +72,13 @@ class BulkClientTest {
 
     @Test
     void testMapping() throws Exception {
-        try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
+        try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client())
                 .setAdminClientProvider(NodeAdminClientProvider.class)
-                .put(helper.getNodeSettings("1"))
+                .put(helper.getNodeSettings())
                 .build();
-             NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
+             NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                      .setBulkClientProvider(NodeBulkClientProvider.class)
-                     .put(helper.getNodeSettings("1"))
+                     .put(helper.getNodeSettings())
                      .build()) {
             XContentBuilder builder = JsonXContent.contentBuilder()
                     .startObject()
@@ -96,9 +96,9 @@ class BulkClientTest {
     @Test
     void testRandomDocs() throws Exception {
         long numactions = ACTIONS;
-        try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
+        try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                .put(helper.getNodeSettings("1"))
+                .put(helper.getNodeSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
                 .build()) {
@@ -122,12 +122,14 @@ class BulkClientTest {
     @Test
     void testThreadedRandomDocs() throws Exception {
         int maxthreads = Runtime.getRuntime().availableProcessors();
+        Long maxActionsPerRequest = MAX_ACTIONS_PER_REQUEST;
         final long actions = ACTIONS;
-        try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
+        try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                .put(helper.getNodeSettings("1"))
+                .put(helper.getNodeSettings())
                 .put(Parameters.MAX_CONCURRENT_REQUESTS.name(), maxthreads)
-                .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
+                .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), maxActionsPerRequest)
+                .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
                 .build()) {
             Settings settings = Settings.builder()
                     .put("index.number_of_shards", 1)
@@ -160,12 +162,12 @@ class BulkClientTest {
             }
             bulkClient.stopBulk("test", 30L, TimeUnit.SECONDS);
             assertEquals(maxthreads * actions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
+            bulkClient.refreshIndex("test");
+            assertEquals(maxthreads * actions, bulkClient.getSearchableDocs("test"));
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
             assertNull(bulkClient.getBulkController().getLastBulkError());
-            bulkClient.refreshIndex("test");
-            assertEquals(maxthreads * actions, bulkClient.getSearchableDocs("test"));
         }
     }
 }

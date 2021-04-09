@@ -30,13 +30,13 @@ class SmokeTest {
 
     @Test
     void smokeTest() throws Exception {
-        try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client("1"))
+        try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client())
                 .setAdminClientProvider(NodeAdminClientProvider.class)
-                .put(helper.getNodeSettings("1"))
+                .put(helper.getNodeSettings())
                 .build();
-             NodeBulkClient bulkClient = ClientBuilder.builder(helper.client("1"))
+             NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                      .setBulkClientProvider(NodeBulkClientProvider.class)
-                     .put(helper.getNodeSettings("1"))
+                     .put(helper.getNodeSettings())
                      .build()) {
             IndexDefinition indexDefinition =
                     adminClient.buildIndexDefinitionFromSettings("test_smoke", Settings.EMPTY);

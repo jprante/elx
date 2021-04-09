@@ -59,7 +59,7 @@ public abstract class AbstractBasicClient implements BasicClient {
             this.settings = settings;
             setClient(createClient(settings));
         } else {
-            logger.log(Level.WARN, "not initializing");
+            logger.log(Level.WARN, "not initializing client");
         }
     }
 
@@ -109,7 +109,7 @@ public abstract class AbstractBasicClient implements BasicClient {
         ClusterHealthResponse healthResponse =
                 client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
         if (healthResponse.isTimedOut()) {
-            String message = "timeout waiting for cluster shards: " + timeout;
+            String message = "timeout while waiting for cluster shards: " + timeout;
             logger.error(message);
             throw new IllegalStateException(message);
         }

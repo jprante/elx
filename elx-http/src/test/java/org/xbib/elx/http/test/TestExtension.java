@@ -85,17 +85,17 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         Helper helper = extensionContext.getParent().get().getStore(ns)
                 .getOrComputeIfAbsent(key + count.get(), key -> create(), Helper.class);
         logger.info("starting cluster with helper " + helper + " at " + helper.getHome());
-        helper.startNode("1");
+        helper.startNode();
         NodesInfoRequest nodesInfoRequest = new NodesInfoRequest()
                 .clear()
                 .addMetric(NodesInfoRequest.Metric.HTTP.metricName());
-        NodesInfoResponse response = helper.client("1"). execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
+        NodesInfoResponse response = helper.client(). execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
         TransportAddress address = response.getNodes().get(0).getInfo(HttpInfo.class).getAddress().publishAddress();
         helper.httpHost = address.address().getHostName();
         helper.httpPort = address.address().getPort();
         logger.log(Level.INFO, "http host = " + helper.httpHost + " port = " + helper.httpPort);
         try {
-            ClusterHealthResponse healthResponse = helper.client("1").execute(ClusterHealthAction.INSTANCE,
+            ClusterHealthResponse healthResponse = helper.client().execute(ClusterHealthAction.INSTANCE,
                     new ClusterHealthRequest().waitForStatus(ClusterHealthStatus.GREEN)
                             .timeout(TimeValue.timeValueSeconds(30))).actionGet();
             if (healthResponse != null && healthResponse.isTimedOut()) {
@@ -107,7 +107,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         }
         ClusterStateRequest clusterStateRequest = new ClusterStateRequest().all();
         ClusterStateResponse clusterStateResponse =
-                helper.client("1").execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
+                helper.client().execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
         logger.info("cluster name = {}", clusterStateResponse.getClusterName().value());
     }
 
@@ -122,15 +122,9 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
     }
 
     private void closeNodes(Helper helper) throws IOException {
-        logger.info("closing all clients");
-        for (AbstractClient client : helper.clients.values()) {
-            client.close();
-        }
-        logger.info("closing all nodes");
-        for (Node node : helper.nodes.values()) {
-            if (node != null) {
-                node.close();
-            }
+        logger.info("closing node");
+        if (helper.node != null) {
+            helper.node.close();
         }
         logger.info("all nodes closed");
     }
@@ -162,7 +156,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         return helper;
     }
 
-    class Helper {
+    static class Helper {
 
         String home;
 
@@ -172,9 +166,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
 
         int httpPort;
 
-        Map<String, Node> nodes = new HashMap<>();
-
-        Map<String, AbstractClient> clients = new HashMap<>();
+        Node node;
 
         void setHome(String home) {
             this.home = home;
@@ -196,7 +188,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return Settings.builder()
                     .put("cluster.name", getClusterName())
                     .put("path.home", getHome())
-                    //.put("cluster.initial_master_nodes", "1")
+                    //.put("cluster.initial_master_nodes", )
                     //.put("discovery.seed_hosts",  "127.0.0.1:9300")
                     .build();
         }
@@ -210,12 +202,12 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
                     .build();
         }
 
-        void startNode(String id) throws NodeValidationException {
-            buildNode(id).start();
+        void startNode() throws NodeValidationException {
+            buildNode().start();
         }
 
-        ElasticsearchClient client(String id) {
-            return clients.get(id);
+        ElasticsearchClient client() {
+            return node.client();
         }
 
         String randomString(int len) {
@@ -227,17 +219,14 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return new String(buf);
         }
 
-        private Node buildNode(String id) {
+        private Node buildNode() {
             Settings nodeSettings = Settings.builder()
                     .put(getNodeSettings())
-                    .put("node.name", id)
-                    .put("path.data", getHome() + "/data-" + id)
+                    .put("node.name", "1" )
+                    .put("path.data", getHome() + "/data-1")
                     .build();
             List<Class<? extends Plugin>> plugins = Collections.singletonList(Netty4Plugin.class);
-            Node node = new MockNode(nodeSettings, plugins);
-            AbstractClient client = (AbstractClient) node.client();
-            nodes.put(id, node);
-            clients.put(id, client);
+            this.node = new MockNode(nodeSettings, plugins);
             return node;
         }
     }

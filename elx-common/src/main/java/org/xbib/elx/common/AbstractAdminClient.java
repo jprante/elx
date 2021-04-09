@@ -187,7 +187,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     @Override
     public List<String> resolveAlias(String alias) {
         if (alias == null) {
-            return List.of();
+            return Collections.emptyList();
         }
         ensureClientIsPresent();
         ClusterStateRequest clusterStateRequest = new ClusterStateRequest();
@@ -247,7 +247,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         // two situations: 1. a new alias 2. there is already an old index with the alias
         Optional<String> oldIndex = resolveAlias(index).stream().sorted().findFirst();
         Map<String, String> oldAliasMap = oldIndex.map(this::getAliases).orElse(null);
-        logger.info("old index = {} old alias map = {}", oldIndex.orElse("<not found>"), oldAliasMap);
+        logger.info("old index = {} old alias map = {}", oldIndex.orElse(""), oldAliasMap);
         final List<String> newAliases = new ArrayList<>();
         final List<String> moveAliases = new ArrayList<>();
         IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
@@ -312,7 +312,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public IndexPruneResult pruneIndex(IndexDefinition indexDefinition) {
-        return indexDefinition != null && indexDefinition.isPruneEnabled() && indexDefinition.getRetention() != null && indexDefinition.getDateTimePattern() != null?
+        return indexDefinition != null && indexDefinition.isPruneEnabled() && indexDefinition.getRetention() != null && indexDefinition.getDateTimePattern() != null ?
                 pruneIndex(indexDefinition.getIndex(),
                 indexDefinition.getFullIndexName(),
                 indexDefinition.getDateTimePattern(),
@@ -457,7 +457,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                 .setDateTimePattern(dateTimePattern)
                 .setIgnoreErrors(settings.getAsBoolean("skiperrors", false))
                 .setShift(settings.getAsBoolean("shift", true))
-                .setShift(settings.getAsBoolean("prune", true))
+                .setPrune(settings.getAsBoolean("prune", true))
                 .setReplicaLevel(settings.getAsInt("replica", 0))
                 .setMaxWaitTime(settings.getAsLong("timeout", 30L), TimeUnit.SECONDS)
                 .setRetention(indexRetention)
@@ -487,9 +487,8 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         map.keys().forEach((Consumer<ObjectCursor<String>>) stringObjectCursor -> {
             ImmutableOpenMap<String, MappingMetadata> mappings = map.get(stringObjectCursor.value);
             for (ObjectObjectCursor<String, MappingMetadata> cursor : mappings) {
-                String mappingName = cursor.key;
                 MappingMetadata mappingMetaData = cursor.value;
-                checkMapping(index, mappingName, mappingMetaData);
+                checkMapping(index, mappingMetaData);
             }
         });
     }
@@ -554,7 +553,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         return result;
     }
 
-    private void checkMapping(String index, String type, MappingMetadata mappingMetaData) {
+    private void checkMapping(String index, MappingMetadata mappingMetaData) {
         try {
             SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE)
                     .setIndices(index)
@@ -579,8 +578,8 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                         empty.incrementAndGet();
                     }
                 });
-                logger.info("index={} type={} numfields={} fieldsnotused={}",
-                        index, type, map.size(), empty.get());
+                logger.info("index={} numfields={} fieldsnotused={}",
+                        index, map.size(), empty.get());
             }
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
@@ -667,7 +666,9 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         }
     }
 
+
     private static class EmptyIndexShiftResult implements IndexShiftResult {
+
         @Override
         public List<String> getMovedAliases() {
             return Collections.emptyList();
@@ -717,7 +718,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
         @Override
         public String toString() {
-           return "PRUNED: " + indicesToDelete;
+            return "PRUNED: " + indicesToDelete;
         }
     }
 

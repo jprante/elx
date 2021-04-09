@@ -13,7 +13,6 @@ import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.client.ElasticsearchClient;
-import org.elasticsearch.client.support.AbstractClient;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
@@ -83,15 +82,15 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         Helper helper = extensionContext.getParent().get().getStore(ns)
                 .getOrComputeIfAbsent(key + count.get(), key -> create(), Helper.class);
         logger.info("starting cluster with helper " + helper + " at " + helper.getHome());
-        helper.startNode("1");
+        helper.startNode();
         NodesInfoRequest nodesInfoRequest = new NodesInfoRequest().addMetric(NodesInfoRequest.Metric.TRANSPORT.metricName());
-        NodesInfoResponse response = helper.client("1"). execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
+        NodesInfoResponse response = helper.client(). execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
         TransportAddress address = response.getNodes().get(0).getNode().getAddress();
         helper.host = address.address().getHostName();
         helper.port = address.address().getPort();
         logger.info("host = " + helper.host + " port = " + helper.port);
         try {
-            ClusterHealthResponse healthResponse = helper.client("1").execute(ClusterHealthAction.INSTANCE,
+            ClusterHealthResponse healthResponse = helper.client().execute(ClusterHealthAction.INSTANCE,
                     new ClusterHealthRequest().waitForStatus(ClusterHealthStatus.GREEN)
                             .timeout(TimeValue.timeValueSeconds(30))).actionGet();
             if (healthResponse != null && healthResponse.isTimedOut()) {
@@ -103,7 +102,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         }
         ClusterStateRequest clusterStateRequest = new ClusterStateRequest().all();
         ClusterStateResponse clusterStateResponse =
-                helper.client("1").execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
+                helper.client().execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
         logger.info("cluster up, name = {}", clusterStateResponse.getClusterName().value());
     }
 
@@ -118,13 +117,11 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
     }
 
     private void closeNodes(Helper helper) throws IOException {
-        logger.info("closing all nodes");
-        for (Node node : helper.nodes.values()) {
-            if (node != null) {
-                node.close();
-            }
+        logger.info("closing node");
+        if (helper.node != null) {
+            helper.node.close();
         }
-        logger.info("all nodes closed");
+        logger.info("node closed");
     }
 
     private static void deleteFiles(Path directory) throws IOException {
@@ -164,7 +161,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
 
         int port;
 
-        Map<String, Node> nodes = new HashMap<>();
+        Node node;
 
         void setHome(String home) {
             this.home = home;
@@ -182,7 +179,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return cluster;
         }
 
-        Settings getNodeSettings(String id) {
+        Settings getNodeSettings() {
             return Settings.builder()
                     .put("cluster.name", getClusterName())
                     .put("path.home", getHome())
@@ -190,12 +187,12 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
                     .build();
         }
 
-        void startNode(String id) throws NodeValidationException {
-            buildNode(id).start();
+        void startNode() throws NodeValidationException {
+            buildNode().start();
         }
 
-        ElasticsearchClient client(String id) {
-            return nodes.get(id).client();
+        ElasticsearchClient client() {
+            return node.client();
         }
 
         String randomString(int len) {
@@ -207,14 +204,13 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return new String(buf);
         }
 
-        private Node buildNode(String id) {
+        private Node buildNode() {
             Settings nodeSettings = Settings.builder()
-                    .put(getNodeSettings(id))
-                    .put("node.name", id)
+                    .put(getNodeSettings())
+                    .put("node.name", "1")
                     .build();
             List<Class<? extends Plugin>> plugins = Collections.singletonList(Netty4Plugin.class);
-            Node node = new MockNode(nodeSettings, plugins);
-            nodes.put(id, node);
+            this.node = new MockNode(nodeSettings, plugins);
             return node;
         }
     }

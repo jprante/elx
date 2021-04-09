@@ -72,16 +72,16 @@ public class DefaultBulkController implements BulkController {
     public void init(Settings settings) {
         bulkMetric.init(settings);
         int maxActionsPerRequest = settings.getAsInt(Parameters.MAX_ACTIONS_PER_REQUEST.name(),
-                Parameters.DEFAULT_MAX_ACTIONS_PER_REQUEST.asInteger());
+                Parameters.DEFAULT_MAX_ACTIONS_PER_REQUEST.getNum());
         int maxConcurrentRequests = settings.getAsInt(Parameters.MAX_CONCURRENT_REQUESTS.name(),
-                Parameters.DEFAULT_MAX_CONCURRENT_REQUESTS.asInteger());
+                Parameters.DEFAULT_MAX_CONCURRENT_REQUESTS.getNum());
         TimeValue flushIngestInterval = settings.getAsTime(Parameters.FLUSH_INTERVAL.name(),
-                TimeValue.timeValueSeconds(Parameters.DEFAULT_FLUSH_INTERVAL.asInteger()));
+                TimeValue.timeValueSeconds(Parameters.DEFAULT_FLUSH_INTERVAL.getNum()));
         ByteSizeValue maxVolumePerRequest = settings.getAsBytesSize(Parameters.MAX_VOLUME_PER_REQUEST.name(),
-                ByteSizeValue.parseBytesSizeValue(Parameters.DEFAULT_MAX_VOLUME_PER_REQUEST.asString(),
+                ByteSizeValue.parseBytesSizeValue(Parameters.DEFAULT_MAX_VOLUME_PER_REQUEST.getString(),
                         "maxVolumePerRequest"));
         boolean enableBulkLogging = settings.getAsBoolean(Parameters.ENABLE_BULK_LOGGING.name(),
-                Parameters.ENABLE_BULK_LOGGING.asBool());
+                Parameters.ENABLE_BULK_LOGGING.getValue());
         BulkListener bulkListener = new DefaultBulkListener(this, bulkMetric, enableBulkLogging);
         this.bulkProcessor = DefaultBulkProcessor.builder(bulkClient.getClient(), bulkListener)
                 .setBulkActions(maxActionsPerRequest)
