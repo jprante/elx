@@ -29,7 +29,7 @@ class SearchTest {
 
     @Test
     void testSearch() throws Exception {
-        ElasticsearchClient client = helper.client("1");
+        ElasticsearchClient client = helper.client();
         BulkRequestBuilder builder = new BulkRequestBuilder(client, BulkAction.INSTANCE);
         for (int i = 0; i < 1; i++) {
             IndexRequest indexRequest = new IndexRequest().index("pages")

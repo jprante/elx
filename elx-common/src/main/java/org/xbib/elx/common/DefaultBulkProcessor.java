@@ -85,8 +85,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
         return bulkListener;
     }
 
-    public static Builder builder(ElasticsearchClient client,
-                                  BulkListener bulkListener) {
+    public static Builder builder(ElasticsearchClient client, BulkListener bulkListener) {
         Objects.requireNonNull(client, "The client you specified while building a BulkProcessor is null");
         Objects.requireNonNull(bulkListener, "A listener for the BulkProcessor is required but null");
         return new Builder(client, bulkListener);

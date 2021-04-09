@@ -12,6 +12,8 @@ import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexAction;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
+import org.elasticsearch.action.admin.indices.refresh.RefreshAction;
+import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.Strings;
 import org.junit.jupiter.api.Test;
@@ -40,9 +42,10 @@ class AliasTest {
 
     @Test
     void testAlias() {
-        ElasticsearchClient client = helper.client("1");
+        ElasticsearchClient client = helper.client();
         CreateIndexRequest indexRequest = new CreateIndexRequest("test_index");
         client.execute(CreateIndexAction.INSTANCE, indexRequest).actionGet();
+        client.execute(RefreshAction.INSTANCE, new RefreshRequest()).actionGet();
         IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
         String[] indices = new String[] { "test_index" };
         String[] aliases = new String[] { "test_alias" };
@@ -64,7 +67,7 @@ class AliasTest {
 
     @Test
     void testMostRecentIndex() {
-        ElasticsearchClient client = helper.client("1");
+        ElasticsearchClient client = helper.client();
         String alias = "test";
         CreateIndexRequest indexRequest = new CreateIndexRequest("test20160101");
         client.execute(CreateIndexAction.INSTANCE, indexRequest).actionGet();
