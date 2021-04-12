@@ -150,8 +150,13 @@ public class DefaultBulkProcessor implements BulkProcessor {
      * @return his bulk processor
      */
     @Override
-    public DefaultBulkProcessor add(ActionRequest<?> request) {
-        internalAdd(request);
+    public synchronized DefaultBulkProcessor add(ActionRequest<?> request) {
+        ensureOpen();
+        bulkRequest.add(request);
+        if ((bulkActions != -1 && bulkRequest.numberOfActions() >= bulkActions) ||
+                (bulkSize != -1 && bulkRequest.estimatedSizeInBytes() >= bulkSize)) {
+            execute();
+        }
         return this;
     }
 
@@ -185,31 +190,11 @@ public class DefaultBulkProcessor implements BulkProcessor {
         }
     }
 
-    private synchronized void internalAdd(ActionRequest<?> request) {
-        ensureOpen();
-        bulkRequest.add(request);
-        executeIfNeeded();
-    }
-
-    private void executeIfNeeded() {
-        ensureOpen();
-        if (!isOverTheLimit()) {
-            return;
-        }
-        execute();
-    }
-
     private void execute() {
-        final BulkRequest myBulkRequest = this.bulkRequest;
-        final long executionId = executionIdGen.incrementAndGet();
+        BulkRequest myBulkRequest = this.bulkRequest;
+        long executionId = executionIdGen.incrementAndGet();
         this.bulkRequest = new BulkRequest();
         this.bulkRequestHandler.execute(myBulkRequest, executionId);
-    }
-
-    private boolean isOverTheLimit() {
-        return bulkActions != -1 &&
-                bulkRequest.numberOfActions() >= bulkActions ||
-                bulkSize != -1 && bulkRequest.estimatedSizeInBytes() >= bulkSize;
     }
 
     /**

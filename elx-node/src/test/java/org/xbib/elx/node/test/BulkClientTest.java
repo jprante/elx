@@ -32,7 +32,7 @@ class BulkClientTest {
 
     private static final Long ACTIONS = 10000L;
 
-    private static final Long MAX_ACTIONS_PER_REQUEST = 10000L;
+    private static final Long MAX_ACTIONS_PER_REQUEST = 1000L;
 
     private final TestExtension.Helper helper;
 
