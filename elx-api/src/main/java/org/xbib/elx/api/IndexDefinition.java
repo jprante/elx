@@ -10,6 +10,10 @@ public interface IndexDefinition {
 
     String getIndex();
 
+    IndexDefinition setType(String type);
+
+    String getType();
+
     IndexDefinition setFullIndexName(String fullIndexName);
 
     String getFullIndexName();

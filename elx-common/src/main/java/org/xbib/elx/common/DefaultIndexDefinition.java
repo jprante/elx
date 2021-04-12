@@ -12,6 +12,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
 
     private String index;
 
+    private String type;
+
     private String fullIndexName;
 
     private DateTimeFormatter formatter;
@@ -59,6 +61,18 @@ public class DefaultIndexDefinition implements IndexDefinition {
     public String getIndex() {
         return index;
     }
+
+    @Override
+    public IndexDefinition setType(String type) {
+        this.type = type;
+        return this;
+    }
+
+    @Override
+    public String getType() {
+        return type;
+    }
+
 
     @Override
     public IndexDefinition setFullIndexName(String fullIndexName) {

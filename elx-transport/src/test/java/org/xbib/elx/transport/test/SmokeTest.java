@@ -42,22 +42,24 @@ class SmokeTest {
                     adminClient.buildIndexDefinitionFromSettings("test_smoke", Settings.EMPTY);
             assertEquals(0, indexDefinition.getReplicaLevel());
             assertEquals(helper.getClusterName(), adminClient.getClusterName());
-            bulkClient.newIndex("test_smoke");
-            bulkClient.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
+            indexDefinition.setFullIndexName("test_smoke");
+            indexDefinition.setType("doc");
+            bulkClient.newIndex(indexDefinition);
+            bulkClient.index("test_smoke", "doc", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
             bulkClient.flush();
             bulkClient.waitForResponses(30, TimeUnit.SECONDS);
             adminClient.checkMapping("test_smoke");
-            bulkClient.update("test_smoke", "1", "{ \"name\" : \"Another name\"}");
-            bulkClient.delete("test_smoke", "1");
+            bulkClient.update("test_smoke", "doc", "1", "{ \"name\" : \"Another name\"}");
+            bulkClient.delete("test_smoke", "doc", "1");
             bulkClient.flush();
             bulkClient.waitForResponses(30, TimeUnit.SECONDS);
-            bulkClient.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}");
-            bulkClient.delete("test_smoke", "1");
+            bulkClient.index("test_smoke", "doc", "1", true, "{ \"name\" : \"Hello World\"}");
+            bulkClient.delete("test_smoke", "doc", "1");
             bulkClient.flush();
             bulkClient.waitForResponses(30, TimeUnit.SECONDS);
             adminClient.deleteIndex("test_smoke");
             bulkClient.newIndex(indexDefinition);
-            bulkClient.index(indexDefinition.getFullIndexName(), "1", true, "{ \"name\" : \"Hello World\"}");
+            bulkClient.index(indexDefinition.getFullIndexName(), "doc", "1", true, "{ \"name\" : \"Hello World\"}");
             bulkClient.flush();
             bulkClient.waitForResponses(30, TimeUnit.SECONDS);
             adminClient.updateReplicaLevel(indexDefinition, 2);

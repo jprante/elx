@@ -2,7 +2,8 @@ package org.xbib.elx.transport.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
@@ -17,13 +18,10 @@ import org.xbib.elx.transport.TransportBulkClient;
 import org.xbib.elx.transport.TransportBulkClientProvider;
 
 import java.io.IOException;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
-import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -50,26 +48,31 @@ class IndexPruneTest {
                      .setBulkClientProvider(TransportBulkClientProvider.class)
                      .put(helper.getTransportSettings())
                      .build()) {
-            Settings settings = Settings.builder()
-                    .put("index.number_of_shards", 1)
-                    .put("index.number_of_replicas", 0)
-                    .build();
-            bulkClient.newIndex("test_prune1", settings);
+            XContentBuilder builder = JsonXContent.contentBuilder()
+                    .startObject()
+                    .startObject("index")
+                    .field("number_of_shards", 1)
+                    .field("number_of_replicas", 0)
+                    .endObject()
+                    .endObject();
             IndexDefinition indexDefinition = new DefaultIndexDefinition();
             indexDefinition.setIndex("test_prune");
+            indexDefinition.setType("doc");
             indexDefinition.setFullIndexName("test_prune1");
+            indexDefinition.setSettings(builder.string());
+            bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
             adminClient.shiftIndex(indexDefinition, Collections.emptyList());
-            bulkClient.newIndex("test_prune2", settings);
             indexDefinition.setFullIndexName("test_prune2");
+            bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
             adminClient.shiftIndex(indexDefinition, Collections.emptyList());
-            bulkClient.newIndex("test_prune3", settings);
             indexDefinition.setFullIndexName("test_prune3");
+            bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
             adminClient.shiftIndex(indexDefinition, Collections.emptyList());
-            bulkClient.newIndex("test_prune4", settings);
             indexDefinition.setFullIndexName("test_prune4");
+            bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
             adminClient.shiftIndex(indexDefinition, Collections.emptyList());
             IndexRetention indexRetention = new DefaultIndexRetention();

@@ -126,8 +126,8 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE);
         queryBuilder.accept(searchRequestBuilder);
         searchRequestBuilder.setScroll(scrollTime).setSize(scrollSize);
-        SearchResponse originalSearchResponse = searchRequestBuilder.execute().actionGet();
-        Stream<SearchResponse> responseStream = Stream.iterate(originalSearchResponse,
+        SearchResponse initialSearchResponse = searchRequestBuilder.execute().actionGet();
+        Stream<SearchResponse> responseStream = Stream.iterate(initialSearchResponse,
                 searchResponse ->  {
                     SearchScrollRequestBuilder searchScrollRequestBuilder =
                             new SearchScrollRequestBuilder(client, SearchScrollAction.INSTANCE)

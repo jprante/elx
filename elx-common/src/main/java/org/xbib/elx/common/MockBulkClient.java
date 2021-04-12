@@ -40,17 +40,17 @@ public class MockBulkClient extends AbstractBulkClient {
     }
 
     @Override
-    public MockBulkClient index(String index, String id, boolean create, String source) {
+    public MockBulkClient index(String index, String type, String id, boolean create, String source) {
         return this;
     }
 
     @Override
-    public MockBulkClient delete(String index, String id) {
+    public MockBulkClient delete(String index, String type, String id) {
         return this;
     }
 
     @Override
-    public MockBulkClient update(String index, String id, String source) {
+    public MockBulkClient update(String index, String type, String id, String source) {
         return this;
     }
 

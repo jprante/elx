@@ -2,13 +2,14 @@ package org.xbib.elx.node.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
+import org.xbib.elx.common.DefaultIndexDefinition;
 import org.xbib.elx.common.Parameters;
 import org.xbib.elx.node.NodeAdminClient;
 import org.xbib.elx.node.NodeAdminClientProvider;
@@ -47,8 +48,11 @@ class BulkClientTest {
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(30))
                 .build()) {
-            bulkClient.newIndex("test");
-            bulkClient.index("test", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
+            IndexDefinition indexDefinition = new DefaultIndexDefinition();
+            indexDefinition.setFullIndexName("test");
+            indexDefinition.setType("doc");
+            bulkClient.newIndex(indexDefinition);
+            bulkClient.index("test", "doc", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
             bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
             assertEquals(1, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
@@ -66,7 +70,10 @@ class BulkClientTest {
                 .put(helper.getNodeSettings())
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(5))
                 .build()) {
-            bulkClient.newIndex("test");
+            IndexDefinition indexDefinition = new DefaultIndexDefinition();
+            indexDefinition.setFullIndexName("test");
+            indexDefinition.setType("doc");
+            bulkClient.newIndex(indexDefinition);
         }
     }
 
@@ -90,7 +97,12 @@ class BulkClientTest {
                     .endObject()
                     .endObject()
                     .endObject();
-            bulkClient.newIndex("test", Settings.EMPTY, builder);
+            IndexDefinition indexDefinition = new DefaultIndexDefinition();
+            indexDefinition.setIndex("test");
+            indexDefinition.setFullIndexName("test");
+            indexDefinition.setType("doc");
+            indexDefinition.setMappings(builder.string());
+            bulkClient.newIndex(indexDefinition);
             assertTrue(adminClient.getMapping("test").containsKey("properties"));
         }
     }
@@ -104,9 +116,12 @@ class BulkClientTest {
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
                 .build()) {
-            bulkClient.newIndex("test");
+            IndexDefinition indexDefinition = new DefaultIndexDefinition();
+            indexDefinition.setFullIndexName("test");
+            indexDefinition.setType("doc");
+            bulkClient.newIndex(indexDefinition);
             for (int i = 0; i < ACTIONS; i++) {
-                bulkClient.index("test", null, false,
+                bulkClient.index("test", "doc", null, false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             bulkClient.flush();
@@ -134,18 +149,25 @@ class BulkClientTest {
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), maxActionsPerRequest)
                 .put(Parameters.FLUSH_INTERVAL.name(), TimeValue.timeValueSeconds(60))
                 .build()) {
-            Settings settings = Settings.builder()
-                    .put("index.number_of_shards", 1)
-                    .put("index.number_of_replicas", 0)
-                    .build();
-            bulkClient.newIndex("test", settings);
+            IndexDefinition indexDefinition = new DefaultIndexDefinition();
+            indexDefinition.setFullIndexName("test");
+            indexDefinition.setType("doc");
+            XContentBuilder builder = JsonXContent.contentBuilder()
+                    .startObject()
+                    .startObject("index")
+                    .field("number_of_shards", 1)
+                    .field("number_of_replicas", 0)
+                    .endObject()
+                    .endObject();
+            indexDefinition.setSettings(builder.string());
+            bulkClient.newIndex(indexDefinition);
             bulkClient.startBulk("test", 0, 1000);
             ExecutorService executorService = Executors.newFixedThreadPool(maxthreads);
             final CountDownLatch latch = new CountDownLatch(maxthreads);
             for (int i = 0; i < maxthreads; i++) {
                 executorService.execute(() -> {
                     for (int i1 = 0; i1 < actions; i1++) {
-                        bulkClient.index("test", null, false,
+                        bulkClient.index("test", "doc", null, false,
                                 "{ \"name\" : \"" + helper.randomString(32) + "\"}");
                     }
                     latch.countDown();

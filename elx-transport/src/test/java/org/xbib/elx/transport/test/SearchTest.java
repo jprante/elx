@@ -7,7 +7,9 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
+import org.xbib.elx.common.DefaultIndexDefinition;
 import org.xbib.elx.common.Parameters;
 import org.xbib.elx.transport.TransportBulkClient;
 import org.xbib.elx.transport.TransportBulkClientProvider;
@@ -26,7 +28,7 @@ class SearchTest {
 
     private static final Logger logger = LogManager.getLogger(SearchTest.class.getName());
 
-    private static final Long ACTIONS = 100000L;
+    private static final Long ACTIONS = 1000L;
 
     private static final Long MAX_ACTIONS_PER_REQUEST = 100L;
 
@@ -44,9 +46,12 @@ class SearchTest {
                 .put(helper.getTransportSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
                 .build()) {
-            bulkClient.newIndex("test");
-            for (int i = 0; i < ACTIONS; i++) {
-                bulkClient.index("test", null, false,
+            IndexDefinition indexDefinition = new DefaultIndexDefinition();
+            indexDefinition.setFullIndexName("test");
+            indexDefinition.setType("doc");
+            bulkClient.newIndex(indexDefinition);
+            for (int i = 0; i < numactions; i++) {
+                bulkClient.index("test", "doc", null, false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             bulkClient.flush();

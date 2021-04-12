@@ -16,7 +16,6 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.xbib.elx.api.BulkClient;
 import org.xbib.elx.api.BulkController;
@@ -71,51 +70,31 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public void newIndex(IndexDefinition indexDefinition) throws IOException {
-        Settings settings = indexDefinition.getSettings() == null ? null :
-                Settings.builder().loadFromSource(indexDefinition.getSettings()).build();
-        Map<String, ?> mappings = indexDefinition.getMappings() == null ? null :
-                JsonXContent.jsonXContent.createParser(indexDefinition.getMappings()).mapOrdered();
-        newIndex(indexDefinition.getFullIndexName(), settings, mappings);
-    }
-
-    @Override
-    public void newIndex(String index) throws IOException {
-        newIndex(index, Settings.EMPTY, (XContentBuilder) null);
-    }
-
-    @Override
-    public void newIndex(String index, Settings settings) throws IOException {
-        newIndex(index, settings, (XContentBuilder) null);
-    }
-
-    @Override
-    public void newIndex(String index, Settings settings, Map<String, ?> mapping) throws IOException {
-        if (mapping == null || mapping.isEmpty()) {
-            newIndex(index, settings, (XContentBuilder) null);
-        } else {
-            newIndex(index, settings, JsonXContent.contentBuilder().map(mapping));
-        }
-    }
-
-    @Override
-    public void newIndex(String index, Settings settings, XContentBuilder builder) throws IOException {
+        String index = indexDefinition.getFullIndexName();
         if (index == null) {
-            logger.warn("unable to create index, no index name given");
-            return;
+            throw new IllegalArgumentException("no index name given");
+        }
+        String type = indexDefinition.getType();
+        if (type == null) {
+            throw new IllegalArgumentException("no index type given");
         }
         ensureClientIsPresent();
         CreateIndexRequestBuilder createIndexRequestBuilder = new CreateIndexRequestBuilder(client, CreateIndexAction.INSTANCE)
                 .setIndex(index);
+        Settings settings = indexDefinition.getSettings() == null ? null :
+                Settings.builder().loadFromSource(indexDefinition.getSettings()).build();
         if (settings != null) {
             createIndexRequestBuilder.setSettings(settings);
         }
-        if (builder != null) {
-            createIndexRequestBuilder.addMapping(TYPE_NAME, builder);
-            logger.debug("adding mapping = {}", builder.string());
+        // must be Map<String, Object> to match prototype of addMapping()!
+        Map<String, Object> mappings = indexDefinition.getMappings() == null ? null :
+                JsonXContent.jsonXContent.createParser(indexDefinition.getMappings()).mapOrdered();
+        if (mappings != null) {
+            logger.info("mappings = " + mappings);
+            createIndexRequestBuilder.addMapping(type, mappings);
         } else {
-            createIndexRequestBuilder.addMapping(TYPE_NAME,
-                    JsonXContent.contentBuilder().startObject().startObject(TYPE_NAME).endObject().endObject());
-            logger.debug("empty mapping");
+            createIndexRequestBuilder.addMapping(type,
+                    JsonXContent.contentBuilder().startObject().startObject(type).endObject().endObject());
         }
         CreateIndexResponse createIndexResponse = createIndexRequestBuilder.execute().actionGet();
         if (createIndexResponse.isAcknowledged()) {
@@ -151,20 +130,20 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     }
 
     @Override
-    public BulkClient index(String index, String id, boolean create, String source) {
+    public BulkClient index(String index, String type, String id, boolean create, String source) {
         return index(new IndexRequest()
                 .index(index)
-                .type(TYPE_NAME)
+                .type(type)
                 .id(id)
                 .create(create)
                 .source(source)); // will be converted into a bytes reference
     }
 
     @Override
-    public BulkClient index(String index, String id, boolean create, BytesReference source) {
+    public BulkClient index(String index, String type, String id, boolean create, BytesReference source) {
         return index(new IndexRequest()
                 .index(index)
-                .type(TYPE_NAME)
+                .type(type)
                 .id(id)
                 .create(create)
                 .source(source));
@@ -178,10 +157,10 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     }
 
     @Override
-    public BulkClient delete(String index, String id) {
+    public BulkClient delete(String index, String type, String id) {
         return delete(new DeleteRequest()
                 .index(index)
-                .type(TYPE_NAME)
+                .type(type)
                 .id(id));
     }
 
@@ -193,15 +172,15 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     }
 
     @Override
-    public BulkClient update(String index, String id, String source) {
-        return update(index, id, new BytesArray(source.getBytes(StandardCharsets.UTF_8)));
+    public BulkClient update(String index, String type, String id, String source) {
+        return update(index, type, id, new BytesArray(source.getBytes(StandardCharsets.UTF_8)));
     }
 
     @Override
-    public BulkClient update(String index, String id, BytesReference source) {
+    public BulkClient update(String index, String type, String id, BytesReference source) {
         return update(new UpdateRequest()
                 .index(index)
-                .type(TYPE_NAME)
+                .type(type)
                 .id(id)
                 .doc(source.hasArray() ? source.array() : source.toBytes()));
     }
