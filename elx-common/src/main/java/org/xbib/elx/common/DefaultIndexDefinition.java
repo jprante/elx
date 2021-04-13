@@ -15,6 +15,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.MalformedInputException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
@@ -79,7 +80,7 @@ public class DefaultIndexDefinition implements IndexDefinition {
         String dateTimeFormat = settings.get("dateTimeFormat", "yyyyMMdd");
         DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimeFormat)
                 .withZone(ZoneId.systemDefault());
-        String fullName = indexName + dateTimeFormatter.format(LocalDate.now());
+        String fullName = indexName + dateTimeFormatter.format(LocalDateTime.now());
         String fullIndexName = adminClient.resolveAlias(fullName).stream().findFirst().orElse(fullName);
         IndexRetention indexRetention = new DefaultIndexRetention()
                 .setMinToKeep(settings.getAsInt("retention.mintokeep", 0))
@@ -93,8 +94,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
         .setDateTimeFormatter(dateTimeFormatter)
         .setDateTimePattern(dateTimePattern)
         .setIgnoreErrors(settings.getAsBoolean("skiperrors", false))
-        .setShift(settings.getAsBoolean("shift", true))
-        .setPrune(settings.getAsBoolean("prune", true))
+        .setShift(settings.getAsBoolean("shift", false))
+        .setPrune(settings.getAsBoolean("prune", false))
         .setReplicaLevel(settings.getAsInt("replica", 0))
         .setMaxWaitTime(settings.getAsLong("timeout", 30L), TimeUnit.SECONDS)
         .setRetention(indexRetention)
@@ -302,12 +303,16 @@ public class DefaultIndexDefinition implements IndexDefinition {
             return null;
         }
         try {
+            XContentBuilder builder = JsonXContent.contentBuilder();
             try (InputStream inputStream = findInputStream(string)) {
-                Settings settings = Settings.builder().loadFromStream(string, inputStream).build();
-                XContentBuilder builder = JsonXContent.contentBuilder();
-                settings.toXContent(builder, ToXContent.EMPTY_PARAMS);
-                return builder.string();
+                if (inputStream != null) {
+                    Settings settings = Settings.builder().loadFromStream(string, inputStream).build();
+                    builder.startObject();
+                    settings.toXContent(builder, ToXContent.EMPTY_PARAMS);
+                    builder.endObject();
+                }
             }
+            return builder.string();
         } catch (MalformedURLException e) {
             return string;
         } catch (IOException e) {
@@ -320,21 +325,20 @@ public class DefaultIndexDefinition implements IndexDefinition {
             return null;
         }
         try {
+            XContentBuilder builder = JsonXContent.contentBuilder();
             try (InputStream inputStream = findInputStream(string)) {
-                if (string.endsWith(".json")) {
-                    Map<String, ?> mappings = JsonXContent.jsonXContent.createParser(inputStream).mapOrdered();
-                    XContentBuilder builder = JsonXContent.contentBuilder();
-                    builder.startObject().map(mappings).endObject();
-                    return builder.string();
-                }
-                if (string.endsWith(".yml") || string.endsWith(".yaml")) {
-                    Map<String, ?> mappings = YamlXContent.yamlXContent.createParser(inputStream).mapOrdered();
-                    XContentBuilder builder = JsonXContent.contentBuilder();
-                    builder.startObject().map(mappings).endObject();
-                    return builder.string();
+                if (inputStream != null) {
+                    if (string.endsWith(".json")) {
+                        Map<String, ?> mappings = JsonXContent.jsonXContent.createParser(inputStream).mapOrdered();
+                        builder.map(mappings);
+                    }
+                    if (string.endsWith(".yml") || string.endsWith(".yaml")) {
+                        Map<String, ?> mappings = YamlXContent.yamlXContent.createParser(inputStream).mapOrdered();
+                        builder.map(mappings);
+                    }
                 }
             }
-            return string;
+            return builder.string();
         } catch (MalformedInputException e) {
             return string;
         } catch (IOException e) {
