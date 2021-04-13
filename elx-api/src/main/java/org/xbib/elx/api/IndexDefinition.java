@@ -34,6 +34,14 @@ public interface IndexDefinition {
 
     Pattern getDateTimePattern();
 
+    IndexDefinition setStartBulkRefreshSeconds(int seconds);
+
+    int getStartBulkRefreshSeconds();
+
+    IndexDefinition setStopBulkRefreshSeconds(int seconds);
+
+    int getStopBulkRefreshSeconds();
+
     IndexDefinition setEnabled(boolean enabled);
 
     boolean isEnabled();
@@ -67,12 +75,4 @@ public interface IndexDefinition {
     long getMaxWaitTime();
 
     TimeUnit getMaxWaitTimeUnit();
-
-    IndexDefinition setStartRefreshInterval(long seconds);
-
-    long getStartRefreshInterval();
-
-    IndexDefinition setStopRefreshInterval(long seconds);
-
-    long getStopRefreshInterval();
 }

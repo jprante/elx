@@ -36,20 +36,18 @@ class DuplicateIDTest {
         try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
                 .put(helper.getTransportSettings())
-                .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
+                .put(Parameters.MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
                 .build()) {
-            IndexDefinition indexDefinition = new DefaultIndexDefinition();
-            indexDefinition.setFullIndexName("test");
-            indexDefinition.setType("doc");
+            IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);
             for (int i = 0; i < ACTIONS; i++) {
-                bulkClient.index("test", "docs", helper.randomString(1), false,
+                bulkClient.index(indexDefinition, helper.randomString(1), false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-            bulkClient.refreshIndex("test");
-            assertTrue(bulkClient.getSearchableDocs("test") < ACTIONS);
+            bulkClient.refreshIndex(indexDefinition);
+            assertTrue(bulkClient.getSearchableDocs(indexDefinition) < ACTIONS);
             assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());

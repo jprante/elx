@@ -2,6 +2,7 @@ package org.xbib.elx.node.test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.common.unit.TimeValue;
@@ -26,9 +27,9 @@ class SearchTest {
 
     private static final Logger logger = LogManager.getLogger(SearchTest.class.getName());
 
-    private static final Long ACTIONS = 1000L;
+    private static final Long ACTIONS = 100000L;
 
-    private static final Long MAX_ACTIONS_PER_REQUEST = 100L;
+    private static final Long MAX_ACTIONS_PER_REQUEST = 1000L;
 
     private final TestExtension.Helper helper;
 
@@ -39,23 +40,22 @@ class SearchTest {
     @Test
     void testDocStream() throws Exception {
         long numactions = ACTIONS;
+        IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client)
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(helper.getNodeSettings())
-                .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
+                .put(Parameters.MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
                 .build()) {
-            IndexDefinition indexDefinition = new DefaultIndexDefinition();
-            indexDefinition.setFullIndexName("test");
-            indexDefinition.setType("doc");
             bulkClient.newIndex(indexDefinition);
+            bulkClient.startBulk(indexDefinition);
             for (int i = 0; i < numactions; i++) {
-                bulkClient.index("test", "doc", null, false,
+                bulkClient.index(indexDefinition, null, false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
-            bulkClient.flush();
-            bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-            bulkClient.refreshIndex("test");
-            assertEquals(numactions, bulkClient.getSearchableDocs("test"));
+            bulkClient.stopBulk(indexDefinition);
+            assertTrue(bulkClient.waitForResponses(30L, TimeUnit.SECONDS));
+            bulkClient.refreshIndex(indexDefinition);
+            assertEquals(numactions, bulkClient.getSearchableDocs(indexDefinition));
             assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
@@ -68,7 +68,7 @@ class SearchTest {
                 .build()) {
             // test stream count
             Stream<SearchHit> stream = searchClient.search(qb -> qb
-                            .setIndices("test")
+                            .setIndices(indexDefinition.getFullIndexName())
                             .setQuery(QueryBuilders.matchAllQuery()),
                     TimeValue.timeValueMillis(100), 570);
             long count = stream.count();
@@ -78,7 +78,7 @@ class SearchTest {
             assertEquals(1L, searchClient.getSearchMetric().getEmptyQueries().getCount());
             // test stream docs
             stream = searchClient.search(qb -> qb
-                            .setIndices("test")
+                            .setIndices(indexDefinition.getFullIndexName())
                             .setQuery(QueryBuilders.matchAllQuery()),
                     TimeValue.timeValueMillis(10), 79);
             final AtomicInteger hitcount = new AtomicInteger();
@@ -89,7 +89,7 @@ class SearchTest {
             assertEquals(2L, searchClient.getSearchMetric().getEmptyQueries().getCount());
             // test stream doc ids
             Stream<String> ids = searchClient.getIds(qb -> qb
-                    .setIndices("test")
+                    .setIndices(indexDefinition.getFullIndexName())
                     .setQuery(QueryBuilders.matchAllQuery()));
             final AtomicInteger idcount = new AtomicInteger();
             ids.forEach(id -> {

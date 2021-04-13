@@ -16,7 +16,6 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.jboss.netty.channel.DefaultChannelFuture;
-import org.xbib.elx.common.util.NetworkUtils;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.ArrayList;

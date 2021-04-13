@@ -1,5 +1,6 @@
 package org.xbib.elx.common;
 
+import com.google.common.base.Charsets;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,6 +17,7 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.xbib.elx.api.BulkClient;
 import org.xbib.elx.api.BulkController;
@@ -70,6 +72,9 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public void newIndex(IndexDefinition indexDefinition) throws IOException {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return;
+        }
         String index = indexDefinition.getFullIndexName();
         if (index == null) {
             throw new IllegalArgumentException("no index name given");
@@ -81,16 +86,22 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         ensureClientIsPresent();
         CreateIndexRequestBuilder createIndexRequestBuilder = new CreateIndexRequestBuilder(client, CreateIndexAction.INSTANCE)
                 .setIndex(index);
-        Settings settings = indexDefinition.getSettings() == null ? null :
-                Settings.builder().loadFromSource(indexDefinition.getSettings()).build();
-        if (settings != null) {
-            createIndexRequestBuilder.setSettings(settings);
+        if (indexDefinition.getSettings() == null) {
+            XContentBuilder builder = JsonXContent.contentBuilder()
+                    .startObject()
+                    .startObject("index")
+                    .field("number_of_shards", 1)
+                    .field("number_of_replicas", 0)
+                    .endObject()
+                    .endObject();
+            indexDefinition.setSettings(builder.string());
         }
+        Settings settings = Settings.builder().loadFromSource(indexDefinition.getSettings()).build();
+        createIndexRequestBuilder.setSettings(settings);
         // must be Map<String, Object> to match prototype of addMapping()!
         Map<String, Object> mappings = indexDefinition.getMappings() == null ? null :
                 JsonXContent.jsonXContent.createParser(indexDefinition.getMappings()).mapOrdered();
         if (mappings != null) {
-            logger.info("mappings = " + mappings);
             createIndexRequestBuilder.addMapping(type, mappings);
         } else {
             createIndexRequestBuilder.addMapping(type,
@@ -101,52 +112,45 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
             logger.info("index {} created", index);
         } else {
             logger.warn("index creation of {} not acknowledged", index);
+            return;
         }
-        refreshIndex(index);
+        // we really need state GREEN. If yellow, we may trigger shard write errors and queue will exceed quickly.
+        logger.info("waiting for GREEN after index {} was created", index);
+        waitForCluster("GREEN", indexDefinition.getMaxWaitTime(), indexDefinition.getMaxWaitTimeUnit());
     }
 
     @Override
     public void startBulk(IndexDefinition indexDefinition) throws IOException {
-        startBulk(indexDefinition.getFullIndexName(), -1, 1);
-    }
-
-    @Override
-    public void startBulk(String index, long startRefreshIntervalSeconds, long stopRefreshIntervalSeconds)
-            throws IOException {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return;
+        }
         ensureClientIsPresent();
-        bulkController.startBulkMode(index, startRefreshIntervalSeconds, stopRefreshIntervalSeconds);
+        bulkController.startBulkMode(indexDefinition);
     }
 
     @Override
     public void stopBulk(IndexDefinition indexDefinition) throws IOException {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return;
+        }
         ensureClientIsPresent();
         bulkController.stopBulkMode(indexDefinition);
     }
 
     @Override
-    public void stopBulk(String index, long timeout, TimeUnit timeUnit) throws IOException {
-        ensureClientIsPresent();
-        bulkController.stopBulkMode(index, timeout, timeUnit);
+    public BulkClient index(IndexDefinition indexDefinition, String id, boolean create, String source) {
+        return index(indexDefinition, id, create, new BytesArray(source.getBytes(Charsets.UTF_8)));
     }
 
     @Override
-    public BulkClient index(String index, String type, String id, boolean create, String source) {
+    public BulkClient index(IndexDefinition indexDefinition, String id, boolean create, BytesReference source) {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return this;
+        }
         return index(new IndexRequest()
-                .index(index)
-                .type(type)
-                .id(id)
-                .create(create)
-                .source(source)); // will be converted into a bytes reference
-    }
-
-    @Override
-    public BulkClient index(String index, String type, String id, boolean create, BytesReference source) {
-        return index(new IndexRequest()
-                .index(index)
-                .type(type)
-                .id(id)
-                .create(create)
-                .source(source));
+                .index(indexDefinition.getFullIndexName())
+                .type(indexDefinition.getType())
+                .id(id).create(create).source(source));
     }
 
     @Override
@@ -157,10 +161,13 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     }
 
     @Override
-    public BulkClient delete(String index, String type, String id) {
+    public BulkClient delete(IndexDefinition indexDefinition, String id) {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return this;
+        }
         return delete(new DeleteRequest()
-                .index(index)
-                .type(type)
+                .index(indexDefinition.getFullIndexName())
+                .type(indexDefinition.getType())
                 .id(id));
     }
 
@@ -172,17 +179,19 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     }
 
     @Override
-    public BulkClient update(String index, String type, String id, String source) {
-        return update(index, type, id, new BytesArray(source.getBytes(StandardCharsets.UTF_8)));
+    public BulkClient update(IndexDefinition indexDefinition, String id, String source) {
+        return update(indexDefinition, id, new BytesArray(source.getBytes(StandardCharsets.UTF_8)));
     }
 
     @Override
-    public BulkClient update(String index, String type, String id, BytesReference source) {
+    public BulkClient update(IndexDefinition indexDefinition, String id, BytesReference source) {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return this;
+        }
         return update(new UpdateRequest()
-                .index(index)
-                .type(type)
-                .id(id)
-                .doc(source.hasArray() ? source.array() : source.toBytes()));
+                .index(indexDefinition.getFullIndexName())
+                .type(indexDefinition.getType())
+                .id(id).doc(source.hasArray() ? source.array() : source.toBytes()));
     }
 
     @Override
@@ -204,18 +213,20 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     }
 
     @Override
-    public void flushIndex(String index) {
-        if (index != null) {
-            ensureClientIsPresent();
-            client.execute(FlushAction.INSTANCE, new FlushRequest(index)).actionGet();
+    public void flushIndex(IndexDefinition indexDefinition) {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return;
         }
+        ensureClientIsPresent();
+        client.execute(FlushAction.INSTANCE, new FlushRequest(indexDefinition.getFullIndexName())).actionGet();
     }
 
     @Override
-    public void refreshIndex(String index) {
-        if (index != null) {
-            ensureClientIsPresent();
-            client.execute(RefreshAction.INSTANCE, new RefreshRequest(index)).actionGet();
+    public void refreshIndex(IndexDefinition indexDefinition) {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return;
         }
+        ensureClientIsPresent();
+        client.execute(RefreshAction.INSTANCE, new RefreshRequest(indexDefinition.getFullIndexName())).actionGet();
     }
 }

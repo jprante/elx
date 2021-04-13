@@ -1,10 +1,24 @@
 package org.xbib.elx.common;
 
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.ToXContent;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.json.JsonXContent;
+import org.elasticsearch.common.xcontent.yaml.YamlXContent;
+import org.xbib.elx.api.AdminClient;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.api.IndexRetention;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.charset.MalformedInputException;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -42,13 +56,50 @@ public class DefaultIndexDefinition implements IndexDefinition {
 
     private TimeUnit maxWaitTimeUnit;
 
-    private long startRefreshInterval;
+    private int startRefreshInterval;
 
-    private long stopRefreshInterval;
+    private int stopRefreshInterval;
 
-    public DefaultIndexDefinition() {
+    public DefaultIndexDefinition(String index, String type) {
+        setIndex(index);
+        setType(type);
         setDateTimeFormatter(DateTimeFormatter.ofPattern("yyyyMMdd", Locale.getDefault()));
         setDateTimePattern(Pattern.compile("^(.*?)(\\d+)$"));
+        setFullIndexName(index + getDateTimeFormatter().format(LocalDate.now()));
+        setEnabled(true);
+        setMaxWaitTime(Parameters.MAX_WAIT_BULK_RESPONSE_SECONDS.getInteger(), TimeUnit.SECONDS);
+    }
+
+    public DefaultIndexDefinition(AdminClient adminClient, String index, String type, Settings settings)
+            throws IOException {
+        boolean isEnabled = settings.getAsBoolean("enabled", true);
+        String indexName = settings.get("name", index);
+        String dateTimePatternStr = settings.get("dateTimePattern", "^(.*?)(\\\\d+)$");
+        Pattern dateTimePattern = Pattern.compile(dateTimePatternStr);
+        String dateTimeFormat = settings.get("dateTimeFormat", "yyyyMMdd");
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimeFormat)
+                .withZone(ZoneId.systemDefault());
+        String fullName = indexName + dateTimeFormatter.format(LocalDate.now());
+        String fullIndexName = adminClient.resolveAlias(fullName).stream().findFirst().orElse(fullName);
+        IndexRetention indexRetention = new DefaultIndexRetention()
+                .setMinToKeep(settings.getAsInt("retention.mintokeep", 0))
+                .setDelta(settings.getAsInt("retention.delta", 0));
+        setEnabled(isEnabled)
+        .setIndex(indexName)
+        .setType(type)
+        .setFullIndexName(fullIndexName)
+        .setSettings(findSettingsFrom(settings.get("settings")))
+        .setMappings(findMappingsFrom(settings.get("mapping")))
+        .setDateTimeFormatter(dateTimeFormatter)
+        .setDateTimePattern(dateTimePattern)
+        .setIgnoreErrors(settings.getAsBoolean("skiperrors", false))
+        .setShift(settings.getAsBoolean("shift", true))
+        .setPrune(settings.getAsBoolean("prune", true))
+        .setReplicaLevel(settings.getAsInt("replica", 0))
+        .setMaxWaitTime(settings.getAsLong("timeout", 30L), TimeUnit.SECONDS)
+        .setRetention(indexRetention)
+        .setStartBulkRefreshSeconds(settings.getAsInt(Parameters.START_BULK_REFRESH_SECONDS.getName(), -1))
+        .setStopBulkRefreshSeconds(settings.getAsInt(Parameters.STOP_BULK_REFRESH_SECONDS.getName(), -1));
     }
 
     @Override
@@ -127,6 +178,28 @@ public class DefaultIndexDefinition implements IndexDefinition {
     @Override
     public Pattern getDateTimePattern() {
         return pattern;
+    }
+
+    @Override
+    public IndexDefinition setStartBulkRefreshSeconds(int seconds) {
+        this.startRefreshInterval = seconds;
+        return this;
+    }
+
+    @Override
+    public int getStartBulkRefreshSeconds() {
+        return startRefreshInterval;
+    }
+
+    @Override
+    public IndexDefinition setStopBulkRefreshSeconds(int seconds) {
+        this.stopRefreshInterval = seconds;
+        return this;
+    }
+
+    @Override
+    public int getStopBulkRefreshSeconds() {
+        return stopRefreshInterval;
     }
 
     @Override
@@ -223,26 +296,47 @@ public class DefaultIndexDefinition implements IndexDefinition {
         return maxWaitTimeUnit;
     }
 
-    @Override
-    public IndexDefinition setStartRefreshInterval(long seconds) {
-        this.startRefreshInterval = seconds;
-        return this;
+
+    private static String findSettingsFrom(String string) throws IOException {
+        if (string == null) {
+            return null;
+        }
+        try {
+            URL url = new URL(string);
+            try (InputStream inputStream = url.openStream()) {
+                Settings settings = Settings.builder().loadFromStream(string, inputStream).build();
+                XContentBuilder builder = JsonXContent.contentBuilder();
+                settings.toXContent(builder, ToXContent.EMPTY_PARAMS);
+                return builder.string();
+            }
+        } catch (MalformedURLException e) {
+            return string;
+        }
     }
 
-    @Override
-    public long getStartRefreshInterval() {
-        return startRefreshInterval;
+    private static String findMappingsFrom(String string) throws IOException {
+        if (string == null) {
+            return null;
+        }
+        try {
+            URL url = new URL(string);
+            try (InputStream inputStream = url.openStream()) {
+                if (string.endsWith(".json")) {
+                    Map<String, ?> mappings = JsonXContent.jsonXContent.createParser(inputStream).mapOrdered();
+                    XContentBuilder builder = JsonXContent.contentBuilder();
+                    builder.startObject().map(mappings).endObject();
+                    return builder.string();
+                }
+                if (string.endsWith(".yml") || string.endsWith(".yaml")) {
+                    Map<String, ?> mappings = YamlXContent.yamlXContent.createParser(inputStream).mapOrdered();
+                    XContentBuilder builder = JsonXContent.contentBuilder();
+                    builder.startObject().map(mappings).endObject();
+                    return builder.string();
+                }
+            }
+            return string;
+        } catch (MalformedInputException e) {
+            return string;
+        }
     }
-
-    @Override
-    public IndexDefinition setStopRefreshInterval(long seconds) {
-        this.stopRefreshInterval = seconds;
-        return this;
-    }
-
-    @Override
-    public long getStopRefreshInterval() {
-        return stopRefreshInterval;
-    }
-
 }

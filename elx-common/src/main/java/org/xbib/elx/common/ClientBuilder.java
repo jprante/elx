@@ -47,6 +47,17 @@ public class ClientBuilder {
         this.classLoader = classLoader;
         this.settingsBuilder = Settings.builder();
         settingsBuilder.put("node.name", "elx-client-" + Version.CURRENT);
+        for (Parameters p : Parameters.values()) {
+            if (p.getType() == Boolean.class) {
+                settingsBuilder.put(p.getName(), p.getBoolean());
+            }
+            if (p.getType() == Integer.class) {
+                settingsBuilder.put(p.getName(), p.getInteger());
+            }
+            if (p.getType() == String.class) {
+                settingsBuilder.put(p.getName(), p.getString());
+            }
+        }
     }
 
     public static ClientBuilder builder() {
@@ -78,6 +89,11 @@ public class ClientBuilder {
     }
 
     public ClientBuilder put(String key, Integer value) {
+        settingsBuilder.put(key, value);
+        return this;
+    }
+
+    public ClientBuilder put(String key, Boolean value) {
         settingsBuilder.put(key, value);
         return this;
     }

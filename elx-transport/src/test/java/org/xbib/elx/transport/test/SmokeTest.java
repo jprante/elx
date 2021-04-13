@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
+import org.xbib.elx.common.DefaultIndexDefinition;
 import org.xbib.elx.transport.TransportAdminClient;
 import org.xbib.elx.transport.TransportAdminClientProvider;
 import org.xbib.elx.transport.TransportBulkClient;
@@ -16,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(TestExtension.class)
 class SmokeTest {
@@ -39,28 +41,24 @@ class SmokeTest {
                      .put(helper.getTransportSettings())
                      .build()) {
             IndexDefinition indexDefinition =
-                    adminClient.buildIndexDefinitionFromSettings("test_smoke", Settings.EMPTY);
+                    new DefaultIndexDefinition(adminClient, "test_smoke", "doc", Settings.EMPTY);
+            assertEquals("test_smoke", indexDefinition.getIndex());
+            assertTrue(indexDefinition.getFullIndexName().startsWith("test_smoke"));
             assertEquals(0, indexDefinition.getReplicaLevel());
             assertEquals(helper.getClusterName(), adminClient.getClusterName());
-            indexDefinition.setFullIndexName("test_smoke");
-            indexDefinition.setType("doc");
             bulkClient.newIndex(indexDefinition);
-            bulkClient.index("test_smoke", "doc", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
-            bulkClient.flush();
+            bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
             bulkClient.waitForResponses(30, TimeUnit.SECONDS);
-            adminClient.checkMapping("test_smoke");
-            bulkClient.update("test_smoke", "doc", "1", "{ \"name\" : \"Another name\"}");
-            bulkClient.delete("test_smoke", "doc", "1");
-            bulkClient.flush();
+            adminClient.checkMapping(indexDefinition);
+            bulkClient.update(indexDefinition, "1", "{ \"name\" : \"Another name\"}");
+            bulkClient.delete(indexDefinition, "1");
             bulkClient.waitForResponses(30, TimeUnit.SECONDS);
-            bulkClient.index("test_smoke", "doc", "1", true, "{ \"name\" : \"Hello World\"}");
-            bulkClient.delete("test_smoke", "doc", "1");
-            bulkClient.flush();
+            bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}");
+            bulkClient.delete(indexDefinition, "1");
             bulkClient.waitForResponses(30, TimeUnit.SECONDS);
-            adminClient.deleteIndex("test_smoke");
+            adminClient.deleteIndex(indexDefinition);
             bulkClient.newIndex(indexDefinition);
-            bulkClient.index(indexDefinition.getFullIndexName(), "doc", "1", true, "{ \"name\" : \"Hello World\"}");
-            bulkClient.flush();
+            bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}");
             bulkClient.waitForResponses(30, TimeUnit.SECONDS);
             adminClient.updateReplicaLevel(indexDefinition, 2);
             int replica = adminClient.getReplicaLevel(indexDefinition);

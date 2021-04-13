@@ -24,6 +24,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.xbib.elx.api.BasicClient;
+import org.xbib.elx.api.IndexDefinition;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -31,12 +32,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class AbstractBasicClient implements BasicClient {
 
     private static final Logger logger = LogManager.getLogger(AbstractBasicClient.class.getName());
-
-    /**
-     * The one and only index type name used in the extended client.
-     * Note that all Elasticsearch versions before 6.2.0 do not allow a prepending "_".
-     */
-    protected static final String TYPE_NAME = "doc";
 
     protected ElasticsearchClient client;
 
@@ -144,18 +139,23 @@ public abstract class AbstractBasicClient implements BasicClient {
     }
 
     @Override
-    public long getSearchableDocs(String index) {
+    public long getSearchableDocs(IndexDefinition indexDefinition) {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return -1L;
+        }
+        ensureClientIsPresent();
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE)
-                .setIndices(index)
+                .setIndices(indexDefinition.getFullIndexName())
                 .setQuery(QueryBuilders.matchAllQuery())
                 .setSize(0);
         return searchRequestBuilder.execute().actionGet().getHits().getTotalHits();
     }
 
     @Override
-    public boolean isIndexExists(String index) {
+    public boolean isIndexExists(IndexDefinition indexDefinition) {
+        ensureClientIsPresent();
         IndicesExistsRequest indicesExistsRequest = new IndicesExistsRequest();
-        indicesExistsRequest.indices(new String[]{index});
+        indicesExistsRequest.indices(new String[] { indexDefinition.getFullIndexName() } );
         IndicesExistsResponse indicesExistsResponse =
                 client.execute(IndicesExistsAction.INSTANCE, indicesExistsRequest).actionGet();
         return indicesExistsResponse.isExists();
@@ -196,6 +196,14 @@ public abstract class AbstractBasicClient implements BasicClient {
         if (client == null) {
             throw new IllegalStateException("no client");
         }
+    }
+
+    protected boolean ensureIndexDefinition(IndexDefinition indexDefinition) {
+        if (!indexDefinition.isEnabled()) {
+           logger.warn("index " + indexDefinition.getFullIndexName() + " is disabled");
+           return false;
+        }
+        return true;
     }
 
     protected static TimeValue toTimeValue(long timeValue, TimeUnit timeUnit) {

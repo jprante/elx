@@ -4,8 +4,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.cluster.metadata.AliasAction;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,27 +44,18 @@ class IndexShiftTest {
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                      .put(helper.getNodeSettings())
                 .build()) {
-            XContentBuilder builder = JsonXContent.contentBuilder()
-                    .startObject()
-                    .startObject("index")
-                    .field("number_of_shards", 1)
-                    .field("number_of_replicas", 0)
-                    .endObject()
-                    .endObject();
-            IndexDefinition indexDefinition = new DefaultIndexDefinition();
-            indexDefinition.setIndex("test");
-            indexDefinition.setType("doc");
+            IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             indexDefinition.setFullIndexName("test_shift");
-            indexDefinition.setSettings(builder.string());
             bulkClient.newIndex(indexDefinition);
             for (int i = 0; i < 1; i++) {
-                bulkClient.index("test_shift", "doc", helper.randomString(1), false,
+                bulkClient.index(indexDefinition, helper.randomString(1), false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
             indexDefinition.setShift(true);
-            IndexShiftResult indexShiftResult = adminClient.shiftIndex(indexDefinition, Arrays.asList("a", "b", "c"));
+            IndexShiftResult indexShiftResult =
+                    adminClient.shiftIndex(indexDefinition, Arrays.asList("a", "b", "c"), null);
             assertTrue(indexShiftResult.getNewAliases().contains("a"));
             assertTrue(indexShiftResult.getNewAliases().contains("b"));
             assertTrue(indexShiftResult.getNewAliases().contains("c"));
@@ -77,7 +66,8 @@ class IndexShiftTest {
             assertTrue(aliases.containsKey("c"));
             assertTrue(aliases.containsKey("test"));
             Optional<String> resolved = adminClient.resolveAlias("test").stream().findFirst();
-            aliases = resolved.isPresent() ? adminClient.getAliases(resolved.get()) : Collections.emptyMap();
+            aliases = resolved.isPresent() ?
+                    adminClient.getAliases(resolved.get()) : Collections.emptyMap();
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
@@ -85,7 +75,7 @@ class IndexShiftTest {
             indexDefinition.setFullIndexName("test_shift2");
             bulkClient.newIndex(indexDefinition);
             for (int i = 0; i < 1; i++) {
-                bulkClient.index("test_shift2", "doc", helper.randomString(1), false,
+                bulkClient.index(indexDefinition, helper.randomString(1), false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             bulkClient.flush();
