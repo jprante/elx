@@ -39,7 +39,7 @@ public class ClientBuilder {
     }
 
     public ClientBuilder(ElasticsearchClient client) {
-        this(client, Thread.currentThread().getContextClassLoader());
+        this(client, ClassLoader.getSystemClassLoader());
     }
 
     public ClientBuilder(ElasticsearchClient client, ClassLoader classLoader) {

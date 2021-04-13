@@ -302,8 +302,7 @@ public class DefaultIndexDefinition implements IndexDefinition {
             return null;
         }
         try {
-            URL url = new URL(string);
-            try (InputStream inputStream = url.openStream()) {
+            try (InputStream inputStream = findInputStream(string)) {
                 Settings settings = Settings.builder().loadFromStream(string, inputStream).build();
                 XContentBuilder builder = JsonXContent.contentBuilder();
                 settings.toXContent(builder, ToXContent.EMPTY_PARAMS);
@@ -311,6 +310,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
             }
         } catch (MalformedURLException e) {
             return string;
+        } catch (IOException e) {
+            throw new IOException("unable to read JSON from " + string + ": " + e.getMessage(), e);
         }
     }
 
@@ -319,8 +320,7 @@ public class DefaultIndexDefinition implements IndexDefinition {
             return null;
         }
         try {
-            URL url = new URL(string);
-            try (InputStream inputStream = url.openStream()) {
+            try (InputStream inputStream = findInputStream(string)) {
                 if (string.endsWith(".json")) {
                     Map<String, ?> mappings = JsonXContent.jsonXContent.createParser(inputStream).mapOrdered();
                     XContentBuilder builder = JsonXContent.contentBuilder();
@@ -337,6 +337,23 @@ public class DefaultIndexDefinition implements IndexDefinition {
             return string;
         } catch (MalformedInputException e) {
             return string;
+        } catch (IOException e) {
+            throw new IOException("unable to read JSON from " + string + ": " + e.getMessage(), e);
+        }
+    }
+
+    private static InputStream findInputStream(String string) {
+        if (string == null) {
+            return null;
+        }
+        try {
+            URL url = ClassLoader.getSystemClassLoader().getResource(string);
+            if (url == null) {
+                url = new URL(string);
+            }
+            return url.openStream();
+        } catch (IOException e) {
+            return null;
         }
     }
 }
