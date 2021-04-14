@@ -1,6 +1,7 @@
 package org.xbib.elx.common;
 
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
@@ -14,7 +15,6 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.MalformedInputException;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -41,8 +41,6 @@ public class DefaultIndexDefinition implements IndexDefinition {
 
     private boolean enabled;
 
-    private boolean ignoreErrors;
-
     private boolean shift;
 
     private boolean prune;
@@ -66,41 +64,55 @@ public class DefaultIndexDefinition implements IndexDefinition {
         setType(type);
         setDateTimeFormatter(DateTimeFormatter.ofPattern("yyyyMMdd", Locale.getDefault()));
         setDateTimePattern(Pattern.compile("^(.*?)(\\d+)$"));
-        setFullIndexName(index + getDateTimeFormatter().format(LocalDate.now()));
-        setEnabled(true);
+        setFullIndexName(index + getDateTimeFormatter().format(LocalDateTime.now()));
         setMaxWaitTime(Parameters.MAX_WAIT_BULK_RESPONSE_SECONDS.getInteger(), TimeUnit.SECONDS);
+        setShift(false);
+        setPrune(false);
+        setEnabled(true);
     }
 
     public DefaultIndexDefinition(AdminClient adminClient, String index, String type, Settings settings)
             throws IOException {
-        boolean isEnabled = settings.getAsBoolean("enabled", true);
+        TimeValue timeValue = settings.getAsTime(Parameters.MAX_WAIT_BULK_RESPONSE.getName(), TimeValue.timeValueSeconds(30));
+        setMaxWaitTime(timeValue.seconds(), TimeUnit.SECONDS);
         String indexName = settings.get("name", index);
-        String dateTimePatternStr = settings.get("dateTimePattern", "^(.*?)(\\\\d+)$");
-        Pattern dateTimePattern = Pattern.compile(dateTimePatternStr);
-        String dateTimeFormat = settings.get("dateTimeFormat", "yyyyMMdd");
-        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimeFormat)
-                .withZone(ZoneId.systemDefault());
-        String fullName = indexName + dateTimeFormatter.format(LocalDateTime.now());
-        String fullIndexName = adminClient.resolveAlias(fullName).stream().findFirst().orElse(fullName);
-        IndexRetention indexRetention = new DefaultIndexRetention()
-                .setMinToKeep(settings.getAsInt("retention.mintokeep", 0))
-                .setDelta(settings.getAsInt("retention.delta", 0));
-        setEnabled(isEnabled)
-        .setIndex(indexName)
-        .setType(type)
-        .setFullIndexName(fullIndexName)
-        .setSettings(findSettingsFrom(settings.get("settings")))
-        .setMappings(findMappingsFrom(settings.get("mapping")))
-        .setDateTimeFormatter(dateTimeFormatter)
-        .setDateTimePattern(dateTimePattern)
-        .setIgnoreErrors(settings.getAsBoolean("skiperrors", false))
-        .setShift(settings.getAsBoolean("shift", false))
-        .setPrune(settings.getAsBoolean("prune", false))
-        .setReplicaLevel(settings.getAsInt("replica", 0))
-        .setMaxWaitTime(settings.getAsLong("timeout", 30L), TimeUnit.SECONDS)
-        .setRetention(indexRetention)
-        .setStartBulkRefreshSeconds(settings.getAsInt(Parameters.START_BULK_REFRESH_SECONDS.getName(), -1))
-        .setStopBulkRefreshSeconds(settings.getAsInt(Parameters.STOP_BULK_REFRESH_SECONDS.getName(), -1));
+        String indexType = settings.get("type", type);
+        boolean enabled = settings.getAsBoolean("enabled", true);
+        setIndex(indexName);
+        setType(indexType);
+        setEnabled(enabled);
+        String fullIndexName = adminClient.resolveAlias(indexName).stream().findFirst().orElse(indexName);
+        setFullIndexName(fullIndexName);
+        if (settings.get("settings") != null && settings.get("mapping") != null) {
+            setSettings(findSettingsFrom(settings.get("settings")));
+            setMappings(findMappingsFrom(settings.get("mapping")));
+            setStartBulkRefreshSeconds(settings.getAsInt(Parameters.START_BULK_REFRESH_SECONDS.getName(), -1));
+            setStopBulkRefreshSeconds(settings.getAsInt(Parameters.STOP_BULK_REFRESH_SECONDS.getName(), -1));
+            setReplicaLevel(settings.getAsInt("replica", 0));
+            boolean shift = settings.getAsBoolean("shift", false);
+            setShift(shift);
+            if (shift) {
+                String dateTimeFormat = settings.get(Parameters.DATE_TIME_FORMAT.getName(),
+                        Parameters.DATE_TIME_FORMAT.getString());
+                DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimeFormat, Locale.getDefault())
+                        .withZone(ZoneId.systemDefault());
+                setDateTimeFormatter(dateTimeFormatter);
+                String dateTimePatternStr = settings.get("dateTimePattern", "^(.*?)(\\\\d+)$");
+                Pattern dateTimePattern = Pattern.compile(dateTimePatternStr);
+                setDateTimePattern(dateTimePattern);
+                String fullName = indexName + dateTimeFormatter.format(LocalDateTime.now());
+                fullIndexName = adminClient.resolveAlias(fullName).stream().findFirst().orElse(fullName);
+                setFullIndexName(fullIndexName);
+                boolean prune = settings.getAsBoolean("prune", false);
+                setPrune(prune);
+                if (prune) {
+                    IndexRetention indexRetention = new DefaultIndexRetention()
+                            .setMinToKeep(settings.getAsInt("retention.mintokeep", 0))
+                            .setDelta(settings.getAsInt("retention.delta", 0));
+                    setRetention(indexRetention);
+                }
+            }
+        }
     }
 
     @Override
@@ -212,17 +224,6 @@ public class DefaultIndexDefinition implements IndexDefinition {
     @Override
     public boolean isEnabled() {
         return enabled;
-    }
-
-    @Override
-    public IndexDefinition setIgnoreErrors(boolean ignoreErrors) {
-        this.ignoreErrors = ignoreErrors;
-        return this;
-    }
-
-    @Override
-    public boolean ignoreErrors() {
-        return ignoreErrors;
     }
 
     @Override

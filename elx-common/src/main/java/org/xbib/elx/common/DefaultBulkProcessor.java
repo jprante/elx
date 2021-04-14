@@ -33,12 +33,6 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class DefaultBulkProcessor implements BulkProcessor {
 
-    private final BulkListener bulkListener;
-
-    private final int bulkActions;
-
-    private final long bulkSize;
-
     private final ScheduledThreadPoolExecutor scheduler;
 
     private final ScheduledFuture<?> scheduledFuture;
@@ -49,6 +43,10 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
     private BulkRequest bulkRequest;
 
+    private long bulkSize;
+
+    private int bulkActions;
+
     private volatile boolean closed;
 
     private DefaultBulkProcessor(ElasticsearchClient client,
@@ -58,7 +56,6 @@ public class DefaultBulkProcessor implements BulkProcessor {
                                  int bulkActions,
                                  ByteSizeValue bulkSize,
                                  TimeValue flushInterval) {
-        this.bulkListener = bulkListener;
         this.executionIdGen = new AtomicLong();
         this.closed = false;
         this.bulkActions = bulkActions;
@@ -86,8 +83,23 @@ public class DefaultBulkProcessor implements BulkProcessor {
     }
 
     @Override
-    public BulkListener getBulkListener() {
-        return bulkListener;
+    public void setBulkActions(int bulkActions) {
+        this.bulkActions = bulkActions;
+    }
+
+    @Override
+    public int getBulkActions() {
+        return bulkActions;
+    }
+
+    @Override
+    public void setBulkSize(long bulkSize) {
+        this.bulkSize = bulkSize;
+    }
+
+    @Override
+    public long getBulkSize() {
+        return bulkSize;
     }
 
     /**

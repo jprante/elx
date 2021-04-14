@@ -283,18 +283,14 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             }
         }
         if (!indicesAliasesRequest.getAliasActions().isEmpty()) {
-            logger.debug("indices alias request = {}", indicesAliasesRequest.getAliasActions().toString());
-            IndicesAliasesResponse indicesAliasesResponse =
-                    client.execute(IndicesAliasesAction.INSTANCE, indicesAliasesRequest).actionGet();
-            logger.debug("response isAcknowledged = {}",
-                    indicesAliasesResponse.isAcknowledged());
+            client.execute(IndicesAliasesAction.INSTANCE, indicesAliasesRequest).actionGet();
         }
         return new SuccessIndexShiftResult(moveAliases, newAliases);
     }
 
     @Override
     public IndexPruneResult pruneIndex(IndexDefinition indexDefinition) {
-        return indexDefinition.isPruneEnabled() ?
+        return indexDefinition != null && indexDefinition.isEnabled() && indexDefinition.isPruneEnabled() ?
                 pruneIndex(indexDefinition.getIndex(),
                 indexDefinition.getFullIndexName(),
                 indexDefinition.getDateTimePattern(),
@@ -324,8 +320,6 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             Matcher m = pattern.matcher(s);
             if (m.matches() && m.group(1).equals(index) && !s.equals(protectedIndexName)) {
                 candidateIndices.add(s);
-            } else {
-                logger.info("not a candidate: " + s);
             }
         }
         if (candidateIndices.isEmpty()) {
