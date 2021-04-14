@@ -79,78 +79,65 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public void newIndex(IndexDefinition indexDefinition) throws IOException {
-        Settings settings = indexDefinition.getSettings() == null ? null :
-                Settings.builder().loadFromSource(indexDefinition.getSettings(), XContentType.JSON).build();
-        Map<String, ?> mappings = indexDefinition.getMappings() == null ? null :
-                JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
-                        DeprecationHandler.THROW_UNSUPPORTED_OPERATION, indexDefinition.getMappings()).mapOrdered();
-        newIndex(indexDefinition.getFullIndexName(), settings, mappings);
-    }
-
-    @Override
-    public void newIndex(String index) throws IOException {
-        newIndex(index, Settings.EMPTY, (Map<String, ?>) null);
-    }
-
-    @Override
-    public void newIndex(String index, Settings settings) throws IOException {
-        newIndex(index, settings, (Map<String, ?>) null);
-    }
-
-    @Override
-    public void newIndex(String index, Settings settings, Map<String, ?> mapping) throws IOException {
-        if (mapping == null || mapping.isEmpty()) {
-            newIndex(index, settings, (XContentBuilder) null);
-        } else {
-            newIndex(index, settings, JsonXContent.contentBuilder().map(mapping));
-        }
-    }
-
-    @Override
-    public void newIndex(String index, Settings settings, XContentBuilder builder) throws IOException {
-        if (index == null) {
-            logger.warn("unable to create index, no index name given");
+        if (!ensureIndexDefinition(indexDefinition)) {
             return;
+        }
+        String index = indexDefinition.getFullIndexName();
+        if (index == null) {
+            throw new IllegalArgumentException("no index name given");
         }
         ensureClientIsPresent();
         CreateIndexRequestBuilder createIndexRequestBuilder = new CreateIndexRequestBuilder(client, CreateIndexAction.INSTANCE)
                 .setIndex(index);
-        if (settings != null) {
-            createIndexRequestBuilder.setSettings(settings);
+        if (indexDefinition.getSettings() == null) {
+            XContentBuilder builder = JsonXContent.contentBuilder()
+                    .startObject()
+                    .startObject("index")
+                    .field("number_of_shards", 1)
+                    .field("number_of_replicas", 0)
+                    .endObject()
+                    .endObject();
+            indexDefinition.setSettings(Strings.toString(builder));
         }
-        if (builder != null) {
-            createIndexRequestBuilder.addMapping(TYPE_NAME, builder);
-            logger.debug("adding mapping = {}", Strings.toString(builder));
+        Settings settings = Settings.builder().loadFromSource(indexDefinition.getSettings(), XContentType.JSON).build();
+        createIndexRequestBuilder.setSettings(settings);
+        Map<String, ?> mappings = indexDefinition.getMappings() == null ? null :
+                JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
+                        DeprecationHandler.THROW_UNSUPPORTED_OPERATION, indexDefinition.getMappings()).mapOrdered();
+        if (mappings != null) {
+            createIndexRequestBuilder.addMapping(TYPE_NAME, mappings);
         } else {
             createIndexRequestBuilder.addMapping(TYPE_NAME,
                     JsonXContent.contentBuilder().startObject().startObject(TYPE_NAME).endObject().endObject());
-            logger.debug("empty mapping");
         }
         CreateIndexResponse createIndexResponse = createIndexRequestBuilder.execute().actionGet();
         if (createIndexResponse.isAcknowledged()) {
             logger.info("index {} created", index);
         } else {
             logger.warn("index creation of {} not acknowledged", index);
+            return;
         }
-        refreshIndex(index);
+        // we really need state GREEN. If yellow, we may trigger shard write errors and queue will exceed quickly.
+        logger.info("waiting for GREEN after index {} was created", index);
+        waitForCluster("GREEN", indexDefinition.getMaxWaitTime(), indexDefinition.getMaxWaitTimeUnit());
     }
 
     @Override
     public void startBulk(IndexDefinition indexDefinition) throws IOException {
-        startBulk(indexDefinition.getFullIndexName(), -1, 1);
-    }
-
-    @Override
-    public void startBulk(String index, long startRefreshIntervalSeconds, long stopRefreshIntervalSeconds)
-            throws IOException {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return;
+        }
         if (bulkController != null) {
             ensureClientIsPresent();
-            bulkController.startBulkMode(index, startRefreshIntervalSeconds, stopRefreshIntervalSeconds);
+            bulkController.startBulkMode(indexDefinition);
         }
     }
 
     @Override
     public void stopBulk(IndexDefinition indexDefinition) throws IOException {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return;
+        }
         if (bulkController != null) {
             ensureClientIsPresent();
             bulkController.stopBulkMode(indexDefinition);
@@ -158,22 +145,17 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     }
 
     @Override
-    public void stopBulk(String index, long timeout, TimeUnit timeUnit) throws IOException {
-        if (bulkController != null) {
-            ensureClientIsPresent();
-            bulkController.stopBulkMode(index, timeout, timeUnit);
+    public BulkClient index(IndexDefinition indexDefinition, String id, boolean create, String source) {
+        return index(indexDefinition, id, create,
+                new BytesArray(source.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    @Override
+    public BulkClient index(IndexDefinition indexDefinition, String id, boolean create, BytesReference source) {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return this;
         }
-    }
-
-    @Override
-    public BulkClient index(String index, String id, boolean create, String source) {
-        return index(new IndexRequest().index(index).id(id).create(create)
-                .source(new BytesArray(source.getBytes(StandardCharsets.UTF_8)), XContentType.JSON));
-    }
-
-    @Override
-    public BulkClient index(String index, String id, boolean create, BytesReference source) {
-        return index(new IndexRequest().index(index).id(id).create(create)
+        return index(new IndexRequest().index(indexDefinition.getFullIndexName()).id(id).create(create)
                 .source(source, XContentType.JSON));
     }
 
@@ -187,8 +169,11 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     }
 
     @Override
-    public BulkClient delete(String index, String id) {
-        return delete(new DeleteRequest().index(index).id(id));
+    public BulkClient delete(IndexDefinition indexDefinition, String id) {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return this;
+        }
+        return delete(new DeleteRequest().index(indexDefinition.getFullIndexName()).id(id));
     }
 
     @Override
@@ -201,21 +186,25 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     }
 
     @Override
-    public BulkClient update(String index, String id, BytesReference source) {
-        return update(new UpdateRequest().index(index).id(id)
+    public BulkClient update(IndexDefinition indexDefinition, String id, String source) {
+        return update(indexDefinition, id, new BytesArray(source.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    @Override
+    public BulkClient update(IndexDefinition indexDefinition, String id, BytesReference source) {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return this;
+        }
+        return update(new UpdateRequest().index(indexDefinition.getFullIndexName()).id(id)
                 .doc(source, XContentType.JSON));
     }
 
     @Override
-    public BulkClient update(String index, String id, String source) {
-        return update(new UpdateRequest().index(index).id(id)
-                .doc(source.getBytes(StandardCharsets.UTF_8), XContentType.JSON));
-    }
-
-    @Override
     public BulkClient update(UpdateRequest updateRequest) {
-        ensureClientIsPresent();
-        bulkController.bulkUpdate(updateRequest);
+        if (bulkController != null) {
+            ensureClientIsPresent();
+            bulkController.bulkUpdate(updateRequest);
+        }
         return this;
     }
 
@@ -231,18 +220,20 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     }
 
     @Override
-    public void flushIndex(String index) {
-        if (index != null) {
-            ensureClientIsPresent();
-            client.execute(FlushAction.INSTANCE, new FlushRequest(index)).actionGet();
+    public void flushIndex(IndexDefinition indexDefinition) {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return;
         }
+        ensureClientIsPresent();
+        client.execute(FlushAction.INSTANCE, new FlushRequest(indexDefinition.getFullIndexName())).actionGet();
     }
 
     @Override
-    public void refreshIndex(String index) {
-        if (index != null) {
-            ensureClientIsPresent();
-            client.execute(RefreshAction.INSTANCE, new RefreshRequest(index)).actionGet();
+    public void refreshIndex(IndexDefinition indexDefinition) {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return;
         }
+        ensureClientIsPresent();
+        client.execute(RefreshAction.INSTANCE, new RefreshRequest(indexDefinition.getFullIndexName())).actionGet();
     }
 }

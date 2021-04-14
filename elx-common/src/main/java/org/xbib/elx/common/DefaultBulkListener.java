@@ -19,14 +19,18 @@ public class DefaultBulkListener implements BulkListener {
 
     private final boolean isBulkLoggingEnabled;
 
+    private final boolean failOnError;
+
     private Throwable lastBulkError;
 
     public DefaultBulkListener(BulkController bulkController,
                                BulkMetric bulkMetric,
-                               boolean isBulkLoggingEnabled) {
+                               boolean isBulkLoggingEnabled,
+                               boolean failOnError) {
         this.bulkController = bulkController;
         this.bulkMetric = bulkMetric;
         this.isBulkLoggingEnabled = isBulkLoggingEnabled;
+        this.failOnError = failOnError;
     }
 
     @Override
@@ -73,6 +77,10 @@ public class DefaultBulkListener implements BulkListener {
             if (isBulkLoggingEnabled && logger.isErrorEnabled()) {
                 logger.error("bulk [{}] failed with {} failed items, failure message = {}",
                         executionId, n, response.buildFailureMessage());
+            }
+            if (failOnError) {
+                throw new IllegalStateException("bulk failed: id = " + executionId +
+                        " n = " + n + " message = " + response.buildFailureMessage());
             }
         } else {
             bulkMetric.getCurrentIngestNumDocs().dec(response.getItems().length);

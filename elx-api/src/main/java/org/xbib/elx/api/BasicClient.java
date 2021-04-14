@@ -56,7 +56,7 @@ public interface BasicClient extends Closeable {
 
     void waitForShards(long maxWaitTime, TimeUnit timeUnit);
 
-    long getSearchableDocs(String index);
+    long getSearchableDocs(IndexDefinition indexDefinition);
 
-    boolean isIndexExists(String index);
+    boolean isIndexExists(IndexDefinition indexDefinition);
 }

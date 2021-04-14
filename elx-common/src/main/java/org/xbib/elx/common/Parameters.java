@@ -2,51 +2,54 @@ package org.xbib.elx.common;
 
 public enum Parameters {
 
-    ENABLE_BULK_LOGGING(false),
+    MAX_WAIT_BULK_RESPONSE_SECONDS("bulk.max_wait_response_seconds", Integer.class, 30),
 
-    DEFAULT_MAX_ACTIONS_PER_REQUEST(1000),
+    START_BULK_REFRESH_SECONDS("bulk.start_refresh_seconds", Integer.class, 0),
 
-    DEFAULT_MAX_CONCURRENT_REQUESTS(Runtime.getRuntime().availableProcessors()),
+    STOP_BULK_REFRESH_SECONDS("bulk.stop_refresh_seconds", Integer.class, 30),
 
-    DEFAULT_MAX_VOLUME_PER_REQUEST("10mb"),
+    ENABLE_BULK_LOGGING("bulk.logging.enabled", Boolean.class, true),
 
-    DEFAULT_FLUSH_INTERVAL(30),
+    FAIL_ON_BULK_ERROR("bulk.failonerror", Boolean.class, true),
 
-    MAX_ACTIONS_PER_REQUEST ("max_actions_per_request"),
+    MAX_ACTIONS_PER_REQUEST("bulk.max_actions_per_request", Integer.class, 1000),
 
-    MAX_CONCURRENT_REQUESTS("max_concurrent_requests"),
+    // 0 = 1 CPU, synchronous requests, &gt; 0 = n + 1 CPUs, asynchronous requests
+    MAX_CONCURRENT_REQUESTS("bulk.max_concurrent_requests", Integer.class, Runtime.getRuntime().availableProcessors() - 1),
 
-    MAX_VOLUME_PER_REQUEST("max_volume_per_request"),
+    MAX_VOLUME_PER_REQUEST("bulk.max_volume_per_request", String.class, "1mb"),
 
-    FLUSH_INTERVAL("flush_interval");
+    FLUSH_INTERVAL("bulk.flush_interval", String.class, "30s");
 
-    boolean value;
+    private final String name;
 
-    int num;
+    private final Class<?> type;
 
-    String string;
+    private final Object value;
 
-    Parameters(boolean value) {
+    Parameters(String name, Class<?> type, Object value) {
+        this.name = name;
+        this.type = type;
         this.value = value;
     }
 
-    Parameters(int num) {
-        this.num = num;
+    public String getName() {
+        return name;
     }
 
-    Parameters(String string) {
-        this.string = string;
+    public Class<?> getType() {
+        return type;
     }
 
-    public boolean getValue() {
-        return value;
+    public Boolean getBoolean() {
+        return type == Boolean.class ? (Boolean) value : Boolean.FALSE;
     }
 
-    public int getNum() {
-        return num;
+    public Integer getInteger() {
+        return type == Integer.class ? (Integer) value : 0;
     }
 
     public String getString() {
-        return string;
+        return type == String.class ? (String)  value : null;
     }
 }

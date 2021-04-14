@@ -37,16 +37,8 @@ import org.elasticsearch.cluster.metadata.AliasMetadata;
 import org.elasticsearch.cluster.metadata.IndexAbstraction;
 import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.metadata.MappingMetadata;
-import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.DeprecationHandler;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.ToXContent;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.json.JsonXContent;
-import org.elasticsearch.common.xcontent.yaml.YamlXContent;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
@@ -58,16 +50,9 @@ import org.xbib.elx.api.AdminClient;
 import org.xbib.elx.api.IndexAliasAdder;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.api.IndexPruneResult;
-import org.xbib.elx.api.IndexRetention;
 import org.xbib.elx.api.IndexShiftResult;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -95,22 +80,24 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     private static final Logger logger = LogManager.getLogger(AbstractAdminClient.class.getName());
 
     @Override
-    public Map<String, ?> getMapping(String index) {
+    public Map<String, ?> getMapping(IndexDefinition indexDefinition) {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return null;
+        }
         GetMappingsRequestBuilder getMappingsRequestBuilder = new GetMappingsRequestBuilder(client, GetMappingsAction.INSTANCE)
-                .setIndices(index)
+                .setIndices(indexDefinition.getFullIndexName())
                 .setTypes(TYPE_NAME);
         GetMappingsResponse getMappingsResponse = getMappingsRequestBuilder.execute().actionGet();
-        return getMappingsResponse.getMappings().get(index).get(TYPE_NAME).getSourceAsMap();
+        return getMappingsResponse.getMappings()
+                .get(indexDefinition.getFullIndexName())
+                .get(TYPE_NAME)
+                .getSourceAsMap();
     }
 
     @Override
     public AdminClient deleteIndex(IndexDefinition indexDefinition) {
-        return deleteIndex(indexDefinition.getFullIndexName());
-    }
-
-    @Override
-    public AdminClient deleteIndex(String index) {
         ensureClientIsPresent();
+        String index = indexDefinition.getFullIndexName();
         if (index == null) {
             logger.warn("no index name given to delete index");
             return this;
@@ -123,27 +110,26 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public AdminClient updateReplicaLevel(IndexDefinition indexDefinition, int level) throws IOException {
-        return updateReplicaLevel(indexDefinition.getFullIndexName(), level,
-                indexDefinition.getMaxWaitTime(), indexDefinition.getMaxWaitTimeUnit());
-    }
-
-    @Override
-    public AdminClient updateReplicaLevel(String index, int level, long maxWaitTime, TimeUnit timeUnit) throws IOException {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return this;
+        }
         if (level < 1) {
             logger.warn("invalid replica level");
             return this;
         }
+        String index = indexDefinition.getFullIndexName();
+        long maxWaitTime = indexDefinition.getMaxWaitTime();
+        TimeUnit timeUnit = indexDefinition.getMaxWaitTimeUnit();
         updateIndexSetting(index, "number_of_replicas", level, maxWaitTime, timeUnit);
         return this;
     }
 
     @Override
     public int getReplicaLevel(IndexDefinition indexDefinition) {
-        return getReplicaLevel(indexDefinition.getFullIndexName());
-    }
-
-    @Override
-    public int getReplicaLevel(String index) {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return -1;
+        }
+        String index = indexDefinition.getFullIndexName();
         GetSettingsRequest request = new GetSettingsRequest().indices(index);
         GetSettingsResponse response = client.execute(GetSettingsAction.INSTANCE, request).actionGet();
         int replica = -1;
@@ -158,10 +144,10 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public String resolveMostRecentIndex(String alias) {
-        ensureClientIsPresent();
         if (alias == null) {
             return null;
         }
+        ensureClientIsPresent();
         GetAliasesRequest getAliasesRequest = new GetAliasesRequest().aliases(alias);
         GetAliasesResponse getAliasesResponse = client.execute(GetAliasesAction.INSTANCE, getAliasesRequest).actionGet();
         Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
@@ -209,12 +195,6 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         }
         return indexMetadata.stream().map(im -> im.getIndex().getName())
                 .sorted().collect(Collectors.toList());
-    }
-
-    @Override
-    public IndexShiftResult shiftIndex(IndexDefinition indexDefinition,
-                                       List<String> additionalAliases) {
-        return shiftIndex(indexDefinition, additionalAliases, null);
     }
 
     @Override
@@ -381,7 +361,10 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     }
 
     @Override
-    public Long mostRecentDocument(String index, String timestampfieldname) {
+    public Long mostRecentDocument(IndexDefinition indexDefinition, String timestampfieldname) {
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return -1L;
+        }
         ensureClientIsPresent();
         SortBuilder<?> sort = SortBuilders.fieldSort(timestampfieldname).order(SortOrder.DESC);
         SearchSourceBuilder builder = new SearchSourceBuilder();
@@ -389,7 +372,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         builder.storedField(timestampfieldname);
         builder.size(1);
         SearchRequest searchRequest = new SearchRequest();
-        searchRequest.indices(index);
+        searchRequest.indices(indexDefinition.getFullIndexName());
         searchRequest.source(builder);
         SearchResponse searchResponse =
                 client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
@@ -401,25 +384,25 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                 return 0L;
             }
         }
-        return null;
+        // almost impossible
+        return -1L;
     }
 
     @Override
     public boolean forceMerge(IndexDefinition indexDefinition) {
-        if (indexDefinition.isForceMergeEnabled()) {
-            return forceMerge(indexDefinition.getFullIndexName(), indexDefinition.getMaxWaitTime(),
-                    indexDefinition.getMaxWaitTimeUnit());
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return false;
         }
-        return false;
-    }
-
-    @Override
-    public boolean forceMerge(String index, long maxWaitTime, TimeUnit timeUnit) {
-        TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
+        if (!indexDefinition.isForceMergeEnabled()) {
+            return false;
+        }
+        ensureClientIsPresent();
+        String index = indexDefinition.getFullIndexName();
         ForceMergeRequest forceMergeRequest = new ForceMergeRequest();
         forceMergeRequest.indices(index);
         try {
-            client.execute(ForceMergeAction.INSTANCE, forceMergeRequest).get(timeout.getMillis(), TimeUnit.MILLISECONDS);
+            client.execute(ForceMergeAction.INSTANCE, forceMergeRequest)
+                    .get(indexDefinition.getMaxWaitTime(), indexDefinition.getMaxWaitTimeUnit());
             return true;
         } catch (TimeoutException e) {
             logger.error("timeout");
@@ -433,44 +416,11 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     }
 
     @Override
-    public IndexDefinition buildIndexDefinitionFromSettings(String index, Settings settings)
-            throws IOException {
-        boolean isEnabled = settings.getAsBoolean("enabled", false);
-        String indexName = settings.get("name", index);
-        String dateTimePatternStr = settings.get("dateTimePattern", "^(.*?)(\\\\d+)$");
-        Pattern dateTimePattern = Pattern.compile(dateTimePatternStr);
-        String dateTimeFormat = settings.get("dateTimeFormat", "yyyyMMdd");
-        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimeFormat)
-                .withZone(ZoneId.systemDefault());
-        String fullName = indexName + dateTimeFormatter.format(LocalDate.now());
-        String fullIndexName = resolveAlias(fullName).stream().findFirst().orElse(fullName);
-        IndexRetention indexRetention = new DefaultIndexRetention()
-                .setMinToKeep(settings.getAsInt("retention.mintokeep", 0))
-                .setDelta(settings.getAsInt("retention.delta", 0));
-        return new DefaultIndexDefinition()
-                .setEnabled(isEnabled)
-                .setIndex(indexName)
-                .setFullIndexName(fullIndexName)
-                .setSettings(findSettingsFrom(settings.get("settings")))
-                .setMappings(findMappingsFrom(settings.get("mapping")))
-                .setDateTimeFormatter(dateTimeFormatter)
-                .setDateTimePattern(dateTimePattern)
-                .setIgnoreErrors(settings.getAsBoolean("skiperrors", false))
-                .setShift(settings.getAsBoolean("shift", true))
-                .setPrune(settings.getAsBoolean("prune", true))
-                .setReplicaLevel(settings.getAsInt("replica", 0))
-                .setMaxWaitTime(settings.getAsLong("timeout", 30L), TimeUnit.SECONDS)
-                .setRetention(indexRetention)
-                .setStartRefreshInterval(settings.getAsLong("bulk.startrefreshinterval", -1L))
-                .setStopRefreshInterval(settings.getAsLong("bulk.stoprefreshinterval", -1L));
-    }
-
-    @Override
     public void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) throws IOException {
-        ensureClientIsPresent();
         if (index == null) {
             throw new IOException("no index name given");
         }
+        ensureClientIsPresent();
         Settings.Builder updateSettingsBuilder = Settings.builder();
         updateSettingsBuilder.put(key, value.toString());
         UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(index)
@@ -479,63 +429,18 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     }
 
     @Override
-    public void checkMapping(String index) {
+    public void checkMapping(IndexDefinition indexDefinition) {
         ensureClientIsPresent();
-        GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices(index);
+        GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices(indexDefinition.getFullIndexName());
         GetMappingsResponse getMappingsResponse = client.execute(GetMappingsAction.INSTANCE, getMappingsRequest).actionGet();
         ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetadata>> map = getMappingsResponse.getMappings();
         map.keys().forEach((Consumer<ObjectCursor<String>>) stringObjectCursor -> {
             ImmutableOpenMap<String, MappingMetadata> mappings = map.get(stringObjectCursor.value);
             for (ObjectObjectCursor<String, MappingMetadata> cursor : mappings) {
                 MappingMetadata mappingMetaData = cursor.value;
-                checkMapping(index, mappingMetaData);
+                checkMapping(indexDefinition.getFullIndexName(), mappingMetaData);
             }
         });
-    }
-
-    private static String findSettingsFrom(String string) throws IOException {
-        if (string == null) {
-            return null;
-        }
-        try {
-            URL url = new URL(string);
-            try (InputStream inputStream = url.openStream()) {
-                Settings settings = Settings.builder().loadFromStream(string, inputStream, true).build();
-                XContentBuilder builder = JsonXContent.contentBuilder();
-                settings.toXContent(builder, ToXContent.EMPTY_PARAMS);
-                return Strings.toString(builder);
-            }
-        } catch (MalformedURLException e) {
-            return string;
-        }
-    }
-
-    private static String findMappingsFrom(String string) throws IOException {
-        if (string == null) {
-            return null;
-        }
-        try {
-            URL url = new URL(string);
-            try (InputStream inputStream = url.openStream()) {
-                if (string.endsWith(".json")) {
-                    Map<String, ?> mappings = JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
-                            DeprecationHandler.THROW_UNSUPPORTED_OPERATION, inputStream).mapOrdered();
-                    XContentBuilder builder = JsonXContent.contentBuilder();
-                    builder.startObject().map(mappings).endObject();
-                    return Strings.toString(builder);
-                }
-                if (string.endsWith(".yml") || string.endsWith(".yaml")) {
-                    Map<String, ?> mappings = YamlXContent.yamlXContent.createParser(NamedXContentRegistry.EMPTY,
-                            DeprecationHandler.THROW_UNSUPPORTED_OPERATION, inputStream).mapOrdered();
-                    XContentBuilder builder = JsonXContent.contentBuilder();
-                    builder.startObject().map(mappings).endObject();
-                    return Strings.toString(builder);
-                }
-            }
-            return string;
-        } catch (MalformedURLException e) {
-            return string;
-        }
     }
 
     private Map<String, String> getFilters(GetAliasesResponse getAliasesResponse) {
@@ -630,8 +535,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                         .setQuery(queryBuilder)
                         .setSize(0)
                         .setTrackTotalHits(true);
-                SearchResponse searchResponse =
-                        searchRequestBuilder.execute().actionGet();
+                SearchResponse searchResponse = searchRequestBuilder.execute().actionGet();
                 fields.put(path, searchResponse.getHits().getTotalHits().value);
             }
         }
@@ -783,7 +687,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
         @Override
         public String toString() {
-            return "NOTHING TO DO";
+            return "EMPTY PRUNE";
         }
     }
 }

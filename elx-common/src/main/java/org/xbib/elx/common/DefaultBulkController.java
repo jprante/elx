@@ -16,10 +16,6 @@ import org.xbib.elx.api.BulkProcessor;
 import org.xbib.elx.api.IndexDefinition;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -35,11 +31,7 @@ public class DefaultBulkController implements BulkController {
 
     private BulkProcessor bulkProcessor;
 
-    private final List<String> indexNames;
-
-    private final Map<String, Long> startBulkRefreshIntervals;
-
-    private final Map<String, Long> stopBulkRefreshIntervals;
+    private BulkListener bulkListener;
 
     private final long maxWaitTime;
 
@@ -50,10 +42,7 @@ public class DefaultBulkController implements BulkController {
     public DefaultBulkController(BulkClient bulkClient) {
         this.bulkClient = bulkClient;
         this.bulkMetric = new DefaultBulkMetric();
-        this.indexNames = new ArrayList<>();
         this.active = new AtomicBoolean(false);
-        this.startBulkRefreshIntervals = new HashMap<>();
-        this.stopBulkRefreshIntervals = new HashMap<>();
         this.maxWaitTime = 30L;
         this.maxWaitTimeUnit = TimeUnit.SECONDS;
     }
@@ -71,31 +60,38 @@ public class DefaultBulkController implements BulkController {
     @Override
     public void init(Settings settings) {
         bulkMetric.init(settings);
-        int maxActionsPerRequest = settings.getAsInt(Parameters.MAX_ACTIONS_PER_REQUEST.name(),
-                Parameters.DEFAULT_MAX_ACTIONS_PER_REQUEST.getNum());
-        int maxConcurrentRequests = settings.getAsInt(Parameters.MAX_CONCURRENT_REQUESTS.name(),
-                Parameters.DEFAULT_MAX_CONCURRENT_REQUESTS.getNum());
-        TimeValue flushIngestInterval = settings.getAsTime(Parameters.FLUSH_INTERVAL.name(),
-                TimeValue.timeValueSeconds(Parameters.DEFAULT_FLUSH_INTERVAL.getNum()));
-        ByteSizeValue maxVolumePerRequest = settings.getAsBytesSize(Parameters.MAX_VOLUME_PER_REQUEST.name(),
-                ByteSizeValue.parseBytesSizeValue(Parameters.DEFAULT_MAX_VOLUME_PER_REQUEST.getString(),
-                        "maxVolumePerRequest"));
-        boolean enableBulkLogging = settings.getAsBoolean(Parameters.ENABLE_BULK_LOGGING.name(),
-                Parameters.ENABLE_BULK_LOGGING.getValue());
-        BulkListener bulkListener = new DefaultBulkListener(this, bulkMetric, enableBulkLogging);
+        int maxActionsPerRequest = settings.getAsInt(Parameters.MAX_ACTIONS_PER_REQUEST.getName(),
+                Parameters.MAX_ACTIONS_PER_REQUEST.getInteger());
+        int maxConcurrentRequests = settings.getAsInt(Parameters.MAX_CONCURRENT_REQUESTS.getName(),
+                Parameters.MAX_CONCURRENT_REQUESTS.getInteger());
+        String flushIngestIntervalStr = settings.get(Parameters.FLUSH_INTERVAL.getName(),
+                Parameters.FLUSH_INTERVAL.getString());
+        TimeValue flushIngestInterval = TimeValue.parseTimeValue(flushIngestIntervalStr,
+                TimeValue.timeValueSeconds(30), "");
+        ByteSizeValue maxVolumePerRequest = settings.getAsBytesSize(Parameters.MAX_VOLUME_PER_REQUEST.getName(),
+                ByteSizeValue.parseBytesSizeValue(Parameters.MAX_VOLUME_PER_REQUEST.getString(), "1m"));
+        boolean enableBulkLogging = settings.getAsBoolean(Parameters.ENABLE_BULK_LOGGING.getName(),
+                Parameters.ENABLE_BULK_LOGGING.getBoolean());
+        boolean failOnBulkError = settings.getAsBoolean(Parameters.FAIL_ON_BULK_ERROR.getName(),
+                Parameters.FAIL_ON_BULK_ERROR.getBoolean());
+        this.bulkListener = new DefaultBulkListener(this, bulkMetric, enableBulkLogging, failOnBulkError);
         this.bulkProcessor = DefaultBulkProcessor.builder(bulkClient.getClient(), bulkListener)
                 .setBulkActions(maxActionsPerRequest)
                 .setConcurrentRequests(maxConcurrentRequests)
                 .setFlushInterval(flushIngestInterval)
                 .setBulkSize(maxVolumePerRequest)
                 .build();
+        this.active.set(true);
         if (logger.isInfoEnabled()) {
             logger.info("bulk processor up with maxActionsPerRequest = {} maxConcurrentRequests = {} " +
-                            "flushIngestInterval = {} maxVolumePerRequest = {} bulk logging = {} logger debug = {} from settings = {}",
-                    maxActionsPerRequest, maxConcurrentRequests, flushIngestInterval, maxVolumePerRequest,
-                    enableBulkLogging, logger.isDebugEnabled(), settings.toDelimitedString(','));
+                            "flushIngestInterval = {} maxVolumePerRequest = {} " +
+                            "bulk logging = {} fail on bulk error = {} " +
+                            "logger debug = {} from settings = {}",
+                    maxActionsPerRequest, maxConcurrentRequests,
+                    flushIngestInterval, maxVolumePerRequest,
+                    enableBulkLogging, failOnBulkError,
+                    logger.isDebugEnabled(), settings.toDelimitedString(','));
         }
-        this.active.set(true);
     }
 
     @Override
@@ -105,22 +101,11 @@ public class DefaultBulkController implements BulkController {
 
     @Override
     public void startBulkMode(IndexDefinition indexDefinition) throws IOException {
-        startBulkMode(indexDefinition.getFullIndexName(), indexDefinition.getStartRefreshInterval(),
-                indexDefinition.getStopRefreshInterval());
-    }
-
-    @Override
-    public void startBulkMode(String indexName,
-                              long startRefreshIntervalInSeconds,
-                              long stopRefreshIntervalInSeconds) throws IOException {
-        if (!indexNames.contains(indexName)) {
-            indexNames.add(indexName);
-            startBulkRefreshIntervals.put(indexName, startRefreshIntervalInSeconds);
-            stopBulkRefreshIntervals.put(indexName, stopRefreshIntervalInSeconds);
-            if (startRefreshIntervalInSeconds != 0L) {
-                bulkClient.updateIndexSetting(indexName, "refresh_interval", startRefreshIntervalInSeconds + "s",
-                        30L, TimeUnit.SECONDS);
-            }
+        String indexName = indexDefinition.getFullIndexName();
+        if (indexDefinition.getStartBulkRefreshSeconds() != 0) {
+            bulkClient.updateIndexSetting(indexName, "refresh_interval",
+                    indexDefinition.getStartBulkRefreshSeconds() + "s",
+                    30L, TimeUnit.SECONDS);
         }
     }
 
@@ -169,31 +154,30 @@ public class DefaultBulkController implements BulkController {
     @Override
     public boolean waitForBulkResponses(long timeout, TimeUnit timeUnit) {
         try {
-            return bulkProcessor.awaitFlush(timeout, timeUnit);
+            if (bulkProcessor != null) {
+                bulkProcessor.flush();
+                return bulkProcessor.awaitFlush(timeout, timeUnit);
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             logger.error("interrupted");
             return false;
+        } catch (IOException e) {
+            logger.error(e.getMessage(), e);
+            return false;
         }
+        return false;
     }
 
     @Override
     public void stopBulkMode(IndexDefinition indexDefinition) throws IOException {
-        stopBulkMode(indexDefinition.getFullIndexName(),
-                indexDefinition.getMaxWaitTime(), indexDefinition.getMaxWaitTimeUnit());
-    }
-
-    @Override
-    public void stopBulkMode(String index, long timeout, TimeUnit timeUnit) throws IOException {
         flush();
-        if (waitForBulkResponses(timeout, timeUnit)) {
-            if (indexNames.contains(index)) {
-                Long secs = stopBulkRefreshIntervals.get(index);
-                if (secs != null && secs != 0L) {
-                    bulkClient.updateIndexSetting(index, "refresh_interval", secs + "s",
-                            30L, TimeUnit.SECONDS);
-                }
-                indexNames.remove(index);
+        if (waitForBulkResponses(indexDefinition.getMaxWaitTime(), indexDefinition.getMaxWaitTimeUnit())) {
+            if (indexDefinition.getStopBulkRefreshSeconds() != 0) {
+                bulkClient.updateIndexSetting(indexDefinition.getFullIndexName(),
+                        "refresh_interval",
+                        indexDefinition.getStopBulkRefreshSeconds() + "s",
+                        30L, TimeUnit.SECONDS);
             }
         }
     }
@@ -209,15 +193,7 @@ public class DefaultBulkController implements BulkController {
     public void close() throws IOException {
         flush();
         bulkMetric.close();
-        if (bulkClient.waitForResponses(maxWaitTime, maxWaitTimeUnit)) {
-            for (String index : indexNames) {
-                Long secs = stopBulkRefreshIntervals.get(index);
-                if (secs != null && secs != 0L)
-                bulkClient.updateIndexSetting(index, "refresh_interval", secs + "s",
-                        30L, TimeUnit.SECONDS);
-            }
-            indexNames.clear();
-        }
+        bulkClient.waitForResponses(maxWaitTime, maxWaitTimeUnit);
         if (bulkProcessor != null) {
             bulkProcessor.close();
         }

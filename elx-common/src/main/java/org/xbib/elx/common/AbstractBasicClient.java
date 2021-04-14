@@ -24,6 +24,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.xbib.elx.api.BasicClient;
+import org.xbib.elx.api.IndexDefinition;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -58,8 +59,6 @@ public abstract class AbstractBasicClient implements BasicClient {
             logger.log(Level.INFO, "initializing client with settings = " + settings.toDelimitedString(','));
             this.settings = settings;
             setClient(createClient(settings));
-        } else {
-            logger.log(Level.WARN, "not initializing client");
         }
     }
 
@@ -88,8 +87,11 @@ public abstract class AbstractBasicClient implements BasicClient {
         ensureClientIsPresent();
         ClusterHealthStatus status = ClusterHealthStatus.fromString(statusString);
         TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
-        ClusterHealthResponse healthResponse = client.execute(ClusterHealthAction.INSTANCE,
-                new ClusterHealthRequest().timeout(timeout).waitForStatus(status)).actionGet();
+        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
+                .timeout(timeout)
+                .waitForStatus(status);
+        ClusterHealthResponse healthResponse =
+                client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
         if (healthResponse != null && healthResponse.isTimedOut()) {
             String message = "timeout, cluster state is " + healthResponse.getStatus().name() + " and not " + status.name();
             logger.error(message);
@@ -100,8 +102,8 @@ public abstract class AbstractBasicClient implements BasicClient {
     @Override
     public void waitForShards(long maxWaitTime, TimeUnit timeUnit) {
         ensureClientIsPresent();
+        logger.info("waiting for cluster shard settling");
         TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
-        logger.log(Level.DEBUG, "waiting " + timeout + " for shard settling down");
         ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
                 .waitForNoInitializingShards(true)
                 .waitForNoRelocatingShards(true)
@@ -109,7 +111,7 @@ public abstract class AbstractBasicClient implements BasicClient {
         ClusterHealthResponse healthResponse =
                 client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
         if (healthResponse.isTimedOut()) {
-            String message = "timeout while waiting for cluster shards: " + timeout;
+            String message = "timeout waiting for cluster shards: " + timeout;
             logger.error(message);
             throw new IllegalStateException(message);
         }
@@ -137,9 +139,9 @@ public abstract class AbstractBasicClient implements BasicClient {
     }
 
     @Override
-    public long getSearchableDocs(String index) {
+    public long getSearchableDocs(IndexDefinition indexDefinition) {
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE)
-                .setIndices(index)
+                .setIndices(indexDefinition.getFullIndexName())
                 .setQuery(QueryBuilders.matchAllQuery())
                 .setSize(0)
                 .setTrackTotalHits(true);
@@ -147,14 +149,13 @@ public abstract class AbstractBasicClient implements BasicClient {
     }
 
     @Override
-    public boolean isIndexExists(String index) {
+    public boolean isIndexExists(IndexDefinition indexDefinition) {
         IndicesExistsRequest indicesExistsRequest = new IndicesExistsRequest();
-        indicesExistsRequest.indices(index);
+        indicesExistsRequest.indices(indexDefinition.getFullIndexName());
         IndicesExistsResponse indicesExistsResponse =
                 client.execute(IndicesExistsAction.INSTANCE, indicesExistsRequest).actionGet();
         return indicesExistsResponse.isExists();
     }
-
 
     @Override
     public void close() throws IOException {
@@ -190,6 +191,14 @@ public abstract class AbstractBasicClient implements BasicClient {
         if (client == null) {
             throw new IllegalStateException("no client");
         }
+    }
+
+    protected boolean ensureIndexDefinition(IndexDefinition indexDefinition) {
+        if (!indexDefinition.isEnabled()) {
+            logger.warn("index " + indexDefinition.getFullIndexName() + " is disabled");
+            return false;
+        }
+        return true;
     }
 
     protected static TimeValue toTimeValue(long timeValue, TimeUnit timeUnit) {

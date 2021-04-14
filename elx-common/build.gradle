@@ -1,4 +1,4 @@
-dependencies{
+dependencies {
     api project(':elx-api')
     testImplementation "org.elasticsearch.plugin:transport-netty4-client:${rootProject.property('elasticsearch.version')}"
     testImplementation "io.netty:netty-codec-http:${project.property('netty.version')}"

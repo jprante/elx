@@ -16,6 +16,10 @@ public interface IndexDefinition {
 
     String getIndex();
 
+    IndexDefinition setType(String type);
+
+    String getType();
+
     IndexDefinition setFullIndexName(String fullIndexName);
 
     String getFullIndexName();
@@ -35,6 +39,14 @@ public interface IndexDefinition {
     IndexDefinition setDateTimePattern(Pattern pattern);
 
     Pattern getDateTimePattern();
+
+    IndexDefinition setStartBulkRefreshSeconds(int seconds);
+
+    int getStartBulkRefreshSeconds();
+
+    IndexDefinition setStopBulkRefreshSeconds(int seconds);
+
+    int getStopBulkRefreshSeconds();
 
     IndexDefinition setEnabled(boolean enabled);
 
@@ -69,12 +81,4 @@ public interface IndexDefinition {
     long getMaxWaitTime();
 
     TimeUnit getMaxWaitTimeUnit();
-
-    IndexDefinition setStartRefreshInterval(long seconds);
-
-    long getStartRefreshInterval();
-
-    IndexDefinition setStopRefreshInterval(long seconds);
-
-    long getStopRefreshInterval();
 }
