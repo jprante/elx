@@ -18,7 +18,9 @@ import org.xbib.elx.http.HttpBulkClient;
 import org.xbib.elx.http.HttpBulkClientProvider;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -38,57 +40,49 @@ class IndexShiftTest {
 
     @Test
     void testIndexShift() throws Exception {
-        final HttpAdminClient adminClient = ClientBuilder.builder()
+        try (HttpAdminClient adminClient = ClientBuilder.builder()
                 .setAdminClientProvider(HttpAdminClientProvider.class)
                 .put(helper.getHttpSettings())
                 .build();
-        final HttpBulkClient bulkClient = ClientBuilder.builder()
+             HttpBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(HttpBulkClientProvider.class)
                 .put(helper.getHttpSettings())
-                .build();
-        try {
-            Settings settings = Settings.builder()
-                    .put("index.number_of_shards", 1)
-                    .put("index.number_of_replicas", 0)
-                    .build();
-            bulkClient.newIndex("test1234", settings);
+                .build()) {
+            IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
+            indexDefinition.setFullIndexName("test_shift");
+            bulkClient.newIndex(indexDefinition);
             for (int i = 0; i < 1; i++) {
-                bulkClient.index("test1234", helper.randomString(1), false,
+                bulkClient.index(indexDefinition, helper.randomString(1), false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
-            bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-            IndexDefinition indexDefinition = new DefaultIndexDefinition();
-            indexDefinition.setIndex("test");
-            indexDefinition.setFullIndexName("test1234");
             indexDefinition.setShift(true);
-            IndexShiftResult indexShiftResult = adminClient.shiftIndex(indexDefinition, Arrays.asList("a", "b", "c"));
+            IndexShiftResult indexShiftResult =
+                    adminClient.shiftIndex(indexDefinition, Arrays.asList("a", "b", "c"), null);
             assertTrue(indexShiftResult.getNewAliases().contains("a"));
             assertTrue(indexShiftResult.getNewAliases().contains("b"));
             assertTrue(indexShiftResult.getNewAliases().contains("c"));
             assertTrue(indexShiftResult.getMovedAliases().isEmpty());
-            Map<String, String> aliases = adminClient.getAliases("test1234");
+            Map<String, String> aliases = adminClient.getAliases(indexDefinition.getFullIndexName());
             logger.log(Level.DEBUG, "aliases = " + aliases);
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
-            assertTrue(aliases.containsKey("test"));
-            String resolved = adminClient.resolveAlias("test").stream().findFirst().orElse(null);
-            logger.log(Level.DEBUG, "resolved = " + resolved);
-            aliases = adminClient.getAliases(resolved);
-            logger.log(Level.DEBUG, "aliases = " + aliases);
+            assertTrue(aliases.containsKey(indexDefinition.getIndex()));
+            Optional<String> resolved = adminClient.resolveAlias(indexDefinition.getIndex()).stream().findFirst();
+            aliases = resolved.isPresent() ?
+                    adminClient.getAliases(resolved.get()) : Collections.emptyMap();
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
             assertTrue(aliases.containsKey("test"));
-            bulkClient.newIndex("test5678", settings);
+            indexDefinition.setFullIndexName("test_shift2");
+            bulkClient.newIndex(indexDefinition);
             for (int i = 0; i < 1; i++) {
-                bulkClient.index("test5678", helper.randomString(1), false,
+                bulkClient.index(indexDefinition, helper.randomString(1), false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
-            bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-            indexDefinition.setFullIndexName("test5678");
             indexDefinition.setShift(true);
             indexShiftResult = adminClient.shiftIndex(indexDefinition, Arrays.asList("d", "e", "f"),
                     (request, index, alias) -> request.addAliasAction(IndicesAliasesRequest.AliasActions.add()
@@ -100,29 +94,25 @@ class IndexShiftTest {
             assertTrue(indexShiftResult.getMovedAliases().contains("a"));
             assertTrue(indexShiftResult.getMovedAliases().contains("b"));
             assertTrue(indexShiftResult.getMovedAliases().contains("c"));
-            aliases = adminClient.getAliases("test5678");
+            aliases = adminClient.getAliases("test_shift2");
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
             assertTrue(aliases.containsKey("d"));
             assertTrue(aliases.containsKey("e"));
             assertTrue(aliases.containsKey("f"));
-            resolved = adminClient.resolveAlias("test").stream().findFirst().orElse(null);
-            assertNotNull(resolved);
-            aliases = adminClient.getAliases(resolved);
+            resolved = adminClient.resolveAlias("test").stream().findFirst();
+            aliases = resolved.isPresent() ? adminClient.getAliases(resolved.get()) : Collections.emptyMap();
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
             assertTrue(aliases.containsKey("d"));
             assertTrue(aliases.containsKey("e"));
             assertTrue(aliases.containsKey("f"));
-        } finally {
-            bulkClient.close();
             if (bulkClient.getBulkController().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
             assertNull(bulkClient.getBulkController().getLastBulkError());
-            adminClient.close();
         }
     }
 }

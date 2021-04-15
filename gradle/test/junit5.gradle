@@ -1,5 +1,5 @@
 
-def junitVersion = project.hasProperty('junit.version')?project.property('junit.version'):'5.6.2'
+def junitVersion = project.hasProperty('junit.version')?project.property('junit.version'):'5.7.0'
 def hamcrestVersion = project.hasProperty('hamcrest.version')?project.property('hamcrest.version'):'2.2'
 
 dependencies {
@@ -13,6 +13,28 @@ test {
     useJUnitPlatform()
     // for Lucene to access jdk.internal.ref and jdk.internal.misc in Java 11+
     jvmArgs = [
+            // gradle default of 512m is too less for ES bulk indexing
+            '-Xmx2g',
+            '-Xms2g',
+            // do we need tricks with G1GC and real memory circuit breaker?
+            /*'-XX:+UseG1GC',
+            '-XX:+ParallelRefProcEnabled',
+            '-XX:MaxGCPauseMillis=50',
+            '-XX:+UnlockExperimentalVMOptions',
+            '-XX:+DisableExplicitGC',
+            '-XX:+AlwaysPreTouch',
+            '-XX:G1NewSizePercent=30',
+            '-XX:G1MaxNewSizePercent=40',
+            '-XX:G1HeapRegionSize=8M',
+            '-XX:G1ReservePercent=20',
+            '-XX:G1HeapWastePercent=5',
+            '-XX:G1MixedGCCountTarget=4',
+            '-XX:InitiatingHeapOccupancyPercent=15',
+            '-XX:G1MixedGCLiveThresholdPercent=90',
+            '-XX:G1RSetUpdatingPauseTimePercent=5',
+            '-XX:SurvivorRatio=32',
+            '-XX:+PerfDisableSharedMem',
+            '-XX:MaxTenuringThreshold=1',*/
             '--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED',
             '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED',
             '--add-opens=java.base/java.nio=ALL-UNNAMED'

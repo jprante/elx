@@ -3,7 +3,6 @@ package org.xbib.elx.api;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Interface for extended managing and indexing methods of an Elasticsearch client.
@@ -81,6 +80,7 @@ public interface AdminClient extends BasicClient {
 
     /**
      * Prune index.
+     *
      * @param indexDefinition the index definition
      * @return the index prune result
      */

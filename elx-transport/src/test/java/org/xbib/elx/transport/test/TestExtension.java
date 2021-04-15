@@ -176,15 +176,6 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return cluster;
         }
 
-        Settings getNodeSettings() {
-            return Settings.builder()
-                    .put("cluster.name", getClusterName())
-                    .put("path.home", getHome())
-                    .put("cluster.initial_master_nodes", "1")
-                    .put("discovery.seed_hosts",  "127.0.0.1:9300")
-                    .build();
-        }
-
         Settings getTransportSettings() {
             return Settings.builder()
                     .put("cluster.name", cluster)
@@ -213,8 +204,14 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
 
         private Node buildNode() {
             Settings nodeSettings = Settings.builder()
-                    .put(getNodeSettings())
+                    .put("cluster.name", getClusterName())
+                    .put("path.home", getHome())
+                    .put("node.max_local_storage_nodes", 2)
+                    .put("node.master", true)
+                    .put("node.data", true)
                     .put("node.name", "1")
+                    .put("cluster.initial_master_nodes", "1")
+                    .put("discovery.seed_hosts",  "127.0.0.1:9300")
                     .build();
             List<Class<? extends Plugin>> plugins = Collections.singletonList(Netty4Plugin.class);
             this.node = new MockNode(nodeSettings, plugins);

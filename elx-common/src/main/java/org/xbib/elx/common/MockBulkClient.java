@@ -40,21 +40,6 @@ public class MockBulkClient extends AbstractBulkClient {
     }
 
     @Override
-    public MockBulkClient index(String index, String id, boolean create, String source) {
-        return this;
-    }
-
-    @Override
-    public MockBulkClient delete(String index, String id) {
-        return this;
-    }
-
-    @Override
-    public MockBulkClient update(String index, String id, String source) {
-        return this;
-    }
-
-    @Override
     public MockBulkClient index(IndexRequest indexRequest) {
         return this;
     }
@@ -70,26 +55,9 @@ public class MockBulkClient extends AbstractBulkClient {
     }
 
     @Override
-    public void startBulk(String index, long startRefreshInterval, long stopRefreshIterval) {
-    }
-
-    @Override
-    public void stopBulk(String index, long maxWaitTime, TimeUnit timeUnit) {
-    }
-
-    @Override
     public boolean waitForResponses(long maxWaitTime, TimeUnit timeUnit) {
         return true;
     }
-
-    @Override
-    public void refreshIndex(String index) {
-    }
-
-    @Override
-    public void flushIndex(String index) {
-    }
-
 
     @Override
     public void flush() {

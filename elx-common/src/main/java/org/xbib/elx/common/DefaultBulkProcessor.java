@@ -25,18 +25,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * A bulk processor is a thread safe bulk processing class, allowing to easily set when to "flush" a new bulk request
- * (either based on number of actions, based on the size, or time), and to easily control the number of concurrent bulk
+ * A bulk processor is a thread safe bulk processing class, allowing to easily
+ * set when to "flush" a new bulk request
+ * (either based on number of actions, based on the size, or time), and
+ * to easily control the number of concurrent bulk
  * requests allowed to be executed in parallel.
  * In order to create a new bulk processor, use the {@link Builder}.
  */
 public class DefaultBulkProcessor implements BulkProcessor {
-
-    private final BulkListener bulkListener;
-
-    private final int bulkActions;
-
-    private final long bulkSize;
 
     private final ScheduledThreadPoolExecutor scheduler;
 
@@ -48,6 +44,10 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
     private BulkRequest bulkRequest;
 
+    private int bulkActions;
+
+    private long bulkSize;
+
     private volatile boolean closed;
 
     private DefaultBulkProcessor(ElasticsearchClient client,
@@ -57,7 +57,6 @@ public class DefaultBulkProcessor implements BulkProcessor {
                                  int bulkActions,
                                  ByteSizeValue bulkSize,
                                  TimeValue flushInterval) {
-        this.bulkListener = bulkListener;
         this.executionIdGen = new AtomicLong();
         this.closed = false;
         this.bulkActions = bulkActions;
@@ -80,15 +79,29 @@ public class DefaultBulkProcessor implements BulkProcessor {
         }
     }
 
-    @Override
-    public BulkListener getBulkListener() {
-        return bulkListener;
-    }
-
     public static Builder builder(ElasticsearchClient client, BulkListener bulkListener) {
-        Objects.requireNonNull(client, "The client you specified while building a BulkProcessor is null");
         Objects.requireNonNull(bulkListener, "A listener for the BulkProcessor is required but null");
         return new Builder(client, bulkListener);
+    }
+
+    @Override
+    public void setBulkActions(int bulkActions) {
+        this.bulkActions = bulkActions;
+    }
+
+    @Override
+    public int getBulkActions() {
+        return bulkActions;
+    }
+
+    @Override
+    public void setBulkSize(long bulkSize) {
+        this.bulkSize = bulkSize;
+    }
+
+    @Override
+    public long getBulkSize() {
+        return bulkSize;
     }
 
     /**
@@ -154,9 +167,8 @@ public class DefaultBulkProcessor implements BulkProcessor {
     public synchronized DefaultBulkProcessor add(DocWriteRequest<?> request) {
         ensureOpen();
         bulkRequest.add(request);
-        if (bulkActions != -1 &&
-            bulkRequest.numberOfActions() >= bulkActions ||
-            bulkSize != -1 && bulkRequest.estimatedSizeInBytes() >= bulkSize) {
+        if ((bulkActions != -1 && bulkRequest.numberOfActions() >= bulkActions) ||
+                (bulkSize != -1 && bulkRequest.estimatedSizeInBytes() >= bulkSize)) {
             execute();
         }
         return this;

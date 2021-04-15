@@ -14,7 +14,6 @@ import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.client.ElasticsearchClient;
-import org.elasticsearch.client.support.AbstractClient;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
@@ -184,15 +183,6 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return cluster;
         }
 
-        Settings getNodeSettings() {
-            return Settings.builder()
-                    .put("cluster.name", getClusterName())
-                    .put("path.home", getHome())
-                    //.put("cluster.initial_master_nodes", )
-                    //.put("discovery.seed_hosts",  "127.0.0.1:9300")
-                    .build();
-        }
-
         Settings getHttpSettings() {
             return Settings.builder()
                     .put("cluster.name", getClusterName())
@@ -221,9 +211,14 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
 
         private Node buildNode() {
             Settings nodeSettings = Settings.builder()
-                    .put(getNodeSettings())
-                    .put("node.name", "1" )
-                    .put("path.data", getHome() + "/data-1")
+                    .put("cluster.name", getClusterName())
+                    .put("path.home", getHome())
+                    .put("node.max_local_storage_nodes", 2)
+                    .put("node.master", true)
+                    .put("node.data", true)
+                    .put("node.name", "1")
+                    .put("cluster.initial_master_nodes", "1")
+                    .put("discovery.seed_hosts",  "127.0.0.1:9300")
                     .build();
             List<Class<? extends Plugin>> plugins = Collections.singletonList(Netty4Plugin.class);
             this.node = new MockNode(nodeSettings, plugins);

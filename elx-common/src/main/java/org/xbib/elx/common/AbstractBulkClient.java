@@ -48,8 +48,6 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
             logger.log(Level.INFO, "initializing bulk controller with settings = " + settings.toDelimitedString(','));
             bulkController = new DefaultBulkController(this);
             bulkController.init(settings);
-        } else {
-            logger.log(Level.WARN, "not initializing");
         }
     }
 
@@ -101,14 +99,13 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         }
         Settings settings = Settings.builder().loadFromSource(indexDefinition.getSettings(), XContentType.JSON).build();
         createIndexRequestBuilder.setSettings(settings);
-        Map<String, ?> mappings = indexDefinition.getMappings() == null ? null :
-                JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
-                        DeprecationHandler.THROW_UNSUPPORTED_OPERATION, indexDefinition.getMappings()).mapOrdered();
-        if (mappings != null) {
+        if (indexDefinition.getMappings() != null) {
+            Map<String, Object> mappings = JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
+                            DeprecationHandler.THROW_UNSUPPORTED_OPERATION, indexDefinition.getMappings()).mapOrdered();
             createIndexRequestBuilder.addMapping(TYPE_NAME, mappings);
         } else {
-            createIndexRequestBuilder.addMapping(TYPE_NAME,
-                    JsonXContent.contentBuilder().startObject().startObject(TYPE_NAME).endObject().endObject());
+            XContentBuilder builder = JsonXContent.contentBuilder().startObject().startObject(TYPE_NAME).endObject().endObject();
+            createIndexRequestBuilder.addMapping(TYPE_NAME, builder);
         }
         CreateIndexResponse createIndexResponse = createIndexRequestBuilder.execute().actionGet();
         if (createIndexResponse.isAcknowledged()) {
@@ -146,8 +143,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public BulkClient index(IndexDefinition indexDefinition, String id, boolean create, String source) {
-        return index(indexDefinition, id, create,
-                new BytesArray(source.getBytes(StandardCharsets.UTF_8)));
+        return index(indexDefinition, id, create, new BytesArray(source.getBytes(StandardCharsets.UTF_8)));
     }
 
     @Override
@@ -155,8 +151,9 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         if (!ensureIndexDefinition(indexDefinition)) {
             return this;
         }
-        return index(new IndexRequest().index(indexDefinition.getFullIndexName()).id(id).create(create)
-                .source(source, XContentType.JSON));
+        return index(new IndexRequest()
+                .index(indexDefinition.getFullIndexName())
+                .id(id).create(create).source(source, XContentType.JSON));
     }
 
     @Override
@@ -195,8 +192,9 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         if (!ensureIndexDefinition(indexDefinition)) {
             return this;
         }
-        return update(new UpdateRequest().index(indexDefinition.getFullIndexName()).id(id)
-                .doc(source, XContentType.JSON));
+        return update(new UpdateRequest()
+                .index(indexDefinition.getFullIndexName())
+                .id(id).doc(source, XContentType.JSON));
     }
 
     @Override

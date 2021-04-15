@@ -15,6 +15,7 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.xbib.net.URL;
 import org.xbib.netty.http.client.Client;
+import org.xbib.netty.http.common.HttpAddress;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -23,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -45,6 +47,8 @@ public class HttpClientHelper {
 
     private String url;
 
+    private final AtomicBoolean closed;
+
     public HttpClientHelper() {
         this(Collections.emptyList(), Thread.currentThread().getContextClassLoader());
     }
@@ -55,17 +59,25 @@ public class HttpClientHelper {
                 namedXContentEntries.stream()).flatMap(Function.identity()).collect(Collectors.toList()));
         this.classLoader = classLoader != null ? classLoader : Thread.currentThread().getContextClassLoader();
         this.actionMap = new HashMap<>();
+        this.closed = new AtomicBoolean();
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public HttpClientHelper init(Settings settings) throws IOException {
+    public void init(Settings settings) {
+        HttpAddress httpAddress;
         if (settings.hasValue("url")) {
             this.url = settings.get("url");
-        } else if (settings.hasValue("host")) {
-            this.url = URL.http()
+            httpAddress = HttpAddress.http1(this.url);
+        } else if (settings.hasValue("host") && settings.hasValue("post")) {
+            URL u =  URL.http()
                     .host(settings.get("host")).port(settings.getAsInt("port", 9200))
-                    .build()
-                    .toExternalForm();
+                    .build();
+            httpAddress = HttpAddress.http1(u);
+            this.url = u.toExternalForm();
+        } else {
+            URL u = URL.http().host("localhost").port(9200).build();
+            httpAddress = HttpAddress.http1(u);
+            this.url = u.toExternalForm();
         }
         ServiceLoader<HttpAction> httpActionServiceLoader = ServiceLoader.load(HttpAction.class, classLoader);
         for (HttpAction<? extends ActionRequest, ? extends ActionResponse> httpAction : httpActionServiceLoader) {
@@ -73,13 +85,18 @@ public class HttpClientHelper {
             actionMap.put(httpAction.getActionInstance(), httpAction);
         }
         Client.Builder clientBuilder = Client.builder();
+        if (settings.getAsBoolean("pool.enabled", true)) {
+            clientBuilder.addPoolNode(httpAddress)
+                    .setPoolNodeConnectionLimit(settings.getAsInt("pool.limit", Runtime.getRuntime().availableProcessors()));
+        }
         if (settings.hasValue("debug")) {
             clientBuilder.enableDebug();
         }
         this.nettyHttpClient = clientBuilder.build();
-        logger.log(Level.DEBUG, "extended HTTP client initialized, settings = {}, url = {}, {} actions",
-                settings, url, actionMap.size());
-        return this;
+        if (logger.isDebugEnabled()) {
+            logger.log(Level.DEBUG, "HTTP client initialized, pooled = {}, settings = {}, url = {}, {} actions",
+                    nettyHttpClient.isPooled(), settings, url, actionMap.size());
+        }
     }
 
     private static List<NamedXContentRegistry.Entry> getNamedXContents() {
@@ -95,7 +112,9 @@ public class HttpClientHelper {
     }
 
     protected void closeClient(Settings settings) throws IOException {
-        nettyHttpClient.shutdownGracefully();
+        if (closed.compareAndSet(false, true)) {
+            nettyHttpClient.shutdownGracefully();
+        }
     }
 
     public <Request extends ActionRequest, Response extends ActionResponse>
@@ -124,7 +143,9 @@ public class HttpClientHelper {
         }
         try {
             HttpActionContext httpActionContext = new HttpActionContext(this, request, url);
-            logger.log(Level.DEBUG, "url = " + url);
+            if (logger.isTraceEnabled()) {
+                logger.log(Level.TRACE, "url = " + url);
+            }
             httpAction.execute(httpActionContext, listener);
         } catch (Exception e) {
             logger.error(e.getMessage(), e);

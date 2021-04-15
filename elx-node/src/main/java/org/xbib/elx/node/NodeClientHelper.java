@@ -84,10 +84,12 @@ public class NodeClientHelper {
     }
 
     private static boolean isPrivateSettings(String key) {
-        return key.equals(Parameters.MAX_ACTIONS_PER_REQUEST.name()) ||
-                key.equals(Parameters.MAX_CONCURRENT_REQUESTS.name()) ||
-                key.equals(Parameters.MAX_VOLUME_PER_REQUEST.name()) ||
-                key.equals(Parameters.FLUSH_INTERVAL.name());
+        for (Parameters p : Parameters.values()) {
+            if (key.equals(p.getName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static class BulkNode extends Node {

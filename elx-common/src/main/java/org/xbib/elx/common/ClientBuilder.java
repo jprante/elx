@@ -93,6 +93,11 @@ public class ClientBuilder {
         return this;
     }
 
+    public ClientBuilder put(String key, Boolean value) {
+        settingsBuilder.put(key, value);
+        return this;
+    }
+
     public ClientBuilder put(String key, Long value) {
         settingsBuilder.put(key, value);
         return this;

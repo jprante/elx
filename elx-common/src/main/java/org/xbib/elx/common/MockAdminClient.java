@@ -29,27 +29,12 @@ public class MockAdminClient extends AbstractAdminClient {
     }
 
     @Override
-    public MockAdminClient deleteIndex(String index) {
-        return this;
-    }
-
-    @Override
-    public boolean forceMerge(String index, long maxWaitTime, TimeUnit timeUnit) {
-        return true;
-    }
-
-    @Override
     public void waitForCluster(String healthColor, long timeValue, TimeUnit timeUnit) {
     }
 
     @Override
     public void waitForShards(long maxWaitTime, TimeUnit timeUnit) {
 
-    }
-
-    @Override
-    public MockAdminClient updateReplicaLevel(String index, int level, long maxWaitTime, TimeUnit timeUnit) {
-        return this;
     }
 
     @Override

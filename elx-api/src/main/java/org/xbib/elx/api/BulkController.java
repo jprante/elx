@@ -16,6 +16,8 @@ public interface BulkController extends Closeable, Flushable {
 
     void inactivate();
 
+    BulkProcessor getBulkProcessor();
+
     BulkMetric getBulkMetric();
 
     Throwable getLastBulkError();

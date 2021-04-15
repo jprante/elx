@@ -9,7 +9,9 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
+import org.xbib.elx.common.DefaultIndexDefinition;
 import org.xbib.elx.common.Parameters;
 import org.xbib.elx.http.HttpBulkClient;
 import org.xbib.elx.http.HttpBulkClientProvider;
@@ -37,39 +39,38 @@ class SearchTest {
     @Test
     void testDocStream() throws Exception {
         long numactions = ACTIONS;
-        final HttpBulkClient bulkClient = ClientBuilder.builder()
+        IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
+        try (HttpBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(HttpBulkClientProvider.class)
                 .put(helper.getHttpSettings())
-                .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
-                .build();
-        try (bulkClient) {
-            bulkClient.newIndex("test");
+                .put(Parameters.MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
+                .build()) {
+            bulkClient.newIndex(indexDefinition);
             for (int i = 0; i < ACTIONS; i++) {
-                bulkClient.index("test", null, false,
+                bulkClient.index(indexDefinition, null, false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
-            bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-            bulkClient.refreshIndex("test");
-            assertEquals(numactions, bulkClient.getSearchableDocs("test"));
+            bulkClient.refreshIndex(indexDefinition);
+            assertEquals(numactions, bulkClient.getSearchableDocs(indexDefinition));
+            assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkController().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkController().getLastBulkError());
+            }
+            assertNull(bulkClient.getBulkController().getLastBulkError());
         }
-        assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
-        if (bulkClient.getBulkController().getLastBulkError() != null) {
-            logger.error("error", bulkClient.getBulkController().getLastBulkError());
-        }
-        assertNull(bulkClient.getBulkController().getLastBulkError());
         try (HttpSearchClient searchClient = ClientBuilder.builder()
                 .setSearchClientProvider(HttpSearchClientProvider.class)
                 .put(helper.getHttpSettings())
                 .build()) {
             Stream<SearchHit> stream = searchClient.search(qb -> qb
-                            .setIndices("test")
+                            .setIndices(indexDefinition.getFullIndexName())
                             .setQuery(QueryBuilders.matchAllQuery()),
                     TimeValue.timeValueMillis(100), 579);
             long count = stream.count();
             assertEquals(numactions, count);
             Stream<String> ids = searchClient.getIds(qb -> qb
-                    .setIndices("test")
+                    .setIndices(indexDefinition.getFullIndexName())
                     .setQuery(QueryBuilders.matchAllQuery()));
             final AtomicInteger idcount = new AtomicInteger();
             ids.forEach(id -> {

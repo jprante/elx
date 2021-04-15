@@ -4,7 +4,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
+import org.xbib.elx.common.DefaultIndexDefinition;
 import org.xbib.elx.common.Parameters;
 import org.xbib.elx.http.HttpBulkClient;
 import org.xbib.elx.http.HttpBulkClientProvider;
@@ -33,29 +35,26 @@ class DuplicateIDTest {
     @Test
     void testDuplicateDocIDs() throws Exception {
         long numactions = ACTIONS;
-        final HttpBulkClient client = ClientBuilder.builder()
+        try (HttpBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(HttpBulkClientProvider.class)
                 .put(helper.getHttpSettings())
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.name(), MAX_ACTIONS_PER_REQUEST)
-                .build();
-        try {
-            client.newIndex("test");
+                .build()) {
+            IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
+            bulkClient.newIndex(indexDefinition);
             for (int i = 0; i < ACTIONS; i++) {
-                client.index("test", helper.randomString(1), false,
+                bulkClient.index(indexDefinition, helper.randomString(1), false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
-            client.flush();
-            client.waitForResponses(30L, TimeUnit.SECONDS);
-            client.refreshIndex("test");
-            long hits = client.getSearchableDocs("test");
+            bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
+            bulkClient.refreshIndex(indexDefinition);
+            long hits = bulkClient.getSearchableDocs(indexDefinition);
             assertTrue(hits < ACTIONS);
-        } finally {
-            client.close();
-            assertEquals(numactions, client.getBulkController().getBulkMetric().getSucceeded().getCount());
-            if (client.getBulkController().getLastBulkError() != null) {
-                logger.error("error", client.getBulkController().getLastBulkError());
+            assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkController().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkController().getLastBulkError());
             }
-            assertNull(client.getBulkController().getLastBulkError());
+            assertNull(bulkClient.getBulkController().getLastBulkError());
         }
     }
 }

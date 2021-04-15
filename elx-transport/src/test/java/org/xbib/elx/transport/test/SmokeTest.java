@@ -2,11 +2,15 @@ package org.xbib.elx.transport.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
+import org.xbib.elx.common.DefaultIndexDefinition;
 import org.xbib.elx.transport.TransportAdminClient;
 import org.xbib.elx.transport.TransportAdminClientProvider;
 import org.xbib.elx.transport.TransportBulkClient;
@@ -16,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(TestExtension.class)
 class SmokeTest {
@@ -39,26 +44,25 @@ class SmokeTest {
                      .put(helper.getTransportSettings())
                      .build()) {
             IndexDefinition indexDefinition =
-                    adminClient.buildIndexDefinitionFromSettings("test_smoke", Settings.EMPTY);
+                    new DefaultIndexDefinition(adminClient, "test", "doc", Settings.EMPTY);
+            assertEquals("test", indexDefinition.getIndex());
+            assertTrue(indexDefinition.getFullIndexName().startsWith("test"));
             assertEquals(0, indexDefinition.getReplicaLevel());
             assertEquals(helper.getClusterName(), adminClient.getClusterName());
-            bulkClient.newIndex("test_smoke");
-            bulkClient.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
-            bulkClient.flush();
-            bulkClient.waitForResponses(30, TimeUnit.SECONDS);
-            adminClient.checkMapping("test_smoke");
-            bulkClient.update("test_smoke", "1", "{ \"name\" : \"Another name\"}");
-            bulkClient.delete("test_smoke", "1");
-            bulkClient.flush();
-            bulkClient.waitForResponses(30, TimeUnit.SECONDS);
-            bulkClient.index("test_smoke", "1", true, "{ \"name\" : \"Hello World\"}");
-            bulkClient.delete("test_smoke", "1");
-            bulkClient.flush();
-            bulkClient.waitForResponses(30, TimeUnit.SECONDS);
-            adminClient.deleteIndex("test_smoke");
+            indexDefinition.setType("doc");
             bulkClient.newIndex(indexDefinition);
-            bulkClient.index(indexDefinition.getFullIndexName(), "1", true, "{ \"name\" : \"Hello World\"}");
-            bulkClient.flush();
+            bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
+            bulkClient.waitForResponses(30, TimeUnit.SECONDS);
+            adminClient.checkMapping(indexDefinition);
+            bulkClient.update(indexDefinition, "1", "{ \"name\" : \"Another name\"}");
+            bulkClient.delete(indexDefinition, "1");
+            bulkClient.waitForResponses(30, TimeUnit.SECONDS);
+            bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}");
+            bulkClient.delete(indexDefinition, "1");
+            bulkClient.waitForResponses(30, TimeUnit.SECONDS);
+            adminClient.deleteIndex(indexDefinition);
+            bulkClient.newIndex(indexDefinition);
+            bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}");
             bulkClient.waitForResponses(30, TimeUnit.SECONDS);
             adminClient.updateReplicaLevel(indexDefinition, 2);
             int replica = adminClient.getReplicaLevel(indexDefinition);
@@ -70,6 +74,17 @@ class SmokeTest {
             }
             assertNull(bulkClient.getBulkController().getLastBulkError());
             adminClient.deleteIndex(indexDefinition);
+            XContentBuilder builder = JsonXContent.contentBuilder()
+                    .startObject()
+                    .startObject("properties")
+                    .startObject("location")
+                    .field("type", "geo_point")
+                    .endObject()
+                    .endObject()
+                    .endObject();
+            indexDefinition.setMappings(Strings.toString(builder));
+            bulkClient.newIndex(indexDefinition);
+            assertTrue(adminClient.getMapping(indexDefinition).containsKey("properties"));
         }
     }
 }

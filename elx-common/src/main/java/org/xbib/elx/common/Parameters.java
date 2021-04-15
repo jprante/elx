@@ -2,6 +2,10 @@ package org.xbib.elx.common;
 
 public enum Parameters {
 
+    DATE_TIME_FORMAT("dateTimeFormat", String.class, "yyyyMMdd"),
+
+    MAX_WAIT_BULK_RESPONSE("bulk.max_wait_response", String.class, "30s"),
+
     MAX_WAIT_BULK_RESPONSE_SECONDS("bulk.max_wait_response_seconds", Integer.class, 30),
 
     START_BULK_REFRESH_SECONDS("bulk.start_refresh_seconds", Integer.class, 0),
@@ -13,6 +17,8 @@ public enum Parameters {
     FAIL_ON_BULK_ERROR("bulk.failonerror", Boolean.class, true),
 
     MAX_ACTIONS_PER_REQUEST("bulk.max_actions_per_request", Integer.class, 1000),
+
+    RESPONSE_TIME_COUNT("bulk.response_time_count", Integer.class, 64),
 
     // 0 = 1 CPU, synchronous requests, &gt; 0 = n + 1 CPUs, asynchronous requests
     MAX_CONCURRENT_REQUESTS("bulk.max_concurrent_requests", Integer.class, Runtime.getRuntime().availableProcessors() - 1),

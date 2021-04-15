@@ -2,7 +2,6 @@ package org.xbib.elx.http.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.common.settings.Settings;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
@@ -47,32 +46,28 @@ class IndexPruneTest {
                 .setBulkClientProvider(HttpBulkClientProvider.class)
                 .put(helper.getHttpSettings())
                 .build()) {
-            Settings settings = Settings.builder()
-                    .put("index.number_of_shards", 1)
-                    .put("index.number_of_replicas", 0)
-                    .build();
-            bulkClient.newIndex("test1", settings);
-            IndexDefinition indexDefinition = new DefaultIndexDefinition();
+            IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             indexDefinition.setIndex("test");
             indexDefinition.setFullIndexName("test1");
+            bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
-            adminClient.shiftIndex(indexDefinition, Collections.emptyList());
-            bulkClient.newIndex("test2", settings);
+            adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
             indexDefinition.setFullIndexName("test2");
+            bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
-            adminClient.shiftIndex(indexDefinition, Collections.emptyList());
-            bulkClient.newIndex("test3", settings);
+            adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
             indexDefinition.setFullIndexName("test3");
+            bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
-            adminClient.shiftIndex(indexDefinition, Collections.emptyList());
-            bulkClient.newIndex("test4", settings);
+            adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
             indexDefinition.setFullIndexName("test4");
+            bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
-            adminClient.shiftIndex(indexDefinition, Collections.emptyList());
-            indexDefinition.setPrune(true);
+            adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
             IndexRetention indexRetention = new DefaultIndexRetention();
             indexDefinition.setRetention(indexRetention);
             indexDefinition.setEnabled(true);
+            indexDefinition.setPrune(true);
             IndexPruneResult indexPruneResult = adminClient.pruneIndex(indexDefinition);
             logger.info("prune result = " + indexPruneResult);
             assertTrue(indexPruneResult.getDeletedIndices().contains("test1"));
@@ -81,7 +76,9 @@ class IndexPruneTest {
             assertFalse(indexPruneResult.getDeletedIndices().contains("test4"));
             List<Boolean> list = new ArrayList<>();
             for (String index : Arrays.asList("test1", "test2", "test3", "test4")) {
-                list.add(adminClient.isIndexExists(index));
+                IndexDefinition indexDefinition1 = new DefaultIndexDefinition(index, null);
+                indexDefinition1.setFullIndexName(index);
+                list.add(adminClient.isIndexExists(indexDefinition1));
             }
             logger.info(list);
             assertFalse(list.get(0));

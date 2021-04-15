@@ -75,7 +75,7 @@ public class TransportClientHelper {
         Collection<TransportAddress> addrs = findAddresses(settings);
         if (!connect(transportClient, addrs, settings.getAsBoolean("autodiscover", false))) {
             throw new NoNodeAvailableException("no cluster nodes available, check settings "
-                    + settings.toString());
+                    + Strings.toString(settings));
         }
     }
 

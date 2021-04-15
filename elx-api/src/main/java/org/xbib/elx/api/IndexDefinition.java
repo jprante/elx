@@ -52,10 +52,6 @@ public interface IndexDefinition {
 
     boolean isEnabled();
 
-    IndexDefinition setIgnoreErrors(boolean ignoreErrors);
-
-    boolean ignoreErrors();
-
     IndexDefinition setShift(boolean shift);
 
     boolean isShiftEnabled();

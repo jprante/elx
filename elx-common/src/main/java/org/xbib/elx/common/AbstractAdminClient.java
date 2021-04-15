@@ -96,12 +96,15 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public AdminClient deleteIndex(IndexDefinition indexDefinition) {
-        ensureClientIsPresent();
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return this;
+        }
         String index = indexDefinition.getFullIndexName();
         if (index == null) {
             logger.warn("no index name given to delete index");
             return this;
         }
+        ensureClientIsPresent();
         DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest().indices(index);
         client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
         waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
@@ -187,11 +190,11 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         IndexAbstraction indexAbstraction = clusterStateResponse.getState().getMetadata()
                 .getIndicesLookup().get(alias);
         if (indexAbstraction == null) {
-            return List.of();
+            return Collections.emptyList();
         }
         List<IndexMetadata> indexMetadata = indexAbstraction.getIndices();
         if (indexMetadata == null) {
-            return List.of();
+            return Collections.emptyList();
         }
         return indexMetadata.stream().map(im -> im.getIndex().getName())
                 .sorted().collect(Collectors.toList());
@@ -204,9 +207,13 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         if (additionalAliases == null) {
             return new EmptyIndexShiftResult();
         }
+        if (!ensureIndexDefinition(indexDefinition)) {
+            return new EmptyIndexShiftResult();
+        }
         if (indexDefinition.isShiftEnabled()) {
             return shiftIndex(indexDefinition.getIndex(), indexDefinition.getFullIndexName(),
-                    additionalAliases.stream().filter(a -> a != null && !a.isEmpty())
+                    additionalAliases.stream()
+                            .filter(a -> a != null && !a.isEmpty())
                             .collect(Collectors.toList()), indexAliasAdder);
         }
         return new EmptyIndexShiftResult();
@@ -281,18 +288,16 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             }
         }
         if (!indicesAliasesRequest.getAliasActions().isEmpty()) {
-            logger.debug("indices alias request = {}", indicesAliasesRequest.getAliasActions().toString());
-            AcknowledgedResponse indicesAliasesResponse =
-                    client.execute(IndicesAliasesAction.INSTANCE, indicesAliasesRequest).actionGet();
-            logger.debug("response isAcknowledged = {}",
-                    indicesAliasesResponse.isAcknowledged());
+            client.execute(IndicesAliasesAction.INSTANCE, indicesAliasesRequest).actionGet();
         }
         return new SuccessIndexShiftResult(moveAliases, newAliases);
     }
 
     @Override
     public IndexPruneResult pruneIndex(IndexDefinition indexDefinition) {
-        return indexDefinition != null && indexDefinition.isPruneEnabled() && indexDefinition.getRetention() != null && indexDefinition.getDateTimePattern() != null ?
+        return indexDefinition != null && indexDefinition.isPruneEnabled() &&
+                indexDefinition.getRetention() != null &&
+                indexDefinition.getDateTimePattern() != null ?
                 pruneIndex(indexDefinition.getIndex(),
                 indexDefinition.getFullIndexName(),
                 indexDefinition.getDateTimePattern(),
@@ -322,8 +327,6 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             Matcher m = pattern.matcher(s);
             if (m.matches() && m.group(1).equals(index) && !s.equals(protectedIndexName)) {
                 candidateIndices.add(s);
-            } else {
-                logger.info("not a candidate: " + s);
             }
         }
         if (candidateIndices.isEmpty()) {
@@ -569,7 +572,6 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             return newAliases;
         }
     }
-
 
     private static class EmptyIndexShiftResult implements IndexShiftResult {
 

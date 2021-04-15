@@ -61,8 +61,8 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
                     createHttpRequest(httpActionContext.getUrl(), httpActionContext.getRequest());
             Request httpRequest = httpRequestBuilder.build();
             httpRequest.setResponseListener(fullHttpResponse -> {
-                if (logger.isDebugEnabled()) {
-                    logger.log(Level.DEBUG, "got response: " + fullHttpResponse.getStatus().getCode() +
+                if (logger.isTraceEnabled()) {
+                    logger.log(Level.TRACE, "got response: " + fullHttpResponse.getStatus().getCode() +
                             " headers = " + fullHttpResponse.getHeaders() +
                             " content = " + fullHttpResponse.getBody().toString(StandardCharsets.UTF_8));
                 }
@@ -78,8 +78,8 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
                     }
                 }
             });
-            if (logger.isDebugEnabled()) {
-                logger.log(Level.DEBUG, "executing HTTP request " + httpRequest);
+            if (logger.isTraceEnabled()) {
+                logger.log(Level.TRACE, "executing HTTP request " + httpRequest);
             }
             ClientTransport transport = httpActionContext.getExtendedHttpClient().internalClient().execute(httpRequest);
             httpActionContext.setHttpClientTransport(transport);
@@ -163,7 +163,8 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
                 DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
                 httpActionContext.getHttpResponse().getBody().toString(StandardCharsets.UTF_8))) {
             return entityParser(httpActionContext.getHttpResponse()).apply(parser);
-        } catch (IOException e) {
+        } catch (Throwable e) {
+            // catch all kinds of errors in the entity parsing process
             logger.error(e.getMessage(), e);
             return null;
         }

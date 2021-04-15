@@ -55,7 +55,7 @@ public interface BulkClient extends BasicClient, Flushable {
      * Submitting request will be done when limits are exceeded.
      *
      * @param indexDefinition the index definition
-     * @param id     the id
+     * @param id the id
      * @param create true if document is to be created, false otherwise
      * @param source the source
      * @return this client methods
