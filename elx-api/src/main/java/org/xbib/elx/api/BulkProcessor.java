@@ -4,6 +4,7 @@ import org.elasticsearch.action.ActionRequest;
 
 import java.io.Closeable;
 import java.io.Flushable;
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 public interface BulkProcessor extends Closeable, Flushable {
@@ -16,9 +17,9 @@ public interface BulkProcessor extends Closeable, Flushable {
 
     long getBulkSize();
 
-    BulkProcessor add(ActionRequest<?> request);
+    BulkRequestHandler getBulkRequestHandler();
 
-    boolean awaitFlush(long timeout, TimeUnit unit) throws InterruptedException;
+    void add(ActionRequest<?> request);
 
-    boolean awaitClose(long timeout, TimeUnit unit) throws InterruptedException;
+    boolean awaitFlush(long timeout, TimeUnit unit) throws InterruptedException, IOException;
 }

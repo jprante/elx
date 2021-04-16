@@ -130,13 +130,12 @@ class BulkClientTest {
     @Test
     void testThreadedRandomDocs() throws Exception {
         int maxthreads = Runtime.getRuntime().availableProcessors();
-        Long maxActionsPerRequest = MAX_ACTIONS_PER_REQUEST;
+        long maxActionsPerRequest = MAX_ACTIONS_PER_REQUEST;
         final long actions = ACTIONS;
-        logger.info("maxthreads={} maxactions={} maxloop={}", maxthreads, maxActionsPerRequest, actions);
+        long timeout = 120L;
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client)
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(helper.getNodeSettings())
-                .put(Parameters.MAX_CONCURRENT_REQUESTS.getName(), maxthreads)
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.getName(), maxActionsPerRequest)
                 .put(Parameters.FLUSH_INTERVAL.getName(), "60s")
                 .build()) {
@@ -155,17 +154,12 @@ class BulkClientTest {
                     latch.countDown();
                 });
             }
-            logger.info("waiting for latch...");
-            if (latch.await(30L, TimeUnit.SECONDS)) {
-                logger.info("flush...");
-                bulkClient.flush();
-                bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-                logger.info("got all responses, executor service shutdown...");
+            if (latch.await(timeout, TimeUnit.SECONDS)) {
+                bulkClient.waitForResponses(timeout, TimeUnit.SECONDS);
                 executorService.shutdown();
-                executorService.awaitTermination(30L, TimeUnit.SECONDS);
-                logger.info("pool is shut down");
+                executorService.awaitTermination(timeout, TimeUnit.SECONDS);
             } else {
-                logger.warn("latch timeout");
+                logger.error("latch timeout!");
             }
             bulkClient.stopBulk(indexDefinition);
             assertEquals(maxthreads * actions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());

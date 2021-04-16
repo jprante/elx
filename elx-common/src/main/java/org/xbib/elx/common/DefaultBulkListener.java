@@ -9,8 +9,10 @@ import org.xbib.elx.api.BulkController;
 import org.xbib.elx.api.BulkListener;
 import org.xbib.elx.api.BulkMetric;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.LongSummaryStatistics;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.LongStream;
 
 public class DefaultBulkListener implements BulkListener {
@@ -27,21 +29,25 @@ public class DefaultBulkListener implements BulkListener {
 
     private Throwable lastBulkError;
 
-    private final int responseTimeCount;
+    private final int ringBufferSize;
 
-    private final LastResponseTimes responseTimes;
+    private final LongRingBuffer ringBuffer;
 
     public DefaultBulkListener(BulkController bulkController,
-                               BulkMetric bulkMetric,
                                boolean isBulkLoggingEnabled,
                                boolean failOnError,
-                               int responseTimeCount) {
+                               int ringBufferSize) {
         this.bulkController = bulkController;
-        this.bulkMetric = bulkMetric;
         this.isBulkLoggingEnabled = isBulkLoggingEnabled;
         this.failOnError = failOnError;
-        this.responseTimeCount = responseTimeCount;
-        this.responseTimes = new LastResponseTimes(responseTimeCount);
+        this.ringBufferSize = ringBufferSize;
+        this.ringBuffer = new LongRingBuffer(ringBufferSize);
+        this.bulkMetric = new DefaultBulkMetric();
+        bulkMetric.start();
+    }
+
+    public BulkMetric getBulkMetric() {
+        return bulkMetric;
     }
 
     @Override
@@ -66,14 +72,17 @@ public class DefaultBulkListener implements BulkListener {
         long l = bulkMetric.getCurrentIngest().getCount();
         bulkMetric.getCurrentIngest().dec();
         bulkMetric.getSucceeded().inc(response.getItems().length);
-        if (responseTimeCount > 0 && responseTimes.add(response.getTook().millis()) == 0) {
-            LongSummaryStatistics stat = responseTimes.longStream().summaryStatistics();
+        if (ringBufferSize > 0 && ringBuffer.add(response.getTook().millis(), request.estimatedSizeInBytes()) == 0) {
+            LongSummaryStatistics stat1 = ringBuffer.longStreamValues1().summaryStatistics();
+            LongSummaryStatistics stat2 = ringBuffer.longStreamValues2().summaryStatistics();
             if (isBulkLoggingEnabled && logger.isDebugEnabled()) {
-                logger.debug("bulk response millis: avg = " + stat.getAverage() +
-                        " min =" + stat.getMin() +
-                        " max = " + stat.getMax() +
-                        " actions = " + bulkController.getBulkProcessor().getBulkActions() +
-                        " size = " + bulkController.getBulkProcessor().getBulkSize());
+                logger.debug("bulk response millis: avg = " + stat1.getAverage() +
+                        " min = " + stat1.getMin() +
+                        " max = " + stat1.getMax() +
+                        " size: avg = " + stat2.getAverage() +
+                        " min = " + stat2.getMin() +
+                        " max = " + stat2.getMax() +
+                        " throughput: " + (stat2.getAverage() / stat1.getAverage()) + " bytes/ms");
             }
         }
         int n = 0;
@@ -122,29 +131,41 @@ public class DefaultBulkListener implements BulkListener {
         return lastBulkError;
     }
 
-   private static class LastResponseTimes {
+    @Override
+    public void close() throws IOException {
+        bulkMetric.close();
+    }
 
-       private final Long[] values;
+    private static class LongRingBuffer {
+
+       private final Long[] values1, values2;
 
        private final int limit;
 
-       private int index;
+       private final AtomicInteger index;
 
-       public LastResponseTimes(int limit) {
-           this.values = new Long[limit];
-           Arrays.fill(values, -1L);
+       public LongRingBuffer(int limit) {
+           this.values1 = new Long[limit];
+           this.values2 = new Long[limit];
+           Arrays.fill(values1, -1L);
+           Arrays.fill(values2, -1L);
            this.limit = limit;
-           this.index = 0;
+           this.index = new AtomicInteger();
        }
 
-       public int add(Long value) {
-           int i = index++ % limit;
-           values[i] = value;
+       public int add(Long v1, Long v2) {
+           int i = index.incrementAndGet() % limit;
+           values1[i] = v1;
+           values2[i] = v2;
            return i;
        }
 
-       public LongStream longStream() {
-           return Arrays.stream(values).filter(v -> v != -1L).mapToLong(Long::longValue);
+       public LongStream longStreamValues1() {
+           return Arrays.stream(values1).filter(v -> v != -1L).mapToLong(Long::longValue);
+       }
+
+       public LongStream longStreamValues2() {
+          return Arrays.stream(values2).filter(v -> v != -1L).mapToLong(Long::longValue);
        }
    }
 }

@@ -10,7 +10,6 @@ import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.xbib.elx.api.BulkClient;
 import org.xbib.elx.api.BulkController;
-import org.xbib.elx.api.BulkListener;
 import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.BulkProcessor;
 import org.xbib.elx.api.IndexDefinition;
@@ -25,11 +24,9 @@ public class DefaultBulkController implements BulkController {
 
     private final BulkClient bulkClient;
 
-    private final BulkMetric bulkMetric;
-
     private BulkProcessor bulkProcessor;
 
-    private BulkListener bulkListener;
+    private DefaultBulkListener bulkListener;
 
     private long maxWaitTime;
 
@@ -39,13 +36,11 @@ public class DefaultBulkController implements BulkController {
 
     public DefaultBulkController(BulkClient bulkClient) {
         this.bulkClient = bulkClient;
-        this.bulkMetric = new DefaultBulkMetric();
         this.active = new AtomicBoolean(false);
     }
 
     @Override
     public void init(Settings settings) {
-        bulkMetric.init(settings);
         String maxWaitTimeStr = settings.get(Parameters.MAX_WAIT_BULK_RESPONSE.getName(),
                  Parameters.MAX_WAIT_BULK_RESPONSE.getString());
         TimeValue maxWaitTimeValue = TimeValue.parseTimeValue(maxWaitTimeStr,
@@ -68,7 +63,7 @@ public class DefaultBulkController implements BulkController {
                 Parameters.FAIL_ON_BULK_ERROR.getBoolean());
         int responseTimeCount = settings.getAsInt(Parameters.RESPONSE_TIME_COUNT.getName(),
                 Parameters.RESPONSE_TIME_COUNT.getInteger());
-        this.bulkListener = new DefaultBulkListener(this, bulkMetric,
+        this.bulkListener = new DefaultBulkListener(this,
                 enableBulkLogging, failOnBulkError, responseTimeCount);
         this.bulkProcessor = DefaultBulkProcessor.builder(bulkClient.getClient(), bulkListener)
                 .setBulkActions(maxActionsPerRequest)
@@ -96,7 +91,7 @@ public class DefaultBulkController implements BulkController {
 
     @Override
     public BulkMetric getBulkMetric() {
-        return bulkMetric;
+        return bulkListener != null ? bulkListener.getBulkMetric() : null;
     }
 
     @Override
@@ -123,7 +118,6 @@ public class DefaultBulkController implements BulkController {
     public void bulkIndex(IndexRequest indexRequest) {
         ensureActiveAndBulk();
         try {
-            bulkMetric.getCurrentIngest().inc(indexRequest.index(), indexRequest.type(), indexRequest.id());
             bulkProcessor.add(indexRequest);
         } catch (Exception e) {
             if (logger.isErrorEnabled()) {
@@ -137,7 +131,6 @@ public class DefaultBulkController implements BulkController {
     public void bulkDelete(DeleteRequest deleteRequest) {
         ensureActiveAndBulk();
         try {
-            bulkMetric.getCurrentIngest().inc(deleteRequest.index(), deleteRequest.type(), deleteRequest.id());
             bulkProcessor.add(deleteRequest);
         } catch (Exception e) {
             if (logger.isErrorEnabled()) {
@@ -151,7 +144,6 @@ public class DefaultBulkController implements BulkController {
     public void bulkUpdate(UpdateRequest updateRequest) {
         ensureActiveAndBulk();
         try {
-            bulkMetric.getCurrentIngest().inc(updateRequest.index(), updateRequest.type(), updateRequest.id());
             bulkProcessor.add(updateRequest);
         } catch (Exception e) {
             if (logger.isErrorEnabled()) {
@@ -201,7 +193,6 @@ public class DefaultBulkController implements BulkController {
 
     @Override
     public void close() throws IOException {
-        bulkMetric.close();
         flush();
         bulkClient.waitForResponses(maxWaitTime, maxWaitTimeUnit);
         if (bulkProcessor != null) {

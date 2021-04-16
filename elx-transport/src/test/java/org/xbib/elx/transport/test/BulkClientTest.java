@@ -29,9 +29,9 @@ class BulkClientTest {
 
     private static final Logger logger = LogManager.getLogger(BulkClientTest.class.getName());
 
-    private static final Long ACTIONS = 10000L;
+    private static final Long ACTIONS = 100000L;
 
-    private static final Long MAX_ACTIONS_PER_REQUEST = 10000L;
+    private static final Long MAX_ACTIONS_PER_REQUEST = 1000L;
 
     private final TestExtension.Helper helper;
 
@@ -128,13 +128,12 @@ class BulkClientTest {
     @Test
     void testThreadedRandomDocs() {
         int maxthreads = Runtime.getRuntime().availableProcessors();
-        Long maxActionsPerRequest = MAX_ACTIONS_PER_REQUEST;
+        long maxActionsPerRequest = MAX_ACTIONS_PER_REQUEST;
         final long actions = ACTIONS;
-        logger.info("maxthreads={} maxactions={} maxloop={}", maxthreads, maxActionsPerRequest, actions);
+        long timeout = 120L;
         try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
                 .put(helper.getTransportSettings())
-                .put(Parameters.MAX_CONCURRENT_REQUESTS.getName(), maxthreads * 2)
                 .put(Parameters.MAX_ACTIONS_PER_REQUEST.getName(), maxActionsPerRequest)
                 .put(Parameters.FLUSH_INTERVAL.getName(), "60s")
                 .put(Parameters.ENABLE_BULK_LOGGING.getName(), Boolean.TRUE)
@@ -157,17 +156,12 @@ class BulkClientTest {
                     latch.countDown();
                 });
             }
-            logger.info("waiting for latch...");
-            if (latch.await(30L, TimeUnit.SECONDS)) {
-                logger.info("flush...");
-                bulkClient.flush();
-                bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-                logger.info("got all responses, executor service shutdown...");
+            if (latch.await(timeout, TimeUnit.SECONDS)) {
+                bulkClient.waitForResponses(timeout, TimeUnit.SECONDS);
                 executorService.shutdown();
-                executorService.awaitTermination(30L, TimeUnit.SECONDS);
-                logger.info("pool is shut down");
+                executorService.awaitTermination(timeout, TimeUnit.SECONDS);
             } else {
-                logger.warn("latch timeout");
+                logger.error("latch timeout!");
             }
             bulkClient.stopBulk(indexDefinition);
             assertEquals(maxthreads * actions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());

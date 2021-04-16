@@ -10,11 +10,11 @@ import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
-import org.elasticsearch.common.util.concurrent.FutureUtils;
 import org.xbib.elx.api.BulkListener;
 import org.xbib.elx.api.BulkProcessor;
 import org.xbib.elx.api.BulkRequestHandler;
 
+import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledFuture;
@@ -37,8 +37,6 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
     private final ScheduledFuture<?> scheduledFuture;
 
-    private final AtomicLong executionIdGen;
-
     private final BulkRequestHandler bulkRequestHandler;
 
     private BulkRequest bulkRequest;
@@ -56,7 +54,6 @@ public class DefaultBulkProcessor implements BulkProcessor {
                                  int bulkActions,
                                  ByteSizeValue bulkSize,
                                  TimeValue flushInterval) {
-        this.executionIdGen = new AtomicLong();
         this.closed = false;
         this.bulkActions = bulkActions;
         this.bulkSize = bulkSize.getBytes();
@@ -102,79 +99,20 @@ public class DefaultBulkProcessor implements BulkProcessor {
         return bulkSize;
     }
 
-    /**
-     * Wait for bulk request handler with flush.
-     * @param timeout the timeout value
-     * @param unit the timeout unit
-     * @return true is method was successful, false if timeout
-     * @throws InterruptedException if timeout
-     */
-    @Override
-    public synchronized boolean awaitFlush(long timeout, TimeUnit unit) throws InterruptedException {
-        Objects.requireNonNull(unit, "A time unit is required for awaitFlush() but null");
-        if (closed) {
-            return true;
-        }
-        // flush
-        if (bulkRequest.numberOfActions() > 0) {
-            execute();
-        }
-        // wait for all bulk responses
-        return bulkRequestHandler.close(timeout, unit);
+    public BulkRequestHandler getBulkRequestHandler() {
+        return bulkRequestHandler;
     }
 
-    /**
-     * Closes the processor. Any remaining bulk actions are flushed and then closed. This emthod can only be called
-     * once as the last action of a bulk processor.
-     *
-     * If concurrent requests are not enabled, returns {@code true} immediately.
-     * If concurrent requests are enabled, waits for up to the specified timeout for all bulk requests to complete then
-     * returns {@code true},
-     * If the specified waiting time elapses before all bulk requests complete, {@code false} is returned.
-     *
-     * @param timeout The maximum time to wait for the bulk requests to complete
-     * @param unit    The time unit of the {@code timeout} argument
-     * @return {@code true} if all bulk requests completed and {@code false} if the waiting time elapsed before all the
-     * bulk requests completed
-     * @throws InterruptedException If the current thread is interrupted
-     */
     @Override
-    public synchronized boolean awaitClose(long timeout, TimeUnit unit) throws InterruptedException {
-        Objects.requireNonNull(unit, "A time unit is required for awaitCLose() but null");
-        if (closed) {
-            return true;
-        }
-        closed = true;
-        if (scheduledFuture != null) {
-            FutureUtils.cancel(scheduledFuture);
-            scheduler.shutdown();
-        }
-        if (bulkRequest.numberOfActions() > 0) {
-            execute();
-        }
-        return bulkRequestHandler.close(timeout, unit);
-    }
-
-    /**
-     * Adds either a delete or an index request.
-     *
-     * @param request request
-     * @return his bulk processor
-     */
-    @Override
-    public synchronized DefaultBulkProcessor add(ActionRequest<?> request) {
+    public synchronized void add(ActionRequest<?> request) {
         ensureOpen();
         bulkRequest.add(request);
         if ((bulkActions != -1 && bulkRequest.numberOfActions() >= bulkActions) ||
                 (bulkSize != -1 && bulkRequest.estimatedSizeInBytes() >= bulkSize)) {
             execute();
         }
-        return this;
     }
 
-    /**
-     * Flush pending delete or index requests.
-     */
     @Override
     public synchronized void flush() {
         ensureOpen();
@@ -183,14 +121,32 @@ public class DefaultBulkProcessor implements BulkProcessor {
         }
     }
 
-    /**
-     * Closes the processor. If flushing by time is enabled, then it's shutdown. Any remaining bulk actions are flushed.
-     */
     @Override
-    public void close() {
+    public synchronized boolean awaitFlush(long timeout, TimeUnit unit) throws InterruptedException, IOException {
+        if (closed) {
+            return true;
+        }
+        if (bulkRequest.numberOfActions() > 0) {
+            execute();
+        }
+        return bulkRequestHandler.flush(timeout, unit);
+    }
+
+    @Override
+    public synchronized void close() throws IOException {
         try {
-            // 0 = immediate close
-            awaitClose(0, TimeUnit.NANOSECONDS);
+            if (closed) {
+                return;
+            }
+            closed = true;
+            if (scheduledFuture != null) {
+                scheduledFuture.cancel(true);
+                scheduler.shutdown();
+            }
+            if (bulkRequest.numberOfActions() > 0) {
+                execute();
+            }
+            bulkRequestHandler.flush(0, TimeUnit.NANOSECONDS);
         } catch (InterruptedException exc) {
             Thread.currentThread().interrupt();
         }
@@ -204,9 +160,8 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
     private void execute() {
         BulkRequest myBulkRequest = this.bulkRequest;
-        long executionId = executionIdGen.incrementAndGet();
         this.bulkRequest = new BulkRequest();
-        this.bulkRequestHandler.execute(myBulkRequest, executionId);
+        this.bulkRequestHandler.execute(myBulkRequest);
     }
 
     /**
@@ -278,7 +233,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
         /**
          * Sets when to flush a new bulk request based on the size of actions currently added. Defaults to
-         * {@code 5mb}. Can be set to {@code -1} to disable it.
+         * {@code 1mb}. Can be set to {@code -1} to disable it.
          *
          * @param bulkSize bulk size
          * @return this builder
@@ -319,10 +274,9 @@ public class DefaultBulkProcessor implements BulkProcessor {
                 if (closed) {
                     return;
                 }
-                if (bulkRequest.numberOfActions() == 0) {
-                    return;
+                if (bulkRequest.numberOfActions() > 0) {
+                    execute();
                 }
-                execute();
             }
         }
     }
@@ -333,14 +287,17 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
         private final BulkListener bulkListener;
 
+        private final AtomicLong executionIdGen;
+
         SyncBulkRequestHandler(ElasticsearchClient client, BulkListener bulkListener) {
-            Objects.requireNonNull(bulkListener, "A listener is required for SyncBulkRequestHandler but null");
             this.client = client;
             this.bulkListener = bulkListener;
+            this.executionIdGen = new AtomicLong();
         }
 
         @Override
-        public void execute(BulkRequest bulkRequest, long executionId) {
+        public void execute(BulkRequest bulkRequest) {
+            long executionId = executionIdGen.incrementAndGet();
             boolean afterCalled = false;
             try {
                 bulkListener.beforeBulk(executionId, bulkRequest);
@@ -355,8 +312,21 @@ public class DefaultBulkProcessor implements BulkProcessor {
         }
 
         @Override
-        public boolean close(long timeout, TimeUnit unit) {
+        public boolean flush(long timeout, TimeUnit unit) {
             return true;
+        }
+
+        @Override
+        public int getPermits() {
+            return 1;
+        }
+
+        @Override
+        public void increase() {
+        }
+
+        @Override
+        public void reduce() {
         }
     }
 
@@ -366,22 +336,27 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
         private final BulkListener bulkListener;
 
-        private final Semaphore semaphore;
+        private final ResizeableSemaphore semaphore;
 
-        private final int concurrentRequests;
+        private final AtomicLong executionIdGen;
 
-        private AsyncBulkRequestHandler(ElasticsearchClient client, BulkListener bulkListener, int concurrentRequests) {
-            Objects.requireNonNull(bulkListener, "A listener is required for AsyncBulkRequestHandler but null");
+        private int permits;
+
+        private AsyncBulkRequestHandler(ElasticsearchClient client,
+                                        BulkListener bulkListener,
+                                        int permits) {
             this.client = client;
             this.bulkListener = bulkListener;
-            this.concurrentRequests = concurrentRequests;
-            this.semaphore = new Semaphore(concurrentRequests);
+            this.permits = permits;
+            this.semaphore = new ResizeableSemaphore(permits);
+            this.executionIdGen = new AtomicLong();
         }
 
         @Override
-        public void execute(final BulkRequest bulkRequest, final long executionId) {
+        public void execute(BulkRequest bulkRequest) {
             boolean bulkRequestSetupSuccessful = false;
             boolean acquired = false;
+            long executionId = executionIdGen.incrementAndGet();
             try {
                 bulkListener.beforeBulk(executionId, bulkRequest);
                 semaphore.acquire();
@@ -413,19 +388,49 @@ public class DefaultBulkProcessor implements BulkProcessor {
                 bulkListener.afterBulk(executionId, bulkRequest, e);
             } finally {
                 if (!bulkRequestSetupSuccessful && acquired) {
-                    // if we fail on client.bulk() release the semaphore
                     semaphore.release();
                 }
             }
         }
 
         @Override
-        public boolean close(long timeout, TimeUnit unit) throws InterruptedException {
-            if (semaphore.tryAcquire(concurrentRequests, timeout, unit)) {
-                semaphore.release(concurrentRequests);
+        public boolean flush(long timeout, TimeUnit unit) throws IOException, InterruptedException {
+            bulkListener.close();
+            if (semaphore.tryAcquire(permits, timeout, unit)) {
+                semaphore.release(permits);
                 return true;
             }
             return false;
+        }
+
+        @Override
+        public int getPermits() {
+            return permits;
+        }
+
+        @Override
+        public void increase() {
+            semaphore.release(1);
+            this.permits++;
+        }
+
+        @Override
+        public void reduce() {
+            semaphore.reducePermits(1);
+            this.permits--;
+        }
+    }
+
+    @SuppressWarnings("serial")
+    private static class ResizeableSemaphore extends Semaphore {
+
+        ResizeableSemaphore(int permits) {
+            super(permits, true);
+        }
+
+        @Override
+        protected void reducePermits(int reduction) {
+            super.reducePermits(reduction);
         }
     }
 }

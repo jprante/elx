@@ -13,6 +13,8 @@ test {
     useJUnitPlatform()
     failFast = true
     jvmArgs = [
+            '-Xmx2g',
+            '-Xms2g',
             '--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED',
             '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED',
             '--add-opens=java.base/java.nio=ALL-UNNAMED'
