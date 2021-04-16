@@ -11,12 +11,6 @@ import java.util.concurrent.TimeUnit;
 public interface BulkClient extends BasicClient, Flushable {
 
     /**
-     * Get bulk control.
-     * @return the bulk control
-     */
-    BulkController getBulkController();
-
-    /**
      * Create a new index.
      * @param indexDefinition the index definition
      * @throws IOException if settings/mapping is invalid or index creation fails
@@ -154,4 +148,6 @@ public interface BulkClient extends BasicClient, Flushable {
      * @param indexDefinition index definition
      */
     void flushIndex(IndexDefinition indexDefinition);
+
+    BulkProcessor getBulkController();
 }

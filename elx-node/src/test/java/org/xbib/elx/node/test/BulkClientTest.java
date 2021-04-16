@@ -9,7 +9,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.DefaultIndexDefinition;
-import org.xbib.elx.common.Parameters;
 import org.xbib.elx.node.NodeAdminClient;
 import org.xbib.elx.node.NodeAdminClientProvider;
 import org.xbib.elx.node.NodeBulkClient;
@@ -31,8 +30,6 @@ class BulkClientTest {
 
     private static final Long ACTIONS = 10000L;
 
-    private static final Long MAX_ACTIONS_PER_REQUEST = 1000L;
-
     private final TestExtension.Helper helper;
 
     BulkClientTest(TestExtension.Helper helper) {
@@ -44,8 +41,6 @@ class BulkClientTest {
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client)
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(helper.getNodeSettings())
-                .put(Parameters.MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
-                .put(Parameters.FLUSH_INTERVAL.getName(), "30s")
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);
@@ -65,7 +60,6 @@ class BulkClientTest {
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client)
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(helper.getNodeSettings())
-                .put(Parameters.FLUSH_INTERVAL.getName(), "5s")
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);
@@ -105,8 +99,6 @@ class BulkClientTest {
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client)
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(helper.getNodeSettings())
-                .put(Parameters.MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
-                .put(Parameters.FLUSH_INTERVAL.getName(), "60s")
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);
@@ -130,14 +122,11 @@ class BulkClientTest {
     @Test
     void testThreadedRandomDocs() throws Exception {
         int maxthreads = Runtime.getRuntime().availableProcessors();
-        long maxActionsPerRequest = MAX_ACTIONS_PER_REQUEST;
         final long actions = ACTIONS;
         long timeout = 120L;
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client)
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(helper.getNodeSettings())
-                .put(Parameters.MAX_ACTIONS_PER_REQUEST.getName(), maxActionsPerRequest)
-                .put(Parameters.FLUSH_INTERVAL.getName(), "60s")
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             indexDefinition.setStartBulkRefreshSeconds(0);

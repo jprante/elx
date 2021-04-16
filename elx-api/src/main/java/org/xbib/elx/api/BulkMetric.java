@@ -1,5 +1,7 @@
 package org.xbib.elx.api;
 
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.xbib.metrics.api.Count;
 import org.xbib.metrics.api.Metered;
 
@@ -28,4 +30,6 @@ public interface BulkMetric extends Closeable {
     void start();
 
     void stop();
+
+    void recalculate(BulkRequest request, BulkResponse response);
 }

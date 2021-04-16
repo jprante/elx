@@ -5,21 +5,19 @@ import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
-import org.xbib.elx.api.BulkController;
 import org.xbib.elx.api.BulkListener;
 import org.xbib.elx.api.BulkMetric;
+import org.xbib.elx.api.BulkProcessor;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.LongSummaryStatistics;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.LongStream;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public class DefaultBulkListener implements BulkListener {
 
     private final Logger logger = LogManager.getLogger(DefaultBulkListener.class.getName());
 
-    private final BulkController bulkController;
+    private final BulkProcessor bulkProcessor;
 
     private final BulkMetric bulkMetric;
 
@@ -29,20 +27,15 @@ public class DefaultBulkListener implements BulkListener {
 
     private Throwable lastBulkError;
 
-    private final int ringBufferSize;
-
-    private final LongRingBuffer ringBuffer;
-
-    public DefaultBulkListener(BulkController bulkController,
+    public DefaultBulkListener(BulkProcessor bulkProcessor,
+                               ScheduledThreadPoolExecutor scheduler,
                                boolean isBulkLoggingEnabled,
                                boolean failOnError,
                                int ringBufferSize) {
-        this.bulkController = bulkController;
+        this.bulkProcessor = bulkProcessor;
         this.isBulkLoggingEnabled = isBulkLoggingEnabled;
         this.failOnError = failOnError;
-        this.ringBufferSize = ringBufferSize;
-        this.ringBuffer = new LongRingBuffer(ringBufferSize);
-        this.bulkMetric = new DefaultBulkMetric();
+        this.bulkMetric = new DefaultBulkMetric(bulkProcessor, scheduler, ringBufferSize);
         bulkMetric.start();
     }
 
@@ -59,7 +52,7 @@ public class DefaultBulkListener implements BulkListener {
         bulkMetric.getCurrentIngestNumDocs().inc(n);
         bulkMetric.getTotalIngestSizeInBytes().inc(request.estimatedSizeInBytes());
         if (isBulkLoggingEnabled && logger.isDebugEnabled()) {
-            logger.debug("before bulk [{}] [actions={}] [bytes={}] [concurrent requests={}]",
+            logger.debug("before bulk [{}] [actions={}] [bytes={}] [requests={}]",
                     executionId,
                     request.numberOfActions(),
                     request.estimatedSizeInBytes(),
@@ -69,22 +62,10 @@ public class DefaultBulkListener implements BulkListener {
 
     @Override
     public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
+        bulkMetric.recalculate(request, response);
         long l = bulkMetric.getCurrentIngest().getCount();
         bulkMetric.getCurrentIngest().dec();
         bulkMetric.getSucceeded().inc(response.getItems().length);
-        if (ringBufferSize > 0 && ringBuffer.add(response.getTook().millis(), request.estimatedSizeInBytes()) == 0) {
-            LongSummaryStatistics stat1 = ringBuffer.longStreamValues1().summaryStatistics();
-            LongSummaryStatistics stat2 = ringBuffer.longStreamValues2().summaryStatistics();
-            if (isBulkLoggingEnabled && logger.isDebugEnabled()) {
-                logger.debug("bulk response millis: avg = " + stat1.getAverage() +
-                        " min = " + stat1.getMin() +
-                        " max = " + stat1.getMax() +
-                        " size: avg = " + stat2.getAverage() +
-                        " min = " + stat2.getMin() +
-                        " max = " + stat2.getMax() +
-                        " throughput: " + (stat2.getAverage() / stat1.getAverage()) + " bytes/ms");
-            }
-        }
         int n = 0;
         for (BulkItemResponse itemResponse : response.getItems()) {
             bulkMetric.getCurrentIngest().dec(itemResponse.getIndex(), itemResponse.getType(), itemResponse.getId());
@@ -95,7 +76,7 @@ public class DefaultBulkListener implements BulkListener {
             }
         }
         if (isBulkLoggingEnabled && logger.isDebugEnabled()) {
-            logger.debug("after bulk [{}] [succeeded={}] [failed={}] [{}ms] [concurrent requests={}]",
+            logger.debug("after bulk [{}] [succeeded={}] [failed={}] [{}ms] [requests={}]",
                     executionId,
                     bulkMetric.getSucceeded().getCount(),
                     bulkMetric.getFailed().getCount(),
@@ -123,7 +104,7 @@ public class DefaultBulkListener implements BulkListener {
         if (logger.isErrorEnabled()) {
             logger.error("after bulk [" + executionId + "] error", failure);
         }
-        bulkController.inactivate();
+        bulkProcessor.setEnabled(false);
     }
 
     @Override
@@ -135,37 +116,4 @@ public class DefaultBulkListener implements BulkListener {
     public void close() throws IOException {
         bulkMetric.close();
     }
-
-    private static class LongRingBuffer {
-
-       private final Long[] values1, values2;
-
-       private final int limit;
-
-       private final AtomicInteger index;
-
-       public LongRingBuffer(int limit) {
-           this.values1 = new Long[limit];
-           this.values2 = new Long[limit];
-           Arrays.fill(values1, -1L);
-           Arrays.fill(values2, -1L);
-           this.limit = limit;
-           this.index = new AtomicInteger();
-       }
-
-       public int add(Long v1, Long v2) {
-           int i = index.incrementAndGet() % limit;
-           values1[i] = v1;
-           values2[i] = v2;
-           return i;
-       }
-
-       public LongStream longStreamValues1() {
-           return Arrays.stream(values1).filter(v -> v != -1L).mapToLong(Long::longValue);
-       }
-
-       public LongStream longStreamValues2() {
-          return Arrays.stream(values2).filter(v -> v != -1L).mapToLong(Long::longValue);
-       }
-   }
 }

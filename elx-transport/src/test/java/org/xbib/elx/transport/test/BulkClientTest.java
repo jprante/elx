@@ -9,7 +9,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.DefaultIndexDefinition;
-import org.xbib.elx.common.Parameters;
 import org.xbib.elx.transport.TransportAdminClient;
 import org.xbib.elx.transport.TransportAdminClientProvider;
 import org.xbib.elx.transport.TransportBulkClient;
@@ -31,8 +30,6 @@ class BulkClientTest {
 
     private static final Long ACTIONS = 100000L;
 
-    private static final Long MAX_ACTIONS_PER_REQUEST = 1000L;
-
     private final TestExtension.Helper helper;
 
     BulkClientTest(TestExtension.Helper helper) {
@@ -44,8 +41,6 @@ class BulkClientTest {
         try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
                 .put(helper.getTransportSettings())
-                .put(Parameters.MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
-                .put(Parameters.FLUSH_INTERVAL.getName(), "30s")
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);
@@ -104,8 +99,6 @@ class BulkClientTest {
         try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
                 .put(helper.getTransportSettings())
-                .put(Parameters.MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
-                .put(Parameters.FLUSH_INTERVAL.getName(), "60s")
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);
@@ -128,23 +121,19 @@ class BulkClientTest {
     @Test
     void testThreadedRandomDocs() {
         int maxthreads = Runtime.getRuntime().availableProcessors();
-        long maxActionsPerRequest = MAX_ACTIONS_PER_REQUEST;
+        //long maxActionsPerRequest = MAX_ACTIONS_PER_REQUEST;
         final long actions = ACTIONS;
         long timeout = 120L;
         try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
                 .put(helper.getTransportSettings())
-                .put(Parameters.MAX_ACTIONS_PER_REQUEST.getName(), maxActionsPerRequest)
-                .put(Parameters.FLUSH_INTERVAL.getName(), "60s")
-                .put(Parameters.ENABLE_BULK_LOGGING.getName(), Boolean.TRUE)
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             indexDefinition.setFullIndexName("test");
-            indexDefinition.setStartBulkRefreshSeconds(0);
+            indexDefinition.setStartBulkRefreshSeconds(-1);
             indexDefinition.setStopBulkRefreshSeconds(60);
             bulkClient.newIndex(indexDefinition);
             bulkClient.startBulk(indexDefinition);
-            logger.info("index created");
             ExecutorService executorService = Executors.newFixedThreadPool(maxthreads);
             final CountDownLatch latch = new CountDownLatch(maxthreads);
             for (int i = 0; i < maxthreads; i++) {

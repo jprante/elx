@@ -65,7 +65,7 @@ public class DefaultIndexDefinition implements IndexDefinition {
         setDateTimeFormatter(DateTimeFormatter.ofPattern("yyyyMMdd", Locale.getDefault()));
         setDateTimePattern(Pattern.compile("^(.*?)(\\d+)$"));
         setFullIndexName(index + getDateTimeFormatter().format(LocalDateTime.now()));
-        setMaxWaitTime(Parameters.MAX_WAIT_BULK_RESPONSE_SECONDS.getInteger(), TimeUnit.SECONDS);
+        setMaxWaitTime(30, TimeUnit.SECONDS);
         setShift(false);
         setPrune(false);
         setEnabled(true);
@@ -73,7 +73,9 @@ public class DefaultIndexDefinition implements IndexDefinition {
 
     public DefaultIndexDefinition(AdminClient adminClient, String index, String type, Settings settings)
             throws IOException {
-        TimeValue timeValue = settings.getAsTime(Parameters.MAX_WAIT_BULK_RESPONSE.getName(), TimeValue.timeValueSeconds(30));
+        String timeValueStr = settings.get(Parameters.MAX_WAIT_BULK_RESPONSE.getName(),
+                Parameters.MAX_WAIT_BULK_RESPONSE.getString());
+        TimeValue timeValue = TimeValue.parseTimeValue(timeValueStr, TimeValue.timeValueSeconds(30), "");
         setMaxWaitTime(timeValue.seconds(), TimeUnit.SECONDS);
         String indexName = settings.get("name", index);
         String indexType = settings.get("type", type);
@@ -83,11 +85,13 @@ public class DefaultIndexDefinition implements IndexDefinition {
         setEnabled(enabled);
         String fullIndexName = adminClient.resolveAlias(indexName).stream().findFirst().orElse(indexName);
         setFullIndexName(fullIndexName);
+        setStartBulkRefreshSeconds(settings.getAsInt(Parameters.START_BULK_REFRESH_SECONDS.getName(),
+                Parameters.START_BULK_REFRESH_SECONDS.getInteger()));
+        setStopBulkRefreshSeconds(settings.getAsInt(Parameters.STOP_BULK_REFRESH_SECONDS.getName(),
+                Parameters.STOP_BULK_REFRESH_SECONDS.getInteger()));
         if (settings.get("settings") != null && settings.get("mapping") != null) {
             setSettings(findSettingsFrom(settings.get("settings")));
             setMappings(findMappingsFrom(settings.get("mapping")));
-            setStartBulkRefreshSeconds(settings.getAsInt(Parameters.START_BULK_REFRESH_SECONDS.getName(), -1));
-            setStopBulkRefreshSeconds(settings.getAsInt(Parameters.STOP_BULK_REFRESH_SECONDS.getName(), -1));
             setReplicaLevel(settings.getAsInt("replica", 0));
             boolean shift = settings.getAsBoolean("shift", false);
             setShift(shift);

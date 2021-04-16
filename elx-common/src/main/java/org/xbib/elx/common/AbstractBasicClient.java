@@ -45,7 +45,6 @@ public abstract class AbstractBasicClient implements BasicClient {
 
     @Override
     public void setClient(ElasticsearchClient client) {
-        logger.log(Level.DEBUG, "setting client = " + client);
         this.client = client;
     }
 

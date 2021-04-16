@@ -9,17 +9,25 @@ import java.util.concurrent.TimeUnit;
 
 public interface BulkProcessor extends Closeable, Flushable {
 
-    void setBulkActions(int bulkActions);
+    void setEnabled(boolean enabled);
 
-    int getBulkActions();
+    void startBulkMode(IndexDefinition indexDefinition) throws IOException;
 
-    void setBulkSize(long bulkSize);
-
-    long getBulkSize();
-
-    BulkRequestHandler getBulkRequestHandler();
+    void stopBulkMode(IndexDefinition indexDefinition) throws IOException;
 
     void add(ActionRequest<?> request);
 
-    boolean awaitFlush(long timeout, TimeUnit unit) throws InterruptedException, IOException;
+    boolean waitForBulkResponses(long timeout, TimeUnit unit);
+
+    BulkMetric getBulkMetric();
+
+    Throwable getLastBulkError();
+
+    void setMaxBulkActions(int bulkActions);
+
+    int getMaxBulkActions();
+
+    void setMaxBulkVolume(long bulkSize);
+
+    long getMaxBulkVolume();
 }

@@ -36,10 +36,10 @@ public class NodeClientHelper {
                 key -> innerCreateClient(settings));
     }
 
-    public void closeClient(Settings settings) throws IOException {
+    public void closeClient(Settings settings) {
         ElasticsearchClient client = clientMap.remove(settings.get("cluster.name"));
         if (client != null) {
-            logger.debug("closing node...");
+            logger.debug("closing node");
             node.close();
             node = null;
         }
@@ -77,10 +77,12 @@ public class NodeClientHelper {
     }
 
     private static boolean isPrivateSettings(String key) {
-        return key.equals(Parameters.MAX_ACTIONS_PER_REQUEST.name()) ||
-            key.equals(Parameters.MAX_CONCURRENT_REQUESTS.name()) ||
-            key.equals(Parameters.MAX_VOLUME_PER_REQUEST.name()) ||
-            key.equals(Parameters.FLUSH_INTERVAL.name());
+        for (Parameters p : Parameters.values()) {
+            if (key.equals(p.getName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static class BulkNode extends Node {
