@@ -50,7 +50,7 @@ public class DefaultBulkMetric implements BulkMetric {
 
     private final long minVolumePerRequest;
 
-    private final long maxVolumePerRequest;
+    private long maxVolumePerRequest;
 
     private Long started;
 
@@ -66,10 +66,10 @@ public class DefaultBulkMetric implements BulkMetric {
                              ScheduledThreadPoolExecutor scheduledThreadPoolExecutor,
                              Settings settings) {
         this.bulkProcessor = bulkProcessor;
-        int ringBufferSize = settings.getAsInt(Parameters.RING_BUFFER_SIZE.getName(),
-                Parameters.RING_BUFFER_SIZE.getInteger());
-        String measureIntervalStr = settings.get(Parameters.MEASURE_INTERVAL.getName(),
-                Parameters.MEASURE_INTERVAL.getString());
+        int ringBufferSize = settings.getAsInt(Parameters.BULK_RING_BUFFER_SIZE.getName(),
+                Parameters.BULK_RING_BUFFER_SIZE.getInteger());
+        String measureIntervalStr = settings.get(Parameters.BULK_MEASURE_INTERVAL.getName(),
+                Parameters.BULK_MEASURE_INTERVAL.getString());
         TimeValue measureInterval = TimeValue.parseTimeValue(measureIntervalStr,
                 TimeValue.timeValueSeconds(1), "");
         this.measureIntervalSeconds = measureInterval.seconds();
@@ -82,15 +82,15 @@ public class DefaultBulkMetric implements BulkMetric {
         this.submitted = new CountMetric();
         this.succeeded = new CountMetric();
         this.failed = new CountMetric();
-        ByteSizeValue minVolumePerRequest = settings.getAsBytesSize(Parameters.MIN_VOLUME_PER_REQUEST.getName(),
-                ByteSizeValue.parseBytesSizeValue(Parameters.MIN_VOLUME_PER_REQUEST.getString(), "1k"));
+        ByteSizeValue minVolumePerRequest = settings.getAsBytesSize(Parameters.BULK_MIN_VOLUME_PER_REQUEST.getName(),
+                ByteSizeValue.parseBytesSizeValue(Parameters.BULK_MIN_VOLUME_PER_REQUEST.getString(), "1k"));
         this.minVolumePerRequest = minVolumePerRequest.bytes();
-        ByteSizeValue maxVolumePerRequest = settings.getAsBytesSize(Parameters.MAX_VOLUME_PER_REQUEST.getName(),
-                ByteSizeValue.parseBytesSizeValue(Parameters.MAX_VOLUME_PER_REQUEST.getString(), "1m"));
+        ByteSizeValue maxVolumePerRequest = settings.getAsBytesSize(Parameters.BULK_MAX_VOLUME_PER_REQUEST.getName(),
+                ByteSizeValue.parseBytesSizeValue(Parameters.BULK_MAX_VOLUME_PER_REQUEST.getString(), "1m"));
         this.maxVolumePerRequest = maxVolumePerRequest.bytes();
         this.currentVolumePerRequest = minVolumePerRequest.bytes();
-        String metricLogIntervalStr = settings.get(Parameters.METRIC_LOG_INTERVAL.getName(),
-                Parameters.METRIC_LOG_INTERVAL.getString());
+        String metricLogIntervalStr = settings.get(Parameters.BULK_METRIC_LOG_INTERVAL.getName(),
+                Parameters.BULK_METRIC_LOG_INTERVAL.getString());
         TimeValue metricLoginterval = TimeValue.parseTimeValue(metricLogIntervalStr,
                 TimeValue.timeValueSeconds(10), "");
         this.future = scheduledThreadPoolExecutor.scheduleAtFixedRate(this::log, 0L, metricLoginterval.seconds(), TimeUnit.SECONDS);
@@ -183,22 +183,31 @@ public class DefaultBulkMetric implements BulkMetric {
                         " deltapercent = " + deltaPercent +
                         " vol = " + currentVolumePerRequest);
             }
-            if ((lastThroughput == null || throughput < 100000) && stat1.getMax() < 5000) {
+            if ((lastThroughput == null || throughput < 1000000) && stat1.getAverage() < 5000) {
                 double k = 0.5;
                 double d = (1 / (1 + Math.exp(-(((double)x)) * k)));
                 currentVolumePerRequest += d * currentVolumePerRequest;
                 if (currentVolumePerRequest > maxVolumePerRequest) {
                     currentVolumePerRequest = maxVolumePerRequest;
+                } else {
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("increasing volume to " + currentVolumePerRequest + " max volume = " + maxVolumePerRequest);
+                    }
                 }
                 bulkProcessor.setMaxBulkVolume(currentVolumePerRequest);
-                if (logger.isDebugEnabled()) {
-                    logger.debug("metric: increase volume to " + currentVolumePerRequest);
+            } else if (stat1.getAverage() >= 5000) {
+                if (currentVolumePerRequest == maxVolumePerRequest) {
+                    // subtract 10% from max
+                    this.maxVolumePerRequest -= (maxVolumePerRequest / 10);
+                    if (maxVolumePerRequest < 1024) {
+                        maxVolumePerRequest = 1024;
+                    }
                 }
-            } else if (deltaPercent > 10 || stat1.getMax() >= 5000) {
+                // fall back to minimal volume
                 currentVolumePerRequest = minVolumePerRequest;
                 bulkProcessor.setMaxBulkVolume(currentVolumePerRequest);
                 if (logger.isDebugEnabled()) {
-                    logger.debug("metric: decrease volume to " + currentVolumePerRequest);
+                    logger.debug("decreasing volume to " + currentVolumePerRequest + " new max volume = " + maxVolumePerRequest);
                 }
             }
             lastThroughput = throughput;

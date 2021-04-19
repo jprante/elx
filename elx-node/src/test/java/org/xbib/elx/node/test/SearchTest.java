@@ -44,7 +44,7 @@ class SearchTest {
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client)
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(helper.getNodeSettings())
-                .put(Parameters.MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
+                .put(Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
                 .build()) {
             bulkClient.newIndex(indexDefinition);
             bulkClient.startBulk(indexDefinition);

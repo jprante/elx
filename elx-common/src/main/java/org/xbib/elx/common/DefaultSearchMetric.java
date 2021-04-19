@@ -46,8 +46,8 @@ public class DefaultSearchMetric implements SearchMetric {
         emptyQueries = new CountMetric();
         failedQueries = new CountMetric();
         timeoutQueries = new CountMetric();
-        String metricLogIntervalStr = settings.get(Parameters.METRIC_LOG_INTERVAL.getName(),
-                Parameters.METRIC_LOG_INTERVAL.getString());
+        String metricLogIntervalStr = settings.get(Parameters.SEARCH_METRIC_LOG_INTERVAL.getName(),
+                Parameters.SEARCH_METRIC_LOG_INTERVAL.getString());
         TimeValue metricLoginterval = TimeValue.parseTimeValue(metricLogIntervalStr,
                 TimeValue.timeValueSeconds(10), "");
         this.future = scheduledThreadPoolExecutor.scheduleAtFixedRate(this::log, 0L, metricLoginterval.seconds(), TimeUnit.SECONDS);

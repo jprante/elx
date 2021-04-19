@@ -60,14 +60,14 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
     public DefaultBulkProcessor(BulkClient bulkClient, Settings settings) {
         this.bulkClient = bulkClient;
-        int maxActionsPerRequest = settings.getAsInt(Parameters.MAX_ACTIONS_PER_REQUEST.getName(),
-                Parameters.MAX_ACTIONS_PER_REQUEST.getInteger());
-        String flushIntervalStr = settings.get(Parameters.FLUSH_INTERVAL.getName(),
-                Parameters.FLUSH_INTERVAL.getString());
+        int maxActionsPerRequest = settings.getAsInt(Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getName(),
+                Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getInteger());
+        String flushIntervalStr = settings.get(Parameters.BULK_FLUSH_INTERVAL.getName(),
+                Parameters.BULK_FLUSH_INTERVAL.getString());
         TimeValue flushInterval = TimeValue.parseTimeValue(flushIntervalStr,
                 TimeValue.timeValueSeconds(30), "");
-        ByteSizeValue minVolumePerRequest = settings.getAsBytesSize(Parameters.MIN_VOLUME_PER_REQUEST.getName(),
-                ByteSizeValue.parseBytesSizeValue(Parameters.MIN_VOLUME_PER_REQUEST.getString(), "1k"));
+        ByteSizeValue minVolumePerRequest = settings.getAsBytesSize(Parameters.BULK_MIN_VOLUME_PER_REQUEST.getName(),
+                ByteSizeValue.parseBytesSizeValue(Parameters.BULK_MIN_VOLUME_PER_REQUEST.getString(), "1k"));
         this.client = bulkClient.getClient();
         if (flushInterval.millis() > 0L) {
             this.scheduledFuture = bulkClient.getScheduler().scheduleWithFixedDelay(this::flush, flushInterval.millis(),
@@ -80,7 +80,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
         this.closed = new AtomicBoolean(false);
         this.enabled = new AtomicBoolean(false);
         this.executionIdGen = new AtomicLong();
-        this.permits = settings.getAsInt(Parameters.PERMITS.getName(), Parameters.PERMITS.getInteger());
+        this.permits = settings.getAsInt(Parameters.BULK_PERMITS.getName(), Parameters.BULK_PERMITS.getInteger());
         if (permits < 1) {
             throw new IllegalArgumentException("must not be less 1 permits for bulk indexing");
         }

@@ -73,8 +73,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
 
     public DefaultIndexDefinition(AdminClient adminClient, String index, String type, Settings settings)
             throws IOException {
-        String timeValueStr = settings.get(Parameters.MAX_WAIT_BULK_RESPONSE.getName(),
-                Parameters.MAX_WAIT_BULK_RESPONSE.getString());
+        String timeValueStr = settings.get(Parameters.BULK_MAX_WAIT_RESPONSE.getName(),
+                Parameters.BULK_MAX_WAIT_RESPONSE.getString());
         TimeValue timeValue = TimeValue.parseTimeValue(timeValueStr, TimeValue.timeValueSeconds(30), "");
         setMaxWaitTime(timeValue.seconds(), TimeUnit.SECONDS);
         String indexName = settings.get("name", index);
@@ -85,10 +85,10 @@ public class DefaultIndexDefinition implements IndexDefinition {
         setEnabled(enabled);
         String fullIndexName = adminClient.resolveAlias(indexName).stream().findFirst().orElse(indexName);
         setFullIndexName(fullIndexName);
-        setStartBulkRefreshSeconds(settings.getAsInt(Parameters.START_BULK_REFRESH_SECONDS.getName(),
-                Parameters.START_BULK_REFRESH_SECONDS.getInteger()));
-        setStopBulkRefreshSeconds(settings.getAsInt(Parameters.STOP_BULK_REFRESH_SECONDS.getName(),
-                Parameters.STOP_BULK_REFRESH_SECONDS.getInteger()));
+        setStartBulkRefreshSeconds(settings.getAsInt(Parameters.BULK_START_REFRESH_SECONDS.getName(),
+                Parameters.BULK_START_REFRESH_SECONDS.getInteger()));
+        setStopBulkRefreshSeconds(settings.getAsInt(Parameters.BULK_STOP_REFRESH_SECONDS.getName(),
+                Parameters.BULK_STOP_REFRESH_SECONDS.getInteger()));
         if (settings.get("settings") != null && settings.get("mapping") != null) {
             setSettings(findSettingsFrom(settings.get("settings")));
             setMappings(findMappingsFrom(settings.get("mapping")));
@@ -101,7 +101,7 @@ public class DefaultIndexDefinition implements IndexDefinition {
                 DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimeFormat, Locale.getDefault())
                         .withZone(ZoneId.systemDefault());
                 setDateTimeFormatter(dateTimeFormatter);
-                String dateTimePatternStr = settings.get("dateTimePattern", "^(.*?)(\\\\d+)$");
+                String dateTimePatternStr = settings.get("dateTimePattern", "^(.*?)(\\d+)$");
                 Pattern dateTimePattern = Pattern.compile(dateTimePatternStr);
                 setDateTimePattern(dateTimePattern);
                 String fullName = indexName + dateTimeFormatter.format(LocalDateTime.now());

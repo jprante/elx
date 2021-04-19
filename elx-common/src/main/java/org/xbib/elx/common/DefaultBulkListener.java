@@ -31,10 +31,10 @@ public class DefaultBulkListener implements BulkListener {
                                ScheduledThreadPoolExecutor scheduler,
                                Settings settings) {
         this.bulkProcessor = bulkProcessor;
-        boolean enableBulkLogging = settings.getAsBoolean(Parameters.ENABLE_BULK_LOGGING.getName(),
-                Parameters.ENABLE_BULK_LOGGING.getBoolean());
-        boolean failOnBulkError = settings.getAsBoolean(Parameters.FAIL_ON_BULK_ERROR.getName(),
-                Parameters.FAIL_ON_BULK_ERROR.getBoolean());
+        boolean enableBulkLogging = settings.getAsBoolean(Parameters.BULK_LOGGING_ENABLED.getName(),
+                Parameters.BULK_LOGGING_ENABLED.getBoolean());
+        boolean failOnBulkError = settings.getAsBoolean(Parameters.BULK_FAIL_ON_ERROR.getName(),
+                Parameters.BULK_FAIL_ON_ERROR.getBoolean());
         this.isBulkLoggingEnabled = enableBulkLogging;
         this.failOnError = failOnBulkError;
         this.bulkMetric = new DefaultBulkMetric(bulkProcessor, scheduler, settings);

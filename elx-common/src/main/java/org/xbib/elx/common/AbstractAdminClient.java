@@ -305,15 +305,17 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         logger.info("before pruning: index = {} full index = {} delta = {} mintokeep = {} pattern = {}",
                 index, protectedIndexName, delta, mintokeep, pattern);
         if (delta == 0 && mintokeep == 0) {
+            logger.info("no candidates found, delta is 0 and mintokeep is 0");
             return new EmptyPruneResult();
         }
         if (index.equals(protectedIndexName)) {
+            logger.info("no candidates found, only protected index name is given");
             return new EmptyPruneResult();
         }
         ensureClientIsPresent();
         GetIndexRequestBuilder getIndexRequestBuilder = new GetIndexRequestBuilder(client, GetIndexAction.INSTANCE);
         GetIndexResponse getIndexResponse = getIndexRequestBuilder.execute().actionGet();
-        logger.info("before pruning: found total of {} indices", getIndexResponse.getIndices().length);
+        logger.info("before pruning: protected = " + protectedIndexName + " found total of {} indices", getIndexResponse.getIndices().length);
         List<String> candidateIndices = new ArrayList<>();
         for (String s : getIndexResponse.getIndices()) {
             Matcher m = pattern.matcher(s);
@@ -322,6 +324,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             }
         }
         if (candidateIndices.isEmpty()) {
+            logger.info("no candidates found");
             return new EmptyPruneResult();
         }
         if (mintokeep > 0 && candidateIndices.size() <= mintokeep) {
