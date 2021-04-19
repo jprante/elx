@@ -36,6 +36,13 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
 
     private SearchMetric searchMetric;
 
+    private final AtomicBoolean closed;
+
+    public AbstractSearchClient() {
+        super();
+        this.closed = new AtomicBoolean(true);
+    }
+
     @Override
     public SearchMetric getSearchMetric() {
         return searchMetric;
@@ -43,16 +50,20 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
 
     @Override
     public void init(Settings settings) throws IOException {
-        super.init(settings);
-        this.searchMetric = new DefaultSearchMetric();
-        searchMetric.init(settings);
+        if (closed.compareAndSet(true, false)) {
+            super.init(settings);
+            this.searchMetric = new DefaultSearchMetric(getScheduler(), settings);
+            searchMetric.init(settings);
+        }
     }
 
     @Override
     public void close() throws IOException {
-        super.close();
-        if (searchMetric != null) {
-            searchMetric.close();
+        if (closed.compareAndSet(false, true)) {
+            if (searchMetric != null) {
+                searchMetric.close();
+            }
+            super.close();
         }
     }
 

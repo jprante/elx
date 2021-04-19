@@ -32,7 +32,12 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     private BulkProcessor bulkProcessor;
 
-    private final AtomicBoolean closed = new AtomicBoolean(true);
+    private final AtomicBoolean closed;
+
+    public AbstractBulkClient() {
+        super();
+        closed = new AtomicBoolean(true);
+    }
 
     @Override
     public void init(Settings settings) throws IOException {
@@ -59,16 +64,17 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         if (closed.compareAndSet(false, true)) {
             ensureClientIsPresent();
             if (bulkProcessor != null) {
-                logger.info("closing bulk");
+                logger.info("closing bulk procesor");
                 bulkProcessor.close();
             }
             closeClient(settings);
+            super.close();
         }
     }
 
     @Override
     public void newIndex(IndexDefinition indexDefinition) throws IOException {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return;
         }
         String index = indexDefinition.getFullIndexName();
@@ -117,16 +123,25 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public void startBulk(IndexDefinition indexDefinition) throws IOException {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return;
         }
         ensureClientIsPresent();
+        Long bulkQueueSize = getThreadPoolQueueSize("bulk");
+        if (bulkQueueSize != null && bulkQueueSize <= 64) {
+            logger.info("found bulk queue size " + bulkQueueSize + ", expanding to " + bulkQueueSize * 4);
+            bulkQueueSize = bulkQueueSize * 4;
+        } else {
+            logger.warn("undefined or small bulk queue size found: " + bulkQueueSize + " assuming 256");
+            bulkQueueSize = 256L;
+        }
+        putClusterSetting("threadpool.bulk.queue_size", bulkQueueSize, 30L, TimeUnit.SECONDS);
         bulkProcessor.startBulkMode(indexDefinition);
     }
 
     @Override
     public void stopBulk(IndexDefinition indexDefinition) throws IOException {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return;
         }
         ensureClientIsPresent();
@@ -140,7 +155,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public BulkClient index(IndexDefinition indexDefinition, String id, boolean create, BytesReference source) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return this;
         }
         return index(new IndexRequest()
@@ -158,7 +173,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public BulkClient delete(IndexDefinition indexDefinition, String id) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return this;
         }
         return delete(new DeleteRequest()
@@ -181,7 +196,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public BulkClient update(IndexDefinition indexDefinition, String id, BytesReference source) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return this;
         }
         return update(new UpdateRequest()
@@ -210,7 +225,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public void flushIndex(IndexDefinition indexDefinition) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return;
         }
         ensureClientIsPresent();
@@ -219,7 +234,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public void refreshIndex(IndexDefinition indexDefinition) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return;
         }
         ensureClientIsPresent();

@@ -11,16 +11,13 @@ import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.xbib.elx.api.BulkClient;
 import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.BulkProcessor;
 import org.xbib.elx.api.IndexDefinition;
 
 import java.io.IOException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -45,72 +42,51 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
     private final DefaultBulkListener bulkListener;
 
-    private final ScheduledThreadPoolExecutor scheduler;
-
     private ScheduledFuture<?> scheduledFuture;
 
     private BulkRequest bulkRequest;
 
-    private long maxBulkVolume;
+    private long bulkVolume;
 
-    private int maxBulkActions;
+    private int bulkActions;
 
     private final AtomicBoolean closed;
 
     private final AtomicLong executionIdGen;
 
-    private ResizeableSemaphore semaphore;
+    private final ResizeableSemaphore semaphore;
 
-    private int permits;
+    private final int permits;
 
     public DefaultBulkProcessor(BulkClient bulkClient, Settings settings) {
         this.bulkClient = bulkClient;
         int maxActionsPerRequest = settings.getAsInt(Parameters.MAX_ACTIONS_PER_REQUEST.getName(),
                 Parameters.MAX_ACTIONS_PER_REQUEST.getInteger());
-        int maxConcurrentRequests = settings.getAsInt(Parameters.MAX_CONCURRENT_REQUESTS.getName(),
-                Parameters.MAX_CONCURRENT_REQUESTS.getInteger());
-        String flushIngestIntervalStr = settings.get(Parameters.FLUSH_INTERVAL.getName(),
+        String flushIntervalStr = settings.get(Parameters.FLUSH_INTERVAL.getName(),
                 Parameters.FLUSH_INTERVAL.getString());
-        TimeValue flushInterval = TimeValue.parseTimeValue(flushIngestIntervalStr,
+        TimeValue flushInterval = TimeValue.parseTimeValue(flushIntervalStr,
                 TimeValue.timeValueSeconds(30), "");
-        ByteSizeValue maxVolumePerRequest = settings.getAsBytesSize(Parameters.MAX_VOLUME_PER_REQUEST.getName(),
-                ByteSizeValue.parseBytesSizeValue(Parameters.MAX_VOLUME_PER_REQUEST.getString(), "1m"));
-        boolean enableBulkLogging = settings.getAsBoolean(Parameters.ENABLE_BULK_LOGGING.getName(),
-                Parameters.ENABLE_BULK_LOGGING.getBoolean());
-        boolean failOnBulkError = settings.getAsBoolean(Parameters.FAIL_ON_BULK_ERROR.getName(),
-                Parameters.FAIL_ON_BULK_ERROR.getBoolean());
-        int ringBufferSize = settings.getAsInt(Parameters.RESPONSE_TIME_COUNT.getName(),
-                Parameters.RESPONSE_TIME_COUNT.getInteger());
+        ByteSizeValue minVolumePerRequest = settings.getAsBytesSize(Parameters.MIN_VOLUME_PER_REQUEST.getName(),
+                ByteSizeValue.parseBytesSizeValue(Parameters.MIN_VOLUME_PER_REQUEST.getString(), "1k"));
         this.client = bulkClient.getClient();
-        this.scheduler = (ScheduledThreadPoolExecutor) Executors.newScheduledThreadPool(2,
-                EsExecutors.daemonThreadFactory("elx-bulk-processor"));
-        this.scheduler.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
-        this.scheduler.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
         if (flushInterval.millis() > 0L) {
-            this.scheduledFuture = this.scheduler.scheduleWithFixedDelay(this::flush, flushInterval.millis(),
+            this.scheduledFuture = bulkClient.getScheduler().scheduleWithFixedDelay(this::flush, flushInterval.millis(),
                     flushInterval.millis(), TimeUnit.MILLISECONDS);
         }
-        this.bulkListener = new DefaultBulkListener(this, scheduler,
-                enableBulkLogging, failOnBulkError, ringBufferSize);
-        this.permits = maxConcurrentRequests;
-        this.maxBulkActions = maxActionsPerRequest;
-        this.maxBulkVolume = maxVolumePerRequest != null ? maxVolumePerRequest.getBytes() : -1;
+        this.bulkListener = new DefaultBulkListener(this, bulkClient.getScheduler(), settings);
+        this.bulkActions = maxActionsPerRequest;
+        this.bulkVolume = minVolumePerRequest.getBytes();
         this.bulkRequest = new BulkRequest();
         this.closed = new AtomicBoolean(false);
         this.enabled = new AtomicBoolean(false);
         this.executionIdGen = new AtomicLong();
-        if (permits > 0) {
-            this.semaphore = new ResizeableSemaphore(permits);
+        this.permits = settings.getAsInt(Parameters.PERMITS.getName(), Parameters.PERMITS.getInteger());
+        if (permits < 1) {
+            throw new IllegalArgumentException("must not be less 1 permits for bulk indexing");
         }
+        this.semaphore = new ResizeableSemaphore(permits);
         if (logger.isInfoEnabled()) {
-            logger.info("bulk processor now active with maxActionsPerRequest = {} maxConcurrentRequests = {} " +
-                            "flushInterval = {} maxVolumePerRequest = {} " +
-                            "bulk logging = {} fail on bulk error = {} " +
-                            "logger debug = {} from settings = {}",
-                    maxActionsPerRequest, maxConcurrentRequests,
-                    flushInterval, maxVolumePerRequest,
-                    enableBulkLogging, failOnBulkError,
-                    logger.isDebugEnabled(), settings.toDelimitedString(','));
+            logger.info("bulk processor now active");
         }
         setEnabled(true);
     }
@@ -149,22 +125,22 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
     @Override
     public void setMaxBulkActions(int bulkActions) {
-        this.maxBulkActions = bulkActions;
+        this.bulkActions = bulkActions;
     }
 
     @Override
     public int getMaxBulkActions() {
-        return maxBulkActions;
+        return bulkActions;
     }
 
     @Override
     public void setMaxBulkVolume(long bulkSize) {
-        this.maxBulkVolume = bulkSize;
+        this.bulkVolume = bulkSize;
     }
 
     @Override
     public long getMaxBulkVolume() {
-        return maxBulkVolume;
+        return bulkVolume;
     }
 
     @Override
@@ -181,8 +157,8 @@ public class DefaultBulkProcessor implements BulkProcessor {
     public synchronized void add(ActionRequest<?> request) {
         ensureOpenAndActive();
         bulkRequest.add(request);
-        if ((maxBulkActions != -1 && bulkRequest.numberOfActions() >= maxBulkActions) ||
-                (maxBulkVolume != -1 && bulkRequest.estimatedSizeInBytes() >= maxBulkVolume)) {
+        if ((bulkActions != -1 && bulkRequest.numberOfActions() >= bulkActions) ||
+                (bulkVolume != -1 && bulkRequest.estimatedSizeInBytes() >= bulkVolume)) {
             execute();
         }
     }
@@ -220,9 +196,6 @@ public class DefaultBulkProcessor implements BulkProcessor {
             try {
                 if (scheduledFuture != null) {
                     scheduledFuture.cancel(true);
-                }
-                if (scheduler != null) {
-                    scheduler.shutdown();
                 }
                 // like flush but without ensuring open
                 if (bulkRequest.numberOfActions() > 0) {
@@ -294,9 +267,13 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
     private boolean drainSemaphore(long timeValue, TimeUnit timeUnit) throws InterruptedException {
         if (semaphore != null) {
-            if (semaphore.tryAcquire(permits, timeValue, timeUnit)) {
-                semaphore.release(permits);
+            if (permits <= 0) {
                 return true;
+            } else {
+                if (semaphore.tryAcquire(permits, timeValue, timeUnit)) {
+                    semaphore.release(permits);
+                    return true;
+                }
             }
         }
         return false;
@@ -311,6 +288,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
         }
     }
 
+    @SuppressWarnings("serial")
     private static class ResizeableSemaphore extends Semaphore {
 
         ResizeableSemaphore(int permits) {

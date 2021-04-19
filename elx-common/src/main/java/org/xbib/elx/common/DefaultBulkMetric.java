@@ -1,24 +1,32 @@
 package org.xbib.elx.common;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.ByteSizeValue;
+import org.elasticsearch.common.unit.TimeValue;
 import org.xbib.elx.api.BulkMetric;
-import org.xbib.elx.api.BulkProcessor;
 import org.xbib.metrics.api.Count;
 import org.xbib.metrics.api.Metered;
 import org.xbib.metrics.common.CountMetric;
 import org.xbib.metrics.common.Meter;
 
+import java.io.IOException;
 import java.util.LongSummaryStatistics;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class DefaultBulkMetric implements BulkMetric {
 
     private static final Logger logger = LogManager.getLogger(DefaultBulkMetric.class.getName());
 
-    private final BulkProcessor bulkProcessor;
+    private final DefaultBulkProcessor bulkProcessor;
+
+    private final ScheduledFuture<?> future;
 
     private final Meter totalIngest;
 
@@ -34,24 +42,37 @@ public class DefaultBulkMetric implements BulkMetric {
 
     private final Count failed;
 
-    private Long started;
-
-    private Long stopped;
+    private final long measureIntervalSeconds;
 
     private final int ringBufferSize;
 
     private final LongRingBuffer ringBuffer;
 
+    private final long minVolumePerRequest;
+
+    private final long maxVolumePerRequest;
+
+    private Long started;
+
+    private Long stopped;
+
     private Double lastThroughput;
 
-    private long currentMaxVolume;
+    private long currentVolumePerRequest;
 
-    private int currentPermits;
+    private int x = 0;
 
-    public DefaultBulkMetric(BulkProcessor bulkProcessor,
+    public DefaultBulkMetric(DefaultBulkProcessor bulkProcessor,
                              ScheduledThreadPoolExecutor scheduledThreadPoolExecutor,
-                             int ringBufferSize) {
+                             Settings settings) {
         this.bulkProcessor = bulkProcessor;
+        int ringBufferSize = settings.getAsInt(Parameters.RING_BUFFER_SIZE.getName(),
+                Parameters.RING_BUFFER_SIZE.getInteger());
+        String measureIntervalStr = settings.get(Parameters.MEASURE_INTERVAL.getName(),
+                Parameters.MEASURE_INTERVAL.getString());
+        TimeValue measureInterval = TimeValue.parseTimeValue(measureIntervalStr,
+                TimeValue.timeValueSeconds(1), "");
+        this.measureIntervalSeconds = measureInterval.seconds();
         this.totalIngest = new Meter(scheduledThreadPoolExecutor);
         this.ringBufferSize = ringBufferSize;
         this.ringBuffer = new LongRingBuffer(ringBufferSize);
@@ -61,8 +82,18 @@ public class DefaultBulkMetric implements BulkMetric {
         this.submitted = new CountMetric();
         this.succeeded = new CountMetric();
         this.failed = new CountMetric();
-        this.currentMaxVolume = 1024;
-        this.currentPermits = 1;
+        ByteSizeValue minVolumePerRequest = settings.getAsBytesSize(Parameters.MIN_VOLUME_PER_REQUEST.getName(),
+                ByteSizeValue.parseBytesSizeValue(Parameters.MIN_VOLUME_PER_REQUEST.getString(), "1k"));
+        this.minVolumePerRequest = minVolumePerRequest.bytes();
+        ByteSizeValue maxVolumePerRequest = settings.getAsBytesSize(Parameters.MAX_VOLUME_PER_REQUEST.getName(),
+                ByteSizeValue.parseBytesSizeValue(Parameters.MAX_VOLUME_PER_REQUEST.getString(), "1m"));
+        this.maxVolumePerRequest = maxVolumePerRequest.bytes();
+        this.currentVolumePerRequest = minVolumePerRequest.bytes();
+        String metricLogIntervalStr = settings.get(Parameters.METRIC_LOG_INTERVAL.getName(),
+                Parameters.METRIC_LOG_INTERVAL.getString());
+        TimeValue metricLoginterval = TimeValue.parseTimeValue(metricLogIntervalStr,
+                TimeValue.timeValueSeconds(10), "");
+        this.future = scheduledThreadPoolExecutor.scheduleAtFixedRate(this::log, 0L, metricLoginterval.seconds(), TimeUnit.SECONDS);
     }
 
     @Override
@@ -113,7 +144,7 @@ public class DefaultBulkMetric implements BulkMetric {
     @Override
     public void start() {
         this.started = System.nanoTime();
-        totalIngest.start(5L);
+        totalIngest.start(measureIntervalSeconds);
     }
 
     @Override
@@ -123,12 +154,12 @@ public class DefaultBulkMetric implements BulkMetric {
     }
 
     @Override
-    public void close() {
+    public void close() throws IOException {
         stop();
         totalIngest.shutdown();
+        log();
+        this.future.cancel(true);
     }
-
-    private int x = 0;
 
     @Override
     public void recalculate(BulkRequest request, BulkResponse response) {
@@ -138,8 +169,9 @@ public class DefaultBulkMetric implements BulkMetric {
             LongSummaryStatistics stat2 = ringBuffer.longStreamValues2().summaryStatistics();
             double throughput = stat2.getAverage() / stat1.getAverage();
             double delta = lastThroughput != null ? throughput - lastThroughput : 0.0d;
+            double deltaPercent = delta * 100 / throughput;
             if (logger.isDebugEnabled()) {
-                logger.debug("metric: avg = " + stat1.getAverage() +
+                logger.debug("time: avg = " + stat1.getAverage() +
                         " min = " + stat1.getMin() +
                         " max = " + stat1.getMax() +
                         " size: avg = " + stat2.getAverage() +
@@ -148,35 +180,52 @@ public class DefaultBulkMetric implements BulkMetric {
                         " last throughput: " + lastThroughput + " bytes/ms" +
                         " throughput: " + throughput + " bytes/ms" +
                         " delta = " + delta +
-                        " vol = " + currentMaxVolume);
+                        " deltapercent = " + deltaPercent +
+                        " vol = " + currentVolumePerRequest);
             }
-            if (lastThroughput == null || throughput < 10000) {
+            if ((lastThroughput == null || throughput < 100000) && stat1.getMax() < 5000) {
                 double k = 0.5;
                 double d = (1 / (1 + Math.exp(-(((double)x)) * k)));
-                logger.debug("inc: x = " + x + " d = " + d);
-                currentMaxVolume += d * currentMaxVolume;
-                if (currentMaxVolume > 5 + 1024 * 1024) {
-                    currentMaxVolume = 5 * 1024 * 1024;
+                currentVolumePerRequest += d * currentVolumePerRequest;
+                if (currentVolumePerRequest > maxVolumePerRequest) {
+                    currentVolumePerRequest = maxVolumePerRequest;
                 }
-                bulkProcessor.setMaxBulkVolume(currentMaxVolume);
+                bulkProcessor.setMaxBulkVolume(currentVolumePerRequest);
                 if (logger.isDebugEnabled()) {
-                    logger.debug("metric: increase volume to " + currentMaxVolume);
+                    logger.debug("metric: increase volume to " + currentVolumePerRequest);
                 }
-            } else if (delta < -100) {
-                double k = 0.5;
-                double d = (1 / (1 + Math.exp(-(((double)x)) * k)));
-                d = -1/d;
-                logger.debug("dec: x = " + x + " d = " + d);
-                currentMaxVolume += d * currentMaxVolume;
-                if (currentMaxVolume > 5 + 1024 * 1024) {
-                    currentMaxVolume = 5 * 1024 * 1024;
-                }
-                bulkProcessor.setMaxBulkVolume(currentMaxVolume);
+            } else if (deltaPercent > 10 || stat1.getMax() >= 5000) {
+                currentVolumePerRequest = minVolumePerRequest;
+                bulkProcessor.setMaxBulkVolume(currentVolumePerRequest);
                 if (logger.isDebugEnabled()) {
-                    logger.debug("metric: decrease volume to " + currentMaxVolume);
+                    logger.debug("metric: decrease volume to " + currentVolumePerRequest);
                 }
             }
             lastThroughput = throughput;
+        }
+    }
+
+    private void log() {
+        long docs = getSucceeded().getCount();
+        long elapsed = elapsed() / 1000000; // nano to millis
+        double dps = docs * 1000.0 / elapsed;
+        long bytes = getTotalIngestSizeInBytes().getCount();
+        double avg = bytes / (docs + 1.0); // avoid div by zero
+        double bps = bytes * 1000.0 / elapsed;
+        if (logger.isInfoEnabled()) {
+            logger.log(Level.INFO, "{} docs, {} ms = {}, {} = {}, {} = {} avg, {} = {}, {} = {}",
+                    docs,
+                    elapsed,
+                    FormatUtil.formatDurationWords(elapsed, true, true),
+                    bytes,
+                    FormatUtil.formatSize(bytes),
+                    avg,
+                    FormatUtil.formatSize(avg),
+                    dps,
+                    FormatUtil.formatDocumentSpeed(dps),
+                    bps,
+                    FormatUtil.formatSpeed(bps)
+            );
         }
     }
 }

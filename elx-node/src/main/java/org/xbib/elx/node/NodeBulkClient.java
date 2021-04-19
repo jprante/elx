@@ -10,6 +10,7 @@ public class NodeBulkClient extends AbstractBulkClient {
     private final NodeClientHelper helper;
 
     public NodeBulkClient() {
+        super();
         this.helper = new NodeClientHelper();
     }
 

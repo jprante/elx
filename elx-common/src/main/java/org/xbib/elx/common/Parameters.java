@@ -12,17 +12,23 @@ public enum Parameters {
 
     ENABLE_BULK_LOGGING("bulk.logging.enabled", Boolean.class, true),
 
-    FAIL_ON_BULK_ERROR("bulk.failonerror", Boolean.class, true),
+    FAIL_ON_BULK_ERROR("bulk.fail_on_error", Boolean.class, true),
 
     MAX_ACTIONS_PER_REQUEST("bulk.max_actions_per_request", Integer.class, -1),
 
-    RESPONSE_TIME_COUNT("bulk.response_time_count", Integer.class, 16),
+    MIN_VOLUME_PER_REQUEST("bulk.min_volume_per_request", String.class, "1k"),
 
-    MAX_CONCURRENT_REQUESTS("bulk.max_concurrent_requests", Integer.class, 1 /*Runtime.getRuntime().availableProcessors() - 1*/),
+    MAX_VOLUME_PER_REQUEST("bulk.max_volume_per_request", String.class, "5m"),
 
-    MAX_VOLUME_PER_REQUEST("bulk.max_volume_per_request", String.class, "1kb"),
+    FLUSH_INTERVAL("bulk.flush_interval", String.class, "30s"),
 
-    FLUSH_INTERVAL("bulk.flush_interval", String.class, "30s");
+    MEASURE_INTERVAL("bulk.measure_interval", String.class, "1s"),
+
+    METRIC_LOG_INTERVAL("bulk.metric_log_interval", String.class, "10s"),
+
+    RING_BUFFER_SIZE("bulk.ring_buffer_size", Integer.class, Runtime.getRuntime().availableProcessors()),
+
+    PERMITS("bulk.permits", Integer.class, Runtime.getRuntime().availableProcessors() - 1);
 
     private final String name;
 

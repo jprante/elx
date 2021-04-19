@@ -5,6 +5,7 @@ import org.elasticsearch.action.ActionRequest;
 import java.io.Closeable;
 import java.io.Flushable;
 import java.io.IOException;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public interface BulkProcessor extends Closeable, Flushable {

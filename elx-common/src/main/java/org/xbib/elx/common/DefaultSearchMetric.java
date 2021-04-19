@@ -3,16 +3,21 @@ package org.xbib.elx.common;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.TimeValue;
 import org.xbib.elx.api.SearchMetric;
 import org.xbib.metrics.api.Count;
 import org.xbib.metrics.api.Metered;
 import org.xbib.metrics.common.CountMetric;
 import org.xbib.metrics.common.Meter;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class DefaultSearchMetric implements SearchMetric {
 
     private static final Logger logger = LogManager.getLogger(DefaultSearchMetric.class.getName());
+
+    private final ScheduledFuture<?> future;
 
     private final Meter totalQuery;
 
@@ -32,19 +37,24 @@ public class DefaultSearchMetric implements SearchMetric {
 
     private Long stopped;
 
-    public DefaultSearchMetric() {
-        totalQuery = new Meter(Executors.newSingleThreadScheduledExecutor());
+    public DefaultSearchMetric(ScheduledThreadPoolExecutor scheduledThreadPoolExecutor,
+                               Settings settings) {
+        totalQuery = new Meter(scheduledThreadPoolExecutor);
         currentQuery = new CountMetric();
         queries = new CountMetric();
         succeededQueries = new CountMetric();
         emptyQueries = new CountMetric();
         failedQueries = new CountMetric();
         timeoutQueries = new CountMetric();
+        String metricLogIntervalStr = settings.get(Parameters.METRIC_LOG_INTERVAL.getName(),
+                Parameters.METRIC_LOG_INTERVAL.getString());
+        TimeValue metricLoginterval = TimeValue.parseTimeValue(metricLogIntervalStr,
+                TimeValue.timeValueSeconds(10), "");
+        this.future = scheduledThreadPoolExecutor.scheduleAtFixedRate(this::log, 0L, metricLoginterval.seconds(), TimeUnit.SECONDS);
     }
 
     @Override
     public void init(Settings settings) {
-        logger.info("init");
         start();
     }
 
@@ -103,11 +113,19 @@ public class DefaultSearchMetric implements SearchMetric {
     public void stop() {
         this.stopped = System.nanoTime();
         totalQuery.stop();
+        log();
+        this.future.cancel(true);
     }
 
     @Override
     public void close() {
         stop();
         totalQuery.shutdown();
+    }
+
+    private void log() {
+        if (logger.isInfoEnabled()) {
+            logger.info("docs = " + getTotalQueries().getCount());
+        }
     }
 }

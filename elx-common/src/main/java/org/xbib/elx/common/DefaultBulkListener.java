@@ -5,12 +5,12 @@ import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.common.settings.Settings;
 import org.xbib.elx.api.BulkListener;
 import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.BulkProcessor;
 
 import java.io.IOException;
-import java.util.LongSummaryStatistics;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public class DefaultBulkListener implements BulkListener {
@@ -27,15 +27,17 @@ public class DefaultBulkListener implements BulkListener {
 
     private Throwable lastBulkError;
 
-    public DefaultBulkListener(BulkProcessor bulkProcessor,
+    public DefaultBulkListener(DefaultBulkProcessor bulkProcessor,
                                ScheduledThreadPoolExecutor scheduler,
-                               boolean isBulkLoggingEnabled,
-                               boolean failOnError,
-                               int ringBufferSize) {
+                               Settings settings) {
         this.bulkProcessor = bulkProcessor;
-        this.isBulkLoggingEnabled = isBulkLoggingEnabled;
-        this.failOnError = failOnError;
-        this.bulkMetric = new DefaultBulkMetric(bulkProcessor, scheduler, ringBufferSize);
+        boolean enableBulkLogging = settings.getAsBoolean(Parameters.ENABLE_BULK_LOGGING.getName(),
+                Parameters.ENABLE_BULK_LOGGING.getBoolean());
+        boolean failOnBulkError = settings.getAsBoolean(Parameters.FAIL_ON_BULK_ERROR.getName(),
+                Parameters.FAIL_ON_BULK_ERROR.getBoolean());
+        this.isBulkLoggingEnabled = enableBulkLogging;
+        this.failOnError = failOnBulkError;
+        this.bulkMetric = new DefaultBulkMetric(bulkProcessor, scheduler, settings);
         bulkMetric.start();
     }
 

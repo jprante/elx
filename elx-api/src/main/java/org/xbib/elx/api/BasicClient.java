@@ -4,9 +4,12 @@ import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public interface BasicClient extends Closeable {
+
+    void putClusterSetting(String key, Object value, long timeout, TimeUnit timeUnit) throws IOException;
 
     /**
      * Set an Elasticsearch client to extend from it. May be null for TransportClient.
@@ -59,4 +62,6 @@ public interface BasicClient extends Closeable {
     long getSearchableDocs(IndexDefinition index);
 
     boolean isIndexExists(IndexDefinition index);
+
+    ScheduledThreadPoolExecutor getScheduler();
 }

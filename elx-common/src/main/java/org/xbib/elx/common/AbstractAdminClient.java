@@ -9,7 +9,6 @@ import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesAction;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
-import org.elasticsearch.action.admin.indices.alias.IndicesAliasesResponse;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesAction;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesResponse;
@@ -83,7 +82,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public Map<String, ?> getMapping(IndexDefinition indexDefinition) throws IOException {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return null;
         }
         GetMappingsRequestBuilder getMappingsRequestBuilder = new GetMappingsRequestBuilder(client, GetMappingsAction.INSTANCE)
@@ -98,7 +97,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public AdminClient deleteIndex(IndexDefinition indexDefinition) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return null;
         }
         ensureClientIsPresent();
@@ -115,7 +114,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public AdminClient updateReplicaLevel(IndexDefinition indexDefinition, int level) throws IOException {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return null;
         }
         if (level < 1) {
@@ -131,7 +130,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public int getReplicaLevel(IndexDefinition indexDefinition) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return -1;
         }
         ensureClientIsPresent();
@@ -203,7 +202,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         if (additionalAliases == null) {
             return new EmptyIndexShiftResult();
         }
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return new EmptyIndexShiftResult();
         }
         if (indexDefinition.isShiftEnabled()) {
@@ -358,7 +357,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public Long mostRecentDocument(IndexDefinition indexDefinition, String timestampfieldname) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return -1L;
         }
         ensureClientIsPresent();
@@ -385,7 +384,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public boolean forceMerge(IndexDefinition indexDefinition) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return false;
         }
         if (!indexDefinition.isForceMergeEnabled()) {
@@ -425,7 +424,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public void checkMapping(IndexDefinition indexDefinition) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return;
         }
         ensureClientIsPresent();

@@ -1,6 +1,7 @@
 dependencies {
     api project(':elx-api')
     implementation "org.xbib:guice:${project.property('xbib-guice.version')}"
+    implementation "org.xbib:time:${project.property('xbib-time.version')}"
     runtimeOnly "com.vividsolutions:jts:${project.property('jts.version')}"
     runtimeOnly "com.github.spullara.mustache.java:compiler:${project.property('mustache.version')}"
     runtimeOnly "net.java.dev.jna:jna:${project.property('jna.version')}"

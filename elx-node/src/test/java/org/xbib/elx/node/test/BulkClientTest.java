@@ -129,7 +129,6 @@ class BulkClientTest {
                 .put(helper.getNodeSettings())
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
-            indexDefinition.setStartBulkRefreshSeconds(0);
             bulkClient.newIndex(indexDefinition);
             bulkClient.startBulk(indexDefinition);
             ExecutorService executorService = Executors.newFixedThreadPool(maxthreads);

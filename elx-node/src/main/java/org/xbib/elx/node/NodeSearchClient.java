@@ -10,6 +10,7 @@ public class NodeSearchClient extends AbstractSearchClient {
     private final NodeClientHelper helper;
 
     public NodeSearchClient() {
+        super();
         this.helper = new NodeClientHelper();
     }
 

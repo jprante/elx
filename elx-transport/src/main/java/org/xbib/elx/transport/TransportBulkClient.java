@@ -14,6 +14,7 @@ public class TransportBulkClient extends AbstractBulkClient {
     private final TransportClientHelper helper;
 
     public TransportBulkClient() {
+        super();
         this.helper = new TransportClientHelper();
     }
 

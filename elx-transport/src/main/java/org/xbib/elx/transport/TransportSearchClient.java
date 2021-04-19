@@ -14,6 +14,7 @@ public class TransportSearchClient extends AbstractSearchClient {
     private final TransportClientHelper helper;
 
     public TransportSearchClient() {
+        super();
         this.helper = new TransportClientHelper();
     }
 
