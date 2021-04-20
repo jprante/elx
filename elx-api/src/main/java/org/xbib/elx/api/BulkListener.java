@@ -2,11 +2,12 @@ package org.xbib.elx.api;
 
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
+import java.io.Closeable;
 
 /**
  * A bulk listener for following executions of bulk operations.
  */
-public interface BulkListener {
+public interface BulkListener extends Closeable {
 
     /**
      * Callback before the bulk is executed.

@@ -4,21 +4,30 @@ import org.elasticsearch.action.DocWriteRequest;
 
 import java.io.Closeable;
 import java.io.Flushable;
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 public interface BulkProcessor extends Closeable, Flushable {
 
-    void setBulkActions(int bulkActions);
+    void setEnabled(boolean enabled);
 
-    int getBulkActions();
+    void startBulkMode(IndexDefinition indexDefinition) throws IOException;
 
-    void setBulkSize(long bulkSize);
+    void stopBulkMode(IndexDefinition indexDefinition) throws IOException;
 
-    long getBulkSize();
+    void setMaxBulkActions(int bulkActions);
 
-    BulkProcessor add(DocWriteRequest<?> request);
+    int getMaxBulkActions();
 
-    boolean awaitFlush(long timeout, TimeUnit unit) throws InterruptedException;
+    void setMaxBulkVolume(long bulkSize);
 
-    boolean awaitClose(long timeout, TimeUnit unit) throws InterruptedException;
+    long getMaxBulkVolume();
+
+    void add(DocWriteRequest<?> request);
+
+    boolean waitForBulkResponses(long timeout, TimeUnit unit);
+
+    BulkMetric getBulkMetric();
+
+    Throwable getLastBulkError();
 }

@@ -1,14 +1,13 @@
 package org.xbib.elx.api;
 
-import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.xbib.metrics.api.Count;
 import org.xbib.metrics.api.Metered;
 
 import java.io.Closeable;
 
 public interface BulkMetric extends Closeable {
-
-    void init(Settings settings);
 
     void markTotalIngest(long n);
 
@@ -31,4 +30,6 @@ public interface BulkMetric extends Closeable {
     void start();
 
     void stop();
+
+    void recalculate(BulkRequest request, BulkResponse response);
 }
