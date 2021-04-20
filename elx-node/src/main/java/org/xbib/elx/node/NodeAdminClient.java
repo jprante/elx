@@ -10,6 +10,7 @@ public class NodeAdminClient extends AbstractAdminClient {
     private final NodeClientHelper helper;
 
     public NodeAdminClient() {
+        super();
         this.helper = new NodeClientHelper();
     }
 

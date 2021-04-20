@@ -5,18 +5,19 @@ import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
-import org.xbib.elx.api.BulkController;
+import org.elasticsearch.common.settings.Settings;
 import org.xbib.elx.api.BulkListener;
 import org.xbib.elx.api.BulkMetric;
-import java.util.Arrays;
-import java.util.LongSummaryStatistics;
-import java.util.stream.LongStream;
+import org.xbib.elx.api.BulkProcessor;
+
+import java.io.IOException;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public class DefaultBulkListener implements BulkListener {
 
     private final Logger logger = LogManager.getLogger(DefaultBulkListener.class.getName());
 
-    private final BulkController bulkController;
+    private final BulkProcessor bulkProcessor;
 
     private final BulkMetric bulkMetric;
 
@@ -26,21 +27,22 @@ public class DefaultBulkListener implements BulkListener {
 
     private Throwable lastBulkError;
 
-    private final int responseTimeCount;
+    public DefaultBulkListener(DefaultBulkProcessor bulkProcessor,
+                               ScheduledThreadPoolExecutor scheduler,
+                               Settings settings) {
+        this.bulkProcessor = bulkProcessor;
+        boolean enableBulkLogging = settings.getAsBoolean(Parameters.BULK_LOGGING_ENABLED.getName(),
+                Parameters.BULK_LOGGING_ENABLED.getBoolean());
+        boolean failOnBulkError = settings.getAsBoolean(Parameters.BULK_FAIL_ON_ERROR.getName(),
+                Parameters.BULK_FAIL_ON_ERROR.getBoolean());
+        this.isBulkLoggingEnabled = enableBulkLogging;
+        this.failOnError = failOnBulkError;
+        this.bulkMetric = new DefaultBulkMetric(bulkProcessor, scheduler, settings);
+        bulkMetric.start();
+    }
 
-    private final LastResponseTimes responseTimes;
-
-    public DefaultBulkListener(BulkController bulkController,
-                               BulkMetric bulkMetric,
-                               boolean isBulkLoggingEnabled,
-                               boolean failOnError,
-                               int responseTimeCount) {
-        this.bulkController = bulkController;
-        this.bulkMetric = bulkMetric;
-        this.isBulkLoggingEnabled = isBulkLoggingEnabled;
-        this.failOnError = failOnError;
-        this.responseTimeCount = responseTimeCount;
-        this.responseTimes = new LastResponseTimes(responseTimeCount);
+    public BulkMetric getBulkMetric() {
+        return bulkMetric;
     }
 
     @Override
@@ -52,7 +54,7 @@ public class DefaultBulkListener implements BulkListener {
         bulkMetric.getCurrentIngestNumDocs().inc(n);
         bulkMetric.getTotalIngestSizeInBytes().inc(request.estimatedSizeInBytes());
         if (isBulkLoggingEnabled && logger.isDebugEnabled()) {
-            logger.debug("before bulk [{}] [actions={}] [bytes={}] [concurrent requests={}]",
+            logger.debug("before bulk [{}] [actions={}] [bytes={}] [requests={}]",
                     executionId,
                     request.numberOfActions(),
                     request.estimatedSizeInBytes(),
@@ -62,20 +64,11 @@ public class DefaultBulkListener implements BulkListener {
 
     @Override
     public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
+        bulkMetric.recalculate(request, response);
         long l = bulkMetric.getCurrentIngest().getCount();
         bulkMetric.getCurrentIngest().dec();
         bulkMetric.getSucceeded().inc(response.getItems().length);
         bulkMetric.markTotalIngest(response.getItems().length);
-        if (responseTimeCount > 0 && responseTimes.add(response.getTook().millis()) == 0) {
-            LongSummaryStatistics stat = responseTimes.longStream().summaryStatistics();
-            if (isBulkLoggingEnabled && logger.isDebugEnabled()) {
-                logger.debug("bulk response millis: avg = " + stat.getAverage() +
-                        " min =" + stat.getMin() +
-                        " max = " + stat.getMax() +
-                        " actions = " + bulkController.getBulkProcessor().getBulkActions() +
-                        " size = " + bulkController.getBulkProcessor().getBulkSize());
-            }
-        }
         int n = 0;
         for (BulkItemResponse itemResponse : response.getItems()) {
             bulkMetric.getCurrentIngest().dec(itemResponse.getIndex(), itemResponse.getType(), itemResponse.getId());
@@ -86,7 +79,7 @@ public class DefaultBulkListener implements BulkListener {
             }
         }
         if (isBulkLoggingEnabled && logger.isDebugEnabled()) {
-            logger.debug("after bulk [{}] [succeeded={}] [failed={}] [{}ms] [concurrent requests={}]",
+            logger.debug("after bulk [{}] [succeeded={}] [failed={}] [{}ms] [requests={}]",
                     executionId,
                     bulkMetric.getSucceeded().getCount(),
                     bulkMetric.getFailed().getCount(),
@@ -114,7 +107,7 @@ public class DefaultBulkListener implements BulkListener {
         if (logger.isErrorEnabled()) {
             logger.error("after bulk [" + executionId + "] error", failure);
         }
-        bulkController.inactivate();
+        bulkProcessor.setEnabled(false);
     }
 
     @Override
@@ -122,29 +115,8 @@ public class DefaultBulkListener implements BulkListener {
         return lastBulkError;
     }
 
-    private static class LastResponseTimes {
-
-        private final Long[] values;
-
-        private final int limit;
-
-        private int index;
-
-        public LastResponseTimes(int limit) {
-            this.values = new Long[limit];
-            Arrays.fill(values, -1L);
-            this.limit = limit;
-            this.index = 0;
-        }
-
-        public int add(Long value) {
-            int i = index++ % limit;
-            values[i] = value;
-            return i;
-        }
-
-        public LongStream longStream() {
-            return Arrays.stream(values).filter(v -> v != -1L).mapToLong(Long::longValue);
-        }
+    @Override
+    public void close() throws IOException {
+        bulkMetric.close();
     }
 }

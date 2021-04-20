@@ -7,6 +7,12 @@ import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.elasticsearch.action.admin.cluster.node.info.NodeInfo;
+import org.elasticsearch.action.admin.cluster.node.info.NodesInfoAction;
+import org.elasticsearch.action.admin.cluster.node.info.NodesInfoRequest;
+import org.elasticsearch.action.admin.cluster.node.info.NodesInfoResponse;
+import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsAction;
+import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
@@ -22,10 +28,15 @@ import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.threadpool.ThreadPool;
+import org.elasticsearch.threadpool.ThreadPoolInfo;
 import org.xbib.elx.api.BasicClient;
 import org.xbib.elx.api.IndexDefinition;
 import java.io.IOException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -37,10 +48,21 @@ public abstract class AbstractBasicClient implements BasicClient {
 
     protected Settings settings;
 
+    private final ScheduledThreadPoolExecutor scheduler;
+
     private final AtomicBoolean closed;
 
     public AbstractBasicClient() {
+        this.scheduler = (ScheduledThreadPoolExecutor) Executors.newScheduledThreadPool(2,
+                EsExecutors.daemonThreadFactory("elx-bulk-processor"));
+        this.scheduler.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
+        this.scheduler.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
         closed = new AtomicBoolean(false);
+    }
+
+    @Override
+    public ScheduledThreadPoolExecutor getScheduler() {
+        return scheduler;
     }
 
     @Override
@@ -56,7 +78,7 @@ public abstract class AbstractBasicClient implements BasicClient {
     @Override
     public void init(Settings settings) throws IOException {
         if (closed.compareAndSet(false, true)) {
-            logger.log(Level.INFO, "initializing client with settings = " + settings.toDelimitedString(','));
+            logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
             this.settings = settings;
             setClient(createClient(settings));
         }
@@ -80,6 +102,22 @@ public abstract class AbstractBasicClient implements BasicClient {
             logger.warn(e.getMessage(), e);
             return "[" + e.getMessage() + "]";
         }
+    }
+
+    @Override
+    public void putClusterSetting(String key, Object value, long timeout, TimeUnit timeUnit) throws IOException {
+        ensureClientIsPresent();
+        if (key == null) {
+            throw new IOException("no key given");
+        }
+        if (value == null) {
+            throw new IOException("no value given");
+        }
+        Settings.Builder updateSettingsBuilder = Settings.builder();
+        updateSettingsBuilder.put(key, value.toString());
+        ClusterUpdateSettingsRequest updateSettingsRequest = new ClusterUpdateSettingsRequest();
+        updateSettingsRequest.transientSettings(updateSettingsBuilder).timeout(toTimeValue(timeout, timeUnit));
+        client.execute(ClusterUpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
     }
 
     @Override
@@ -140,6 +178,10 @@ public abstract class AbstractBasicClient implements BasicClient {
 
     @Override
     public long getSearchableDocs(IndexDefinition indexDefinition) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
+            return -1L;
+        }
+        ensureClientIsPresent();
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE)
                 .setIndices(indexDefinition.getFullIndexName())
                 .setQuery(QueryBuilders.matchAllQuery())
@@ -162,6 +204,9 @@ public abstract class AbstractBasicClient implements BasicClient {
         ensureClientIsPresent();
         if (closed.compareAndSet(false, true)) {
             closeClient(settings);
+            if (scheduler != null) {
+                scheduler.shutdown();
+            }
         }
     }
 
@@ -193,12 +238,12 @@ public abstract class AbstractBasicClient implements BasicClient {
         }
     }
 
-    protected boolean ensureIndexDefinition(IndexDefinition indexDefinition) {
+    protected boolean isIndexDefinitionDisabled(IndexDefinition indexDefinition) {
         if (!indexDefinition.isEnabled()) {
             logger.warn("index " + indexDefinition.getFullIndexName() + " is disabled");
-            return false;
+            return true;
         }
-        return true;
+        return false;
     }
 
     protected static TimeValue toTimeValue(long timeValue, TimeUnit timeUnit) {

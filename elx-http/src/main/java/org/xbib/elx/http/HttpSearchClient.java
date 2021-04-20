@@ -19,6 +19,7 @@ public class HttpSearchClient extends AbstractSearchClient implements Elasticsea
     private final HttpClientHelper helper;
 
     public HttpSearchClient() {
+        super();
         this.helper = new HttpClientHelper();
     }
 

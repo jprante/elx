@@ -1,6 +1,5 @@
 package org.xbib.elx.transport;
 
-import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.Version;
@@ -19,9 +18,6 @@ import org.elasticsearch.common.network.NetworkModule;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
-import org.elasticsearch.common.xcontent.ToXContent;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.transport.Netty4Plugin;
 
@@ -43,26 +39,14 @@ public class TransportClientHelper {
 
     private static final Map<String, ElasticsearchClient> clientMap = new HashMap<>();
 
-    protected ElasticsearchClient createClient(Settings settings) throws IOException {
-        if (settings != null) {
-            String systemIdentifier = System.getProperty("os.name")
-                    + " " + System.getProperty("java.vm.name")
-                    + " " + System.getProperty("java.vm.vendor")
-                    + " " + System.getProperty("java.vm.version")
-                    + " Elasticsearch " + Version.CURRENT.toString();
-            Settings transportClientSettings = getTransportClientSettings(settings);
-            XContentBuilder effectiveSettingsBuilder = XContentFactory.jsonBuilder().startObject();
-            logger.log(Level.INFO, "creating transport client on {} with settings {}",
-                    systemIdentifier,
-                    Strings.toString(transportClientSettings.toXContent(effectiveSettingsBuilder,
-                            ToXContent.EMPTY_PARAMS).endObject()));
-            return new MyTransportClient(transportClientSettings, Collections.singletonList(Netty4Plugin.class));
-        }
-        return null;
+    public ElasticsearchClient createClient(Settings settings) {
+        String clusterName = settings.get("cluster.name", "elasticsearch");
+        return clientMap.computeIfAbsent(clusterName, key -> innerCreateClient(settings));
     }
 
     public void closeClient(Settings settings) {
-        ElasticsearchClient client = clientMap.remove(settings.get("cluster.name"));
+        String clusterName = settings.get("cluster.name", "elasticsearch");
+        ElasticsearchClient client = clientMap.remove(clusterName);
         if (client != null) {
             if (client instanceof Client) {
                 ((Client) client).close();
@@ -74,7 +58,7 @@ public class TransportClientHelper {
     public void init(TransportClient transportClient, Settings settings) throws IOException {
         Collection<TransportAddress> addrs = findAddresses(settings);
         if (!connect(transportClient, addrs, settings.getAsBoolean("autodiscover", false))) {
-            throw new NoNodeAvailableException("no cluster nodes available, check settings "
+            throw new NoNodeAvailableException("no cluster nodes available, check settings = "
                     + Strings.toString(settings));
         }
     }
@@ -126,6 +110,18 @@ public class TransportClientHelper {
             return true;
         }
         return false;
+    }
+
+    private ElasticsearchClient innerCreateClient(Settings settings) {
+        String systemIdentifier = System.getProperty("os.name")
+                + " " + System.getProperty("java.vm.name")
+                + " " + System.getProperty("java.vm.vendor")
+                + " " + System.getProperty("java.vm.version")
+                + " Elasticsearch " + Version.CURRENT.toString();
+        logger.info("creating transport client on {} with custom settings {}",
+                systemIdentifier, Strings.toString(settings));
+        Settings transportClientSettings = getTransportClientSettings(settings);
+        return new MyTransportClient(transportClientSettings, Collections.singletonList(Netty4Plugin.class));
     }
 
     private Settings getTransportClientSettings(Settings settings) {

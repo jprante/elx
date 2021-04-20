@@ -149,5 +149,5 @@ public interface BulkClient extends BasicClient, Flushable {
      */
     void flushIndex(IndexDefinition indexDefinition);
 
-    BulkProcessor getBulkController();
+    BulkProcessor getBulkProcessor();
 }

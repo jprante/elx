@@ -4,28 +4,33 @@ public enum Parameters {
 
     DATE_TIME_FORMAT("dateTimeFormat", String.class, "yyyyMMdd"),
 
-    MAX_WAIT_BULK_RESPONSE("bulk.max_wait_response", String.class, "30s"),
+    BULK_MAX_WAIT_RESPONSE("bulk.max_wait_response", String.class, "30s"),
 
-    MAX_WAIT_BULK_RESPONSE_SECONDS("bulk.max_wait_response_seconds", Integer.class, 30),
+    BULK_START_REFRESH_SECONDS("bulk.start_refresh_seconds", Integer.class, -1),
 
-    START_BULK_REFRESH_SECONDS("bulk.start_refresh_seconds", Integer.class, 0),
+    BULK_STOP_REFRESH_SECONDS("bulk.stop_refresh_seconds", Integer.class, 30),
 
-    STOP_BULK_REFRESH_SECONDS("bulk.stop_refresh_seconds", Integer.class, 30),
+    BULK_LOGGING_ENABLED("bulk.logging.enabled", Boolean.class, true),
 
-    ENABLE_BULK_LOGGING("bulk.logging.enabled", Boolean.class, true),
+    BULK_FAIL_ON_ERROR("bulk.fail_on_error", Boolean.class, true),
 
-    FAIL_ON_BULK_ERROR("bulk.failonerror", Boolean.class, true),
+    BULK_MAX_ACTIONS_PER_REQUEST("bulk.max_actions_per_request", Integer.class, -1),
 
-    MAX_ACTIONS_PER_REQUEST("bulk.max_actions_per_request", Integer.class, 1000),
+    BULK_MIN_VOLUME_PER_REQUEST("bulk.min_volume_per_request", String.class, "1k"),
 
-    RESPONSE_TIME_COUNT("bulk.response_time_count", Integer.class, 64),
+    BULK_MAX_VOLUME_PER_REQUEST("bulk.max_volume_per_request", String.class, "1m"),
 
-    // 0 = 1 CPU, synchronous requests, &gt; 0 = n + 1 CPUs, asynchronous requests
-    MAX_CONCURRENT_REQUESTS("bulk.max_concurrent_requests", Integer.class, Runtime.getRuntime().availableProcessors() - 1),
+    BULK_FLUSH_INTERVAL("bulk.flush_interval", String.class, "30s"),
 
-    MAX_VOLUME_PER_REQUEST("bulk.max_volume_per_request", String.class, "1mb"),
+    BULK_MEASURE_INTERVAL("bulk.measure_interval", String.class, "1s"),
 
-    FLUSH_INTERVAL("bulk.flush_interval", String.class, "30s");
+    BULK_METRIC_LOG_INTERVAL("bulk.metric_log_interval", String.class, "10s"),
+
+    BULK_RING_BUFFER_SIZE("bulk.ring_buffer_size", Integer.class, Runtime.getRuntime().availableProcessors()),
+
+    BULK_PERMITS("bulk.permits", Integer.class, Runtime.getRuntime().availableProcessors() - 1),
+
+    SEARCH_METRIC_LOG_INTERVAL("search.metric_log_interval", String.class, "10s");
 
     private final String name;
 

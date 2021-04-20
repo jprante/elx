@@ -15,6 +15,7 @@ public class TransportAdminClient extends AbstractAdminClient {
     private final TransportClientHelper helper;
 
     public TransportAdminClient() {
+        super();
         this.helper = new TransportClientHelper();
     }
 

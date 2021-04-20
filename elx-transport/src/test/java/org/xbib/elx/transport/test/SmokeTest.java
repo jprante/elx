@@ -67,12 +67,12 @@ class SmokeTest {
             adminClient.updateReplicaLevel(indexDefinition, 2);
             int replica = adminClient.getReplicaLevel(indexDefinition);
             assertEquals(2, replica);
-            assertEquals(0, bulkClient.getBulkController().getBulkMetric().getFailed().getCount());
-            assertEquals(6, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
-            if (bulkClient.getBulkController().getLastBulkError() != null) {
-                logger.error("error", bulkClient.getBulkController().getLastBulkError());
+            assertEquals(0, bulkClient.getBulkProcessor().getBulkMetric().getFailed().getCount());
+            assertEquals(6, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }
-            assertNull(bulkClient.getBulkController().getLastBulkError());
+            assertNull(bulkClient.getBulkProcessor().getLastBulkError());
             adminClient.deleteIndex(indexDefinition);
             XContentBuilder builder = JsonXContent.contentBuilder()
                     .startObject()

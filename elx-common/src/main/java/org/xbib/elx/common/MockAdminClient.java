@@ -34,7 +34,6 @@ public class MockAdminClient extends AbstractAdminClient {
 
     @Override
     public void waitForShards(long maxWaitTime, TimeUnit timeUnit) {
-
     }
 
     @Override

@@ -15,6 +15,14 @@ public interface BulkProcessor extends Closeable, Flushable {
 
     void stopBulkMode(IndexDefinition indexDefinition) throws IOException;
 
+    void add(DocWriteRequest<?> request);
+
+    boolean waitForBulkResponses(long timeout, TimeUnit unit);
+
+    BulkMetric getBulkMetric();
+
+    Throwable getLastBulkError();
+
     void setMaxBulkActions(int bulkActions);
 
     int getMaxBulkActions();
@@ -23,11 +31,4 @@ public interface BulkProcessor extends Closeable, Flushable {
 
     long getMaxBulkVolume();
 
-    void add(DocWriteRequest<?> request);
-
-    boolean waitForBulkResponses(long timeout, TimeUnit unit);
-
-    BulkMetric getBulkMetric();
-
-    Throwable getLastBulkError();
 }

@@ -37,11 +37,11 @@ class IndexShiftTest {
 
     @Test
     void testIndexShift() throws Exception {
-        try (final TransportAdminClient adminClient = ClientBuilder.builder()
+        try (TransportAdminClient adminClient = ClientBuilder.builder()
                 .setAdminClientProvider(TransportAdminClientProvider.class)
                 .put(helper.getTransportSettings())
                 .build();
-        final TransportBulkClient bulkClient = ClientBuilder.builder()
+             TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
                 .put(helper.getTransportSettings())
                 .build()) {
@@ -104,10 +104,10 @@ class IndexShiftTest {
             assertTrue(aliases.containsKey("d"));
             assertTrue(aliases.containsKey("e"));
             assertTrue(aliases.containsKey("f"));
-            if (bulkClient.getBulkController().getLastBulkError() != null) {
-                logger.error("error", bulkClient.getBulkController().getLastBulkError());
+            if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }
-            assertNull(bulkClient.getBulkController().getLastBulkError());
+            assertNull(bulkClient.getBulkProcessor().getLastBulkError());
         }
     }
 }

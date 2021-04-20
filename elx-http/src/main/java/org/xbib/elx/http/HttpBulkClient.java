@@ -19,6 +19,7 @@ public class HttpBulkClient extends AbstractBulkClient implements ElasticsearchC
     private final HttpClientHelper helper;
 
     public HttpBulkClient() {
+        super();
         this.helper = new HttpClientHelper();
     }
 

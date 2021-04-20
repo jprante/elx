@@ -1,6 +1,5 @@
 package org.xbib.elx.common;
 
-import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.indices.create.CreateIndexAction;
@@ -23,7 +22,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.xbib.elx.api.BulkClient;
-import org.xbib.elx.api.BulkController;
+import org.xbib.elx.api.BulkProcessor;
 import org.xbib.elx.api.IndexDefinition;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -37,29 +36,32 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     private static final Logger logger = LogManager.getLogger(AbstractBulkClient.class.getName());
 
-    private BulkController bulkController;
+    private BulkProcessor bulkProcessor;
 
-    private final AtomicBoolean closed = new AtomicBoolean(true);
+    private final AtomicBoolean closed;
+
+    public AbstractBulkClient() {
+        super();
+        closed = new AtomicBoolean(true);
+    }
 
     @Override
     public void init(Settings settings) throws IOException {
         if (closed.compareAndSet(true, false)) {
             super.init(settings);
-            logger.log(Level.INFO, "initializing bulk controller with settings = " + settings.toDelimitedString(','));
-            bulkController = new DefaultBulkController(this);
-            bulkController.init(settings);
+            bulkProcessor = new DefaultBulkProcessor(this, settings);
         }
     }
 
     @Override
-    public BulkController getBulkController() {
-        return bulkController;
+    public BulkProcessor getBulkProcessor() {
+        return bulkProcessor;
     }
 
     @Override
     public void flush() throws IOException {
-        if (bulkController != null) {
-            bulkController.flush();
+        if (bulkProcessor != null) {
+            bulkProcessor.flush();
         }
     }
 
@@ -67,17 +69,18 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     public void close() throws IOException {
         if (closed.compareAndSet(false, true)) {
             ensureClientIsPresent();
-            if (bulkController != null) {
-                logger.info("closing bulk controller");
-                bulkController.close();
+            if (bulkProcessor != null) {
+                logger.info("closing bulk processor");
+                bulkProcessor.close();
             }
             closeClient(settings);
+            super.close();
         }
     }
 
     @Override
     public void newIndex(IndexDefinition indexDefinition) throws IOException {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return;
         }
         String index = indexDefinition.getFullIndexName();
@@ -121,23 +124,23 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public void startBulk(IndexDefinition indexDefinition) throws IOException {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return;
         }
-        if (bulkController != null) {
+        if (bulkProcessor != null) {
             ensureClientIsPresent();
-            bulkController.startBulkMode(indexDefinition);
+            bulkProcessor.startBulkMode(indexDefinition);
         }
     }
 
     @Override
     public void stopBulk(IndexDefinition indexDefinition) throws IOException {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return;
         }
-        if (bulkController != null) {
+        if (bulkProcessor != null) {
             ensureClientIsPresent();
-            bulkController.stopBulkMode(indexDefinition);
+            bulkProcessor.stopBulkMode(indexDefinition);
         }
     }
 
@@ -148,7 +151,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public BulkClient index(IndexDefinition indexDefinition, String id, boolean create, BytesReference source) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return this;
         }
         return index(new IndexRequest()
@@ -158,16 +161,14 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public BulkClient index(IndexRequest indexRequest) {
-        if (bulkController != null) {
-            ensureClientIsPresent();
-            bulkController.bulkIndex(indexRequest);
-        }
+        ensureClientIsPresent();
+        bulkProcessor.add(indexRequest);
         return this;
     }
 
     @Override
     public BulkClient delete(IndexDefinition indexDefinition, String id) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return this;
         }
         return delete(new DeleteRequest().index(indexDefinition.getFullIndexName()).id(id));
@@ -175,9 +176,9 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public BulkClient delete(DeleteRequest deleteRequest) {
-        if (bulkController != null) {
+        if (bulkProcessor != null) {
             ensureClientIsPresent();
-            bulkController.bulkDelete(deleteRequest);
+            bulkProcessor.add(deleteRequest);
         }
         return this;
     }
@@ -189,7 +190,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public BulkClient update(IndexDefinition indexDefinition, String id, BytesReference source) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return this;
         }
         return update(new UpdateRequest()
@@ -199,17 +200,20 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public BulkClient update(UpdateRequest updateRequest) {
-        if (bulkController != null) {
+        if (bulkProcessor != null) {
             ensureClientIsPresent();
-            bulkController.bulkUpdate(updateRequest);
+            bulkProcessor.add(updateRequest);
         }
         return this;
     }
 
     @Override
     public boolean waitForResponses(long timeout, TimeUnit timeUnit) {
-        ensureClientIsPresent();
-        return bulkController.waitForBulkResponses(timeout, timeUnit);
+        if (bulkProcessor != null) {
+            ensureClientIsPresent();
+            return bulkProcessor.waitForBulkResponses(timeout, timeUnit);
+        }
+        return false;
     }
 
     @Override
@@ -219,7 +223,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public void flushIndex(IndexDefinition indexDefinition) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return;
         }
         ensureClientIsPresent();
@@ -228,7 +232,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public void refreshIndex(IndexDefinition indexDefinition) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return;
         }
         ensureClientIsPresent();

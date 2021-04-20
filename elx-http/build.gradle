@@ -1,9 +1,7 @@
-import org.apache.tools.ant.taskdefs.condition.Os
-
 dependencies{
     api project(':elx-common')
-    api "org.elasticsearch.plugin:transport-netty4-client:${rootProject.property('elasticsearch.version')}"
     api "org.xbib:netty-http-client:${project.property('xbib-netty-http.version')}"
+    api "org.elasticsearch.plugin:transport-netty4-client:${rootProject.property('elasticsearch.version')}"
     runtimeOnly "org.bouncycastle:bcpkix-jdk15on:${project.property('bouncycastle.version')}"
     runtimeOnly "io.netty:netty-tcnative-boringssl-static:${project.property('tcnative.version')}"
 }

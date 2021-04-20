@@ -1,5 +1,7 @@
 package org.xbib.elx.common;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.bulk.BulkAction;
@@ -7,21 +9,18 @@ import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.concurrent.EsExecutors;
-import org.elasticsearch.common.util.concurrent.FutureUtils;
-import org.xbib.elx.api.BulkListener;
+import org.xbib.elx.api.BulkClient;
+import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.BulkProcessor;
-import org.xbib.elx.api.BulkRequestHandler;
+import org.xbib.elx.api.IndexDefinition;
 
-import java.util.Objects;
-import java.util.concurrent.Executors;
+import java.io.IOException;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -30,367 +29,215 @@ import java.util.concurrent.atomic.AtomicLong;
  * (either based on number of actions, based on the size, or time), and
  * to easily control the number of concurrent bulk
  * requests allowed to be executed in parallel.
- * In order to create a new bulk processor, use the {@link Builder}.
  */
 public class DefaultBulkProcessor implements BulkProcessor {
 
-    private final ScheduledThreadPoolExecutor scheduler;
+    private static final Logger logger = LogManager.getLogger(DefaultBulkProcessor.class);
 
-    private final ScheduledFuture<?> scheduledFuture;
+    private final BulkClient bulkClient;
 
-    private final AtomicLong executionIdGen;
+    private final AtomicBoolean enabled;
 
-    private final BulkRequestHandler bulkRequestHandler;
+    private final ElasticsearchClient client;
+
+    private final DefaultBulkListener bulkListener;
+
+    private ScheduledFuture<?> scheduledFuture;
 
     private BulkRequest bulkRequest;
 
+    private long bulkVolume;
+
     private int bulkActions;
 
-    private long bulkSize;
+    private final AtomicBoolean closed;
 
-    private volatile boolean closed;
+    private final AtomicLong executionIdGen;
 
-    private DefaultBulkProcessor(ElasticsearchClient client,
-                                 BulkListener bulkListener,
-                                 String name,
-                                 int concurrentRequests,
-                                 int bulkActions,
-                                 ByteSizeValue bulkSize,
-                                 TimeValue flushInterval) {
-        this.executionIdGen = new AtomicLong();
-        this.closed = false;
-        this.bulkActions = bulkActions;
-        this.bulkSize = bulkSize.getBytes();
-        this.bulkRequest = new BulkRequest();
-        this.bulkRequestHandler = concurrentRequests == 0 ?
-                new SyncBulkRequestHandler(client, bulkListener) :
-                new AsyncBulkRequestHandler(client, bulkListener, concurrentRequests);
-        if (flushInterval != null) {
-            this.scheduler = (ScheduledThreadPoolExecutor) Executors.newScheduledThreadPool(1,
-                    EsExecutors.daemonThreadFactory(Settings.EMPTY,
-                            name != null ? "[" + name + "]" : "" + "bulk_processor"));
-            this.scheduler.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
-            this.scheduler.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
-            this.scheduledFuture = this.scheduler.scheduleWithFixedDelay(new Flush(), flushInterval.millis(),
+    private final ResizeableSemaphore semaphore;
+
+    private final int permits;
+
+    public DefaultBulkProcessor(BulkClient bulkClient, Settings settings) {
+        this.bulkClient = bulkClient;
+        int maxActionsPerRequest = settings.getAsInt(Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getName(),
+                Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getInteger());
+        String flushIntervalStr = settings.get(Parameters.BULK_FLUSH_INTERVAL.getName(),
+                Parameters.BULK_FLUSH_INTERVAL.getString());
+        TimeValue flushInterval = TimeValue.parseTimeValue(flushIntervalStr,
+                TimeValue.timeValueSeconds(30), "");
+        ByteSizeValue minVolumePerRequest = settings.getAsBytesSize(Parameters.BULK_MIN_VOLUME_PER_REQUEST.getName(),
+                ByteSizeValue.parseBytesSizeValue(Parameters.BULK_MIN_VOLUME_PER_REQUEST.getString(), "1k"));
+        this.client = bulkClient.getClient();
+        if (flushInterval.millis() > 0L) {
+            this.scheduledFuture = bulkClient.getScheduler().scheduleWithFixedDelay(this::flush, flushInterval.millis(),
                     flushInterval.millis(), TimeUnit.MILLISECONDS);
+        }
+        this.bulkListener = new DefaultBulkListener(this, bulkClient.getScheduler(), settings);
+        this.bulkActions = maxActionsPerRequest;
+        this.bulkVolume = minVolumePerRequest.getBytes();
+        this.bulkRequest = new BulkRequest();
+        this.closed = new AtomicBoolean(false);
+        this.enabled = new AtomicBoolean(false);
+        this.executionIdGen = new AtomicLong();
+        this.permits = settings.getAsInt(Parameters.BULK_PERMITS.getName(), Parameters.BULK_PERMITS.getInteger());
+        if (permits < 1) {
+            throw new IllegalArgumentException("must not be less 1 permits for bulk indexing");
+        }
+        this.semaphore = new ResizeableSemaphore(permits);
+        if (logger.isInfoEnabled()) {
+            logger.info("bulk processor now active");
+        }
+        setEnabled(true);
+    }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        this.enabled.set(enabled);
+    }
+
+    @Override
+    public void startBulkMode(IndexDefinition indexDefinition) throws IOException {
+        String indexName = indexDefinition.getFullIndexName();
+        int interval = indexDefinition.getStartBulkRefreshSeconds();
+        if (interval != 0) {
+            logger.info("starting bulk on " + indexName + " with new refresh interval " + interval);
+            bulkClient.updateIndexSetting(indexName, "refresh_interval", interval + "s", 30L, TimeUnit.SECONDS);
         } else {
-            this.scheduler = null;
-            this.scheduledFuture = null;
+            logger.warn("ignoring starting bulk on " + indexName + " with refresh interval " + interval);
         }
     }
 
-    public static Builder builder(ElasticsearchClient client, BulkListener bulkListener) {
-        Objects.requireNonNull(bulkListener, "A listener for the BulkProcessor is required but null");
-        return new Builder(client, bulkListener);
+    @Override
+    public void stopBulkMode(IndexDefinition indexDefinition) throws IOException {
+        String indexName = indexDefinition.getFullIndexName();
+        int interval = indexDefinition.getStopBulkRefreshSeconds();
+        flush();
+        if (waitForBulkResponses(indexDefinition.getMaxWaitTime(), indexDefinition.getMaxWaitTimeUnit())) {
+            if (interval != 0) {
+                logger.info("stopping bulk on " + indexName + " with new refresh interval " + interval);
+                bulkClient.updateIndexSetting(indexName, "refresh_interval", interval + "s", 30L, TimeUnit.SECONDS);
+            } else {
+                logger.warn("ignoring stopping bulk on " + indexName + " with refresh interval " + interval);
+            }
+        }
     }
 
     @Override
-    public void setBulkActions(int bulkActions) {
+    public void setMaxBulkActions(int bulkActions) {
         this.bulkActions = bulkActions;
     }
 
     @Override
-    public int getBulkActions() {
+    public int getMaxBulkActions() {
         return bulkActions;
     }
 
     @Override
-    public void setBulkSize(long bulkSize) {
-        this.bulkSize = bulkSize;
+    public void setMaxBulkVolume(long bulkVolume) {
+        this.bulkVolume = bulkVolume;
     }
 
     @Override
-    public long getBulkSize() {
-        return bulkSize;
+    public long getMaxBulkVolume() {
+        return bulkVolume;
     }
 
-    /**
-     * Wait for bulk request handler with flush.
-     * @param timeout the timeout value
-     * @param unit the timeout unit
-     * @return true is method was successful, false if timeout
-     * @throws InterruptedException if timeout
-     */
     @Override
-    public synchronized boolean awaitFlush(long timeout, TimeUnit unit) throws InterruptedException {
-        Objects.requireNonNull(unit, "A time unit is required for awaitFlush() but null");
-        if (closed) {
-            return true;
-        }
-        // flush
-        if (bulkRequest.numberOfActions() > 0) {
-            execute();
-        }
-        // wait for all bulk responses
-        return bulkRequestHandler.close(timeout, unit);
+    public BulkMetric getBulkMetric() {
+        return bulkListener.getBulkMetric();
     }
 
-    /**
-     * Closes the processor. Any remaining bulk actions are flushed and then closed. This emthod can only be called
-     * once as the last action of a bulk processor.
-     *
-     * If concurrent requests are not enabled, returns {@code true} immediately.
-     * If concurrent requests are enabled, waits for up to the specified timeout for all bulk requests to complete then
-     * returns {@code true},
-     * If the specified waiting time elapses before all bulk requests complete, {@code false} is returned.
-     *
-     * @param timeout The maximum time to wait for the bulk requests to complete
-     * @param unit    The time unit of the {@code timeout} argument
-     * @return {@code true} if all bulk requests completed and {@code false} if the waiting time elapsed before all the
-     * bulk requests completed
-     * @throws InterruptedException If the current thread is interrupted
-     */
     @Override
-    public synchronized boolean awaitClose(long timeout, TimeUnit unit) throws InterruptedException {
-        Objects.requireNonNull(unit, "A time unit is required for awaitCLose() but null");
-        if (closed) {
-            return true;
-        }
-        closed = true;
-        if (scheduledFuture != null) {
-            FutureUtils.cancel(scheduledFuture);
-            scheduler.shutdown();
-        }
-        if (bulkRequest.numberOfActions() > 0) {
-            execute();
-        }
-        return bulkRequestHandler.close(timeout, unit);
+    public Throwable getLastBulkError() {
+        return bulkListener.getLastBulkError();
     }
 
-    /**
-     * Adds either a delete or an index request.
-     *
-     * @param request request
-     * @return his bulk processor
-     */
     @Override
-    public synchronized DefaultBulkProcessor add(DocWriteRequest<?> request) {
-        ensureOpen();
+    public synchronized void add(DocWriteRequest<?> request) {
+        ensureOpenAndActive();
         bulkRequest.add(request);
         if ((bulkActions != -1 && bulkRequest.numberOfActions() >= bulkActions) ||
-                (bulkSize != -1 && bulkRequest.estimatedSizeInBytes() >= bulkSize)) {
+                (bulkVolume != -1 && bulkRequest.estimatedSizeInBytes() >= bulkVolume)) {
             execute();
         }
-        return this;
     }
 
-    /**
-     * Flush pending delete or index requests.
-     */
     @Override
     public synchronized void flush() {
-        ensureOpen();
+        ensureOpenAndActive();
         if (bulkRequest.numberOfActions() > 0) {
             execute();
         }
+        // do not drain semaphore
     }
 
-    /**
-     * Closes the processor. If flushing by time is enabled, then it's shutdown. Any remaining bulk actions are flushed.
-     */
     @Override
-    public void close() {
+    public synchronized boolean waitForBulkResponses(long timeout, TimeUnit unit) {
         try {
-            // 0 = immediate close
-            awaitClose(0, TimeUnit.NANOSECONDS);
+            if (closed.get()) {
+                // silently skip closed condition
+                return true;
+            }
+            if (bulkRequest.numberOfActions() > 0) {
+                execute();
+            }
+            return drainSemaphore(timeout, unit);
+
         } catch (InterruptedException exc) {
             Thread.currentThread().interrupt();
+            logger.error("interrupted while waiting for bulk responses");
+            return false;
         }
     }
 
-    private void ensureOpen() {
-        if (closed) {
-            throw new IllegalStateException("bulk processor already closed");
+    @Override
+    public synchronized void close() throws IOException {
+        if (closed.compareAndSet(false, true)) {
+            try {
+                if (scheduledFuture != null) {
+                    scheduledFuture.cancel(true);
+                }
+                // like flush but without ensuring open
+                if (bulkRequest.numberOfActions() > 0) {
+                    execute();
+                }
+                drainSemaphore(0L, TimeUnit.NANOSECONDS);
+                bulkListener.close();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
     private void execute() {
         BulkRequest myBulkRequest = this.bulkRequest;
-        long executionId = executionIdGen.incrementAndGet();
         this.bulkRequest = new BulkRequest();
-        this.bulkRequestHandler.execute(myBulkRequest, executionId);
-    }
-
-    /**
-     * A builder used to create a build an instance of a bulk processor.
-     */
-    public static class Builder {
-
-        private final ElasticsearchClient client;
-
-        private final BulkListener bulkListener;
-
-        private String name;
-
-        private int concurrentRequests = 1;
-
-        private int bulkActions = 1000;
-
-        private ByteSizeValue bulkSize = new ByteSizeValue(10, ByteSizeUnit.MB);
-
-        private TimeValue flushInterval = null;
-
-        /**
-         * Creates a builder of bulk processor with the client to use and the listener that will be used
-         * to be notified on the completion of bulk requests.
-         *
-         * @param client the client
-         * @param bulkListener the listener
-         */
-        Builder(ElasticsearchClient client, BulkListener bulkListener) {
-            this.client = client;
-            this.bulkListener = bulkListener;
-        }
-
-        /**
-         * Sets an optional name to identify this bulk processor.
-         *
-         * @param name name
-         * @return this builder
-         */
-        public Builder setName(String name) {
-            this.name = name;
-            return this;
-        }
-
-        /**
-         * Sets the number of concurrent requests allowed to be executed. A value of 0 means that only a single
-         * request will be allowed to be executed. A value of 1 means 1 concurrent request is allowed to be executed
-         * while accumulating new bulk requests. Defaults to {@code 1}.
-         *
-         * @param concurrentRequests maximum number of concurrent requests
-         * @return this builder
-         */
-        public Builder setConcurrentRequests(int concurrentRequests) {
-            this.concurrentRequests = concurrentRequests;
-            return this;
-        }
-
-        /**
-         * Sets when to flush a new bulk request based on the number of actions currently added. Defaults to
-         * {@code 1000}. Can be set to {@code -1} to disable it.
-         *
-         * @param bulkActions bulk actions
-         * @return this builder
-         */
-        public Builder setBulkActions(int bulkActions) {
-            this.bulkActions = bulkActions;
-            return this;
-        }
-
-        /**
-         * Sets when to flush a new bulk request based on the size of actions currently added. Defaults to
-         * {@code 5mb}. Can be set to {@code -1} to disable it.
-         *
-         * @param bulkSize bulk size
-         * @return this builder
-         */
-        public Builder setBulkSize(ByteSizeValue bulkSize) {
-            this.bulkSize = bulkSize;
-            return this;
-        }
-
-        /**
-         * Sets a flush interval flushing *any* bulk actions pending if the interval passes. Defaults to not set.
-         * Note, both {@link #setBulkActions(int)} and {@link #setBulkSize(org.elasticsearch.common.unit.ByteSizeValue)}
-         * can be set to {@code -1} with the flush interval set allowing for complete async processing of bulk actions.
-         *
-         * @param flushInterval flush interval
-         * @return this builder
-         */
-        public Builder setFlushInterval(TimeValue flushInterval) {
-            this.flushInterval = flushInterval;
-            return this;
-        }
-
-        /**
-         * Builds a new bulk processor.
-         *
-         * @return a bulk processor
-         */
-        public DefaultBulkProcessor build() {
-            return new DefaultBulkProcessor(client, bulkListener, name, concurrentRequests, bulkActions, bulkSize, flushInterval);
-        }
-    }
-
-    private class Flush implements Runnable {
-
-        @Override
-        public void run() {
-            synchronized (DefaultBulkProcessor.this) {
-                if (closed) {
-                    return;
-                }
-                if (bulkRequest.numberOfActions() == 0) {
-                    return;
-                }
-                execute();
-            }
-        }
-    }
-
-    private static class SyncBulkRequestHandler implements BulkRequestHandler {
-
-        private final ElasticsearchClient client;
-
-        private final BulkListener bulkListener;
-
-        SyncBulkRequestHandler(ElasticsearchClient client, BulkListener bulkListener) {
-            this.client = client;
-            this.bulkListener = bulkListener;
-        }
-
-        @Override
-        public void execute(BulkRequest bulkRequest, long executionId) {
+        long executionId = executionIdGen.incrementAndGet();
+        if (semaphore == null) {
             boolean afterCalled = false;
             try {
-                bulkListener.beforeBulk(executionId, bulkRequest);
-                BulkResponse bulkResponse = client.execute(BulkAction.INSTANCE, bulkRequest).actionGet();
+                bulkListener.beforeBulk(executionId, myBulkRequest);
+                BulkResponse bulkResponse = client.execute(BulkAction.INSTANCE, myBulkRequest).actionGet();
                 afterCalled = true;
-                bulkListener.afterBulk(executionId, bulkRequest, bulkResponse);
+                bulkListener.afterBulk(executionId, myBulkRequest, bulkResponse);
             } catch (Exception e) {
                 if (!afterCalled) {
-                    bulkListener.afterBulk(executionId, bulkRequest, e);
+                    bulkListener.afterBulk(executionId, myBulkRequest, e);
                 }
             }
-        }
-
-        @Override
-        public boolean close(long timeout, TimeUnit unit) {
-            return true;
-        }
-    }
-
-    private static class AsyncBulkRequestHandler implements BulkRequestHandler {
-
-        private final ElasticsearchClient client;
-
-        private final BulkListener bulkListener;
-
-        private final Semaphore semaphore;
-
-        private final int concurrentRequests;
-
-        private AsyncBulkRequestHandler(ElasticsearchClient client, BulkListener bulkListener, int concurrentRequests) {
-            this.client = client;
-            this.bulkListener = bulkListener;
-            this.concurrentRequests = concurrentRequests;
-            this.semaphore = new Semaphore(concurrentRequests);
-        }
-
-        @Override
-        public void execute(BulkRequest bulkRequest, long executionId) {
+        } else {
             boolean bulkRequestSetupSuccessful = false;
             boolean acquired = false;
             try {
-                bulkListener.beforeBulk(executionId, bulkRequest);
+                bulkListener.beforeBulk(executionId, myBulkRequest);
                 semaphore.acquire();
                 acquired = true;
-                client.execute(BulkAction.INSTANCE, bulkRequest, new ActionListener<>() {
+                client.execute(BulkAction.INSTANCE, myBulkRequest, new ActionListener<>() {
                     @Override
                     public void onResponse(BulkResponse response) {
                         try {
-                            bulkListener.afterBulk(executionId, bulkRequest, response);
+                            bulkListener.afterBulk(executionId, myBulkRequest, response);
                         } finally {
                             semaphore.release();
                         }
@@ -399,7 +246,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
                     @Override
                     public void onFailure(Exception e) {
                         try {
-                            bulkListener.afterBulk(executionId, bulkRequest, e);
+                            bulkListener.afterBulk(executionId, myBulkRequest, e);
                         } finally {
                             semaphore.release();
                         }
@@ -408,24 +255,50 @@ public class DefaultBulkProcessor implements BulkProcessor {
                 bulkRequestSetupSuccessful = true;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                bulkListener.afterBulk(executionId, bulkRequest, e);
+                bulkListener.afterBulk(executionId, myBulkRequest, e);
             } catch (Exception e) {
-                bulkListener.afterBulk(executionId, bulkRequest, e);
+                bulkListener.afterBulk(executionId, myBulkRequest, e);
             } finally {
                 if (!bulkRequestSetupSuccessful && acquired) {
-                    // if we fail on client.bulk() release the semaphore
                     semaphore.release();
                 }
             }
         }
+    }
+
+    private boolean drainSemaphore(long timeValue, TimeUnit timeUnit) throws InterruptedException {
+        if (semaphore != null) {
+            if (permits <= 0) {
+                return true;
+            } else {
+                if (semaphore.tryAcquire(permits, timeValue, timeUnit)) {
+                    semaphore.release(permits);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void ensureOpenAndActive() {
+        if (closed.get()) {
+            throw new IllegalStateException("bulk processor is closed");
+        }
+        if (!enabled.get()) {
+            throw new IllegalStateException("bulk processor is no longer enabled");
+        }
+    }
+
+    @SuppressWarnings("serial")
+    private static class ResizeableSemaphore extends Semaphore {
+
+        ResizeableSemaphore(int permits) {
+            super(permits, true);
+        }
 
         @Override
-        public boolean close(long timeout, TimeUnit unit) throws InterruptedException {
-            if (semaphore.tryAcquire(concurrentRequests, timeout, unit)) {
-                semaphore.release(concurrentRequests);
-                return true;
-            }
-            return false;
+        protected void reducePermits(int reduction) {
+            super.reducePermits(reduction);
         }
     }
 }

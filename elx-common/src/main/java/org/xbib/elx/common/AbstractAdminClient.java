@@ -81,7 +81,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public Map<String, ?> getMapping(IndexDefinition indexDefinition) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return null;
         }
         GetMappingsRequestBuilder getMappingsRequestBuilder = new GetMappingsRequestBuilder(client, GetMappingsAction.INSTANCE)
@@ -96,7 +96,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public AdminClient deleteIndex(IndexDefinition indexDefinition) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return this;
         }
         String index = indexDefinition.getFullIndexName();
@@ -113,7 +113,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public AdminClient updateReplicaLevel(IndexDefinition indexDefinition, int level) throws IOException {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return this;
         }
         if (level < 1) {
@@ -129,7 +129,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public int getReplicaLevel(IndexDefinition indexDefinition) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return -1;
         }
         String index = indexDefinition.getFullIndexName();
@@ -207,7 +207,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         if (additionalAliases == null) {
             return new EmptyIndexShiftResult();
         }
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return new EmptyIndexShiftResult();
         }
         if (indexDefinition.isShiftEnabled()) {
@@ -295,7 +295,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public IndexPruneResult pruneIndex(IndexDefinition indexDefinition) {
-        return indexDefinition != null && indexDefinition.isPruneEnabled() &&
+        return indexDefinition != null&& indexDefinition.isEnabled() && indexDefinition.isPruneEnabled() &&
                 indexDefinition.getRetention() != null &&
                 indexDefinition.getDateTimePattern() != null ?
                 pruneIndex(indexDefinition.getIndex(),
@@ -313,9 +313,11 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         logger.info("before pruning: index = {} full index = {} delta = {} mintokeep = {} pattern = {}",
                 index, protectedIndexName, delta, mintokeep, pattern);
         if (delta == 0 && mintokeep == 0) {
+            logger.info("no candidates found, delta is 0 and mintokeep is 0");
             return new EmptyPruneResult();
         }
         if (index.equals(protectedIndexName)) {
+            logger.info("no candidates found, only protected index name is given");
             return new EmptyPruneResult();
         }
         ensureClientIsPresent();
@@ -330,6 +332,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             }
         }
         if (candidateIndices.isEmpty()) {
+             logger.info("no candidates found");
             return new EmptyPruneResult();
         }
         if (mintokeep > 0 && candidateIndices.size() <= mintokeep) {
@@ -365,7 +368,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public Long mostRecentDocument(IndexDefinition indexDefinition, String timestampfieldname) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return -1L;
         }
         ensureClientIsPresent();
@@ -393,7 +396,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public boolean forceMerge(IndexDefinition indexDefinition) {
-        if (!ensureIndexDefinition(indexDefinition)) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
             return false;
         }
         if (!indexDefinition.isForceMergeEnabled()) {
@@ -433,6 +436,9 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public void checkMapping(IndexDefinition indexDefinition) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
+            return;
+        }
         ensureClientIsPresent();
         GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices(indexDefinition.getFullIndexName());
         GetMappingsResponse getMappingsResponse = client.execute(GetMappingsAction.INSTANCE, getMappingsRequest).actionGet();
