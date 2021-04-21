@@ -2,15 +2,11 @@ package org.xbib.elx.transport.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.DefaultIndexDefinition;
-import org.xbib.elx.transport.TransportAdminClient;
-import org.xbib.elx.transport.TransportAdminClientProvider;
 import org.xbib.elx.transport.TransportBulkClient;
 import org.xbib.elx.transport.TransportBulkClientProvider;
 
@@ -21,7 +17,6 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(TestExtension.class)
 class BulkClientTest {
@@ -37,25 +32,6 @@ class BulkClientTest {
     }
 
     @Test
-    void testSingleDoc() throws Exception {
-        try (TransportBulkClient bulkClient = ClientBuilder.builder()
-                .setBulkClientProvider(TransportBulkClientProvider.class)
-                .put(helper.getTransportSettings())
-                .build()) {
-            IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
-            bulkClient.newIndex(indexDefinition);
-            bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
-            bulkClient.flush();
-            bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-            assertEquals(1, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
-            if (bulkClient.getBulkController().getLastBulkError() != null) {
-                logger.error("error", bulkClient.getBulkController().getLastBulkError());
-            }
-            assertNull(bulkClient.getBulkController().getLastBulkError());
-        }
-    }
-
-    @Test
     void testNewIndex() throws Exception {
         try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
@@ -67,29 +43,20 @@ class BulkClientTest {
     }
 
     @Test
-    void testMapping() throws Exception {
-        try (TransportAdminClient adminClient = ClientBuilder.builder()
-                .setAdminClientProvider(TransportAdminClientProvider.class)
+    void testSingleDoc() throws Exception {
+        try (TransportBulkClient bulkClient = ClientBuilder.builder()
+                .setBulkClientProvider(TransportBulkClientProvider.class)
                 .put(helper.getTransportSettings())
-                .build();
-             TransportBulkClient bulkClient = ClientBuilder.builder()
-                 .setBulkClientProvider(TransportBulkClientProvider.class)
-                 .put(helper.getTransportSettings())
-                 .build()) {
-            XContentBuilder builder = JsonXContent.contentBuilder()
-                    .startObject()
-                    .startObject("doc")
-                    .startObject("properties")
-                    .startObject("location")
-                    .field("type", "geo_point")
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .endObject();
+                .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
-            indexDefinition.setMappings(builder.string());
             bulkClient.newIndex(indexDefinition);
-            assertTrue(adminClient.getMapping(indexDefinition).containsKey("properties"));
+            bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
+            bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
+            assertEquals(1, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
+            }
+            assertNull(bulkClient.getBulkProcessor().getLastBulkError());
         }
     }
 
@@ -106,24 +73,22 @@ class BulkClientTest {
                 bulkClient.index(indexDefinition, null, false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
-            bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-            assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
-            if (bulkClient.getBulkController().getLastBulkError() != null) {
-                logger.error("error", bulkClient.getBulkController().getLastBulkError());
+            assertEquals(numactions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }
-            assertNull(bulkClient.getBulkController().getLastBulkError());
+            assertNull(bulkClient.getBulkProcessor().getLastBulkError());
             bulkClient.refreshIndex(indexDefinition);
             assertEquals(numactions, bulkClient.getSearchableDocs(indexDefinition));
         }
     }
 
     @Test
-    void testThreadedRandomDocs() {
-        int maxthreads = Runtime.getRuntime().availableProcessors();
-        //long maxActionsPerRequest = MAX_ACTIONS_PER_REQUEST;
+    void testThreadedRandomDocs() throws Exception {
+        final int maxthreads = Runtime.getRuntime().availableProcessors();
         final long actions = ACTIONS;
-        long timeout = 120L;
+        final long timeout = 120L;
         try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
                 .put(helper.getTransportSettings())
@@ -153,15 +118,13 @@ class BulkClientTest {
                 logger.error("latch timeout!");
             }
             bulkClient.stopBulk(indexDefinition);
-            assertEquals(maxthreads * actions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
+            assertEquals(maxthreads * actions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
             bulkClient.refreshIndex(indexDefinition);
             assertEquals(maxthreads * actions, bulkClient.getSearchableDocs(indexDefinition));
-            if (bulkClient.getBulkController().getLastBulkError() != null) {
-                logger.error("error", bulkClient.getBulkController().getLastBulkError());
+            if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }
-            assertNull(bulkClient.getBulkController().getLastBulkError());
-        } catch (Exception e) {
-            logger.error(e.getMessage(), e);
+            assertNull(bulkClient.getBulkProcessor().getLastBulkError());
         }
     }
 }

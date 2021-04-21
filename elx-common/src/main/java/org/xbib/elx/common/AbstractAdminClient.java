@@ -17,6 +17,7 @@ import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeAction;
 import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeRequest;
+import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeResponse;
 import org.elasticsearch.action.admin.indices.get.GetIndexAction;
 import org.elasticsearch.action.admin.indices.get.GetIndexRequestBuilder;
 import org.elasticsearch.action.admin.indices.get.GetIndexResponse;
@@ -54,6 +55,7 @@ import org.xbib.elx.api.IndexPruneResult;
 import org.xbib.elx.api.IndexShiftResult;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -67,9 +69,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -81,7 +81,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     private static final Logger logger = LogManager.getLogger(AbstractAdminClient.class.getName());
 
     @Override
-    public Map<String, ?> getMapping(IndexDefinition indexDefinition) throws IOException {
+    public Map<String, ?> getMapping(IndexDefinition indexDefinition) {
         if (isIndexDefinitionDisabled(indexDefinition)) {
             return null;
         }
@@ -89,10 +89,14 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                 .setIndices(indexDefinition.getFullIndexName())
                 .setTypes(indexDefinition.getType());
         GetMappingsResponse getMappingsResponse = getMappingsRequestBuilder.execute().actionGet();
-        return getMappingsResponse.getMappings()
-                .get(indexDefinition.getFullIndexName())
-                .get(indexDefinition.getType())
-                .getSourceAsMap();
+        try {
+            return getMappingsResponse.getMappings()
+                    .get(indexDefinition.getFullIndexName())
+                    .get(indexDefinition.getType())
+                    .getSourceAsMap();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override
@@ -206,17 +210,18 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             return new EmptyIndexShiftResult();
         }
         if (indexDefinition.isShiftEnabled()) {
-            return shiftIndex(indexDefinition.getIndex(),
-                    indexDefinition.getFullIndexName(), additionalAliases.stream()
+            return shiftIndex(indexDefinition.getIndex(), indexDefinition.getFullIndexName(),
+                    additionalAliases.stream()
                             .filter(a -> a != null && !a.isEmpty())
                             .collect(Collectors.toList()), indexAliasAdder);
         }
         return new EmptyIndexShiftResult();
     }
 
-    private IndexShiftResult shiftIndex(String index, String fullIndexName,
-                                       List<String> additionalAliases,
-                                       IndexAliasAdder adder) {
+    private IndexShiftResult shiftIndex(String index,
+                                        String fullIndexName,
+                                        List<String> additionalAliases,
+                                        IndexAliasAdder adder) {
         ensureClientIsPresent();
         if (index == null) {
             return new EmptyIndexShiftResult(); // nothing to shift to
@@ -289,7 +294,9 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public IndexPruneResult pruneIndex(IndexDefinition indexDefinition) {
-        return indexDefinition != null && indexDefinition.isEnabled() && indexDefinition.isPruneEnabled() ?
+        return indexDefinition != null && indexDefinition.isEnabled() && indexDefinition.isPruneEnabled() &&
+                indexDefinition.getRetention() != null &&
+                indexDefinition.getDateTimePattern() != null ?
                 pruneIndex(indexDefinition.getIndex(),
                 indexDefinition.getFullIndexName(),
                 indexDefinition.getDateTimePattern(),
@@ -315,7 +322,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         ensureClientIsPresent();
         GetIndexRequestBuilder getIndexRequestBuilder = new GetIndexRequestBuilder(client, GetIndexAction.INSTANCE);
         GetIndexResponse getIndexResponse = getIndexRequestBuilder.execute().actionGet();
-        logger.info("before pruning: protected = " + protectedIndexName + " found total of {} indices", getIndexResponse.getIndices().length);
+        logger.info("before pruning: found total of {} indices", getIndexResponse.getIndices().length);
         List<String> candidateIndices = new ArrayList<>();
         for (String s : getIndexResponse.getIndices()) {
             Matcher m = pattern.matcher(s);
@@ -372,7 +379,8 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.indices(indexDefinition.getFullIndexName());
         searchRequest.source(builder);
-        SearchResponse searchResponse = client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
+        SearchResponse searchResponse =
+                client.execute(SearchAction.INSTANCE, searchRequest).actionGet();
         if (searchResponse.getHits().getHits().length == 1) {
             SearchHit hit = searchResponse.getHits().getHits()[0];
             if (hit.getFields().get(timestampfieldname) != null) {
@@ -394,22 +402,16 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             return false;
         }
         ensureClientIsPresent();
-        String index = indexDefinition.getFullIndexName();
+        logger.info("force merge of " + indexDefinition);
         ForceMergeRequest forceMergeRequest = new ForceMergeRequest();
-        forceMergeRequest.indices(index);
-        try {
-            client.execute(ForceMergeAction.INSTANCE, forceMergeRequest)
-                    .get(indexDefinition.getMaxWaitTime(), indexDefinition.getMaxWaitTimeUnit());
-            return true;
-        } catch (TimeoutException e) {
-            logger.error("timeout");
-        } catch (ExecutionException e) {
-            logger.error(e.getMessage(), e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.error(e.getMessage(), e);
+        forceMergeRequest.indices(indexDefinition.getFullIndexName());
+        ForceMergeResponse forceMergeResponse =
+                client.execute(ForceMergeAction.INSTANCE, forceMergeRequest).actionGet();
+        if (forceMergeResponse.getFailedShards() > 0) {
+            throw new IllegalStateException("failed shards after force merge: " + forceMergeResponse.getFailedShards());
         }
-        return false;
+        waitForCluster("GREEN", 300L, TimeUnit.SECONDS);
+        return true;
     }
 
     @Override
@@ -467,7 +469,8 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                     .setTypes(type)
                     .setQuery(QueryBuilders.matchAllQuery())
                     .setSize(0);
-            SearchResponse searchResponse = searchRequestBuilder.execute().actionGet();
+            SearchResponse searchResponse =
+                    searchRequestBuilder.execute().actionGet();
             long total = searchResponse.getHits().getTotalHits();
             if (total > 0L) {
                 Map<String, Long> fields = new TreeMap<>();

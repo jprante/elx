@@ -31,7 +31,7 @@ public class TransportAdminClient extends AbstractAdminClient {
     }
 
     @Override
-    public void closeClient(Settings settings) throws IOException {
+    public void closeClient(Settings settings) {
         helper.closeClient(settings);
     }
 }

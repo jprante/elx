@@ -30,7 +30,7 @@ public class TransportBulkClient extends AbstractBulkClient {
     }
 
     @Override
-    public void closeClient(Settings settings) throws IOException {
+    public void closeClient(Settings settings) {
         helper.closeClient(settings);
     }
 }

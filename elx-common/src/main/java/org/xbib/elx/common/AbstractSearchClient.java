@@ -60,10 +60,10 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
     @Override
     public void close() throws IOException {
         if (closed.compareAndSet(false, true)) {
+            super.close();
             if (searchMetric != null) {
                 searchMetric.close();
             }
-            super.close();
         }
     }
 
@@ -137,9 +137,24 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE);
         queryBuilder.accept(searchRequestBuilder);
         searchRequestBuilder.setScroll(scrollTime).setSize(scrollSize);
-        SearchResponse initialSearchResponse = searchRequestBuilder.execute().actionGet();
+        searchRequestBuilder.setScroll(scrollTime).setSize(scrollSize);
+        ActionFuture<SearchResponse> actionFuture = searchRequestBuilder.execute();
+        searchMetric.getCurrentQueries().inc();
+        SearchResponse initialSearchResponse = actionFuture.actionGet();
+        searchMetric.getCurrentQueries().dec();
+        searchMetric.getQueries().inc();
+        searchMetric.markTotalQueries(1);
+        if (initialSearchResponse.getFailedShards() > 0) {
+            searchMetric.getFailedQueries().inc();
+        } else if (initialSearchResponse.isTimedOut()) {
+            searchMetric.getTimeoutQueries().inc();
+        } else if (initialSearchResponse.getHits().getTotalHits() == 0) {
+            searchMetric.getEmptyQueries().inc();
+        } else {
+            searchMetric.getSucceededQueries().inc();
+        }
         Stream<SearchResponse> responseStream = Stream.iterate(initialSearchResponse,
-                searchResponse ->  {
+                searchResponse -> {
                     SearchScrollRequestBuilder searchScrollRequestBuilder =
                             new SearchScrollRequestBuilder(client, SearchScrollAction.INSTANCE)
                                     .setScrollId(searchResponse.getScrollId())

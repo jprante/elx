@@ -52,16 +52,16 @@ public interface BasicClient extends Closeable {
      * Wait for cluster being healthy.
      *
      * @param healthColor cluster health color to wait for
-     * @param maxWaitTime   time value
+     * @param maxWaitTime time value
      * @param timeUnit time unit
      */
     void waitForCluster(String healthColor, long maxWaitTime, TimeUnit timeUnit);
 
     void waitForShards(long maxWaitTime, TimeUnit timeUnit);
 
-    long getSearchableDocs(IndexDefinition index);
+    long getSearchableDocs(IndexDefinition indexDefinition);
 
-    boolean isIndexExists(IndexDefinition index);
+    boolean isIndexExists(IndexDefinition indexDefinition);
 
     ScheduledThreadPoolExecutor getScheduler();
 }

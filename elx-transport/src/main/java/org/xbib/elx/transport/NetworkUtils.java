@@ -16,9 +16,6 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
 
-/**
- *
- */
 public class NetworkUtils {
 
     private static final Logger logger = LogManager.getLogger(NetworkUtils.class.getName());

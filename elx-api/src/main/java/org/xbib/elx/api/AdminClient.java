@@ -47,7 +47,7 @@ public interface AdminClient extends BasicClient {
      * Resolve alias.
      *
      * @param alias the alias
-     * @return this index name behind the alias or the alias if there is no index
+     * @return the index names in ordered sequence behind the alias or an empty list if there is no such alias
      */
     List<String> resolveAlias(String alias);
 
@@ -89,7 +89,7 @@ public interface AdminClient extends BasicClient {
     /**
      * Find the timestamp of the most recently indexed document in the index.
      *
-     * @param indexDefinition the index
+     * @param indexDefinition the index definition
      * @param timestampfieldname the timestamp field name
      * @return millis UTC millis of the most recent document
      * @throws IOException if most rcent document can not be found

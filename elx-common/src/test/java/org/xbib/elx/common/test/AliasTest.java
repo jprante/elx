@@ -43,13 +43,13 @@ class AliasTest {
 
     @Test
     void testAlias() {
-        ElasticsearchClient client = helper.client("1");
+        ElasticsearchClient client = helper.client();
         CreateIndexRequest indexRequest = new CreateIndexRequest("test_index");
         client.execute(CreateIndexAction.INSTANCE, indexRequest).actionGet();
         client.execute(RefreshAction.INSTANCE, new RefreshRequest()).actionGet();
         IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
-        String[] indices = new String[]{"test_index"};
-        String[] aliases = new String[]{"test_alias"};
+        String[] indices = { "test_index" };
+        String[] aliases = { "test_alias" };
         IndicesAliasesRequest.AliasActions aliasAction =
                 new IndicesAliasesRequest.AliasActions(AliasAction.Type.ADD, indices, aliases);
         indicesAliasesRequest.addAliasAction(aliasAction);
@@ -67,7 +67,7 @@ class AliasTest {
 
     @Test
     void testMostRecentIndex() {
-        ElasticsearchClient client = helper.client("1");
+        ElasticsearchClient client = helper.client();
         String alias = "test";
         CreateIndexRequest indexRequest = new CreateIndexRequest("test20160101");
         client.execute(CreateIndexAction.INSTANCE, indexRequest).actionGet();
@@ -76,7 +76,11 @@ class AliasTest {
         indexRequest = new CreateIndexRequest("test20160103");
         client.execute(CreateIndexAction.INSTANCE, indexRequest).actionGet();
         IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
-        String[] indices = new String[] { "test20160101", "test20160102", "test20160103" };
+        String[] indices = {
+                "test20160101",
+                "test20160102",
+                "test20160103"
+        };
         String[] aliases = new String[] { alias };
         IndicesAliasesRequest.AliasActions aliasAction =
                 new IndicesAliasesRequest.AliasActions(AliasAction.Type.ADD, indices, aliases);

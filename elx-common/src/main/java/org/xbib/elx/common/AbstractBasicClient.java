@@ -116,7 +116,7 @@ public abstract class AbstractBasicClient implements BasicClient {
         Settings.Builder updateSettingsBuilder = Settings.builder();
         updateSettingsBuilder.put(key, value.toString());
         ClusterUpdateSettingsRequest updateSettingsRequest = new ClusterUpdateSettingsRequest();
-        updateSettingsRequest.persistentSettings(updateSettingsBuilder).timeout(toTimeValue(timeout, timeUnit));
+        updateSettingsRequest.transientSettings(updateSettingsBuilder).timeout(toTimeValue(timeout, timeUnit));
         client.execute(ClusterUpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
     }
 
@@ -140,6 +140,7 @@ public abstract class AbstractBasicClient implements BasicClient {
     @Override
     public void waitForCluster(String statusString, long maxWaitTime, TimeUnit timeUnit) {
         ensureClientIsPresent();
+        logger.info("waiting for cluster status " + statusString + " for " + maxWaitTime + " " + timeUnit);
         ClusterHealthStatus status = ClusterHealthStatus.fromString(statusString);
         TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
         ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
@@ -165,7 +166,7 @@ public abstract class AbstractBasicClient implements BasicClient {
         ClusterHealthResponse healthResponse =
                 client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
         if (healthResponse.isTimedOut()) {
-            String message = "timeout waiting for cluster shards";
+            String message = "timeout waiting for cluster shards: " + timeout;
             logger.error(message);
             throw new IllegalStateException(message);
         }
@@ -257,8 +258,8 @@ public abstract class AbstractBasicClient implements BasicClient {
 
     protected boolean isIndexDefinitionDisabled(IndexDefinition indexDefinition) {
         if (!indexDefinition.isEnabled()) {
-           logger.warn("index " + indexDefinition.getFullIndexName() + " is disabled");
-           return true;
+            logger.warn("index " + indexDefinition.getFullIndexName() + " is disabled");
+            return true;
         }
         return false;
     }

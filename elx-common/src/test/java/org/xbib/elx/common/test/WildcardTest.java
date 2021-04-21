@@ -26,7 +26,7 @@ class WildcardTest {
 
     @Test
     void testWildcard() throws Exception {
-        ElasticsearchClient client = helper.client("1");
+        ElasticsearchClient client = helper.client();
         index(client, "1", "010");
         index(client, "2", "0*0");
         // exact

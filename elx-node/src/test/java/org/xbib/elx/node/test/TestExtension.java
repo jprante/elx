@@ -12,7 +12,7 @@ import org.elasticsearch.action.admin.cluster.node.info.NodesInfoResponse;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
-import org.elasticsearch.client.support.AbstractClient;
+import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
@@ -121,8 +121,6 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
 
         Node node;
 
-        AbstractClient client;
-
         void setHome(String home) {
             this.home = home;
         }
@@ -150,7 +148,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         void startNode() {
             buildNode().start();
             NodesInfoRequest nodesInfoRequest = new NodesInfoRequest().transport(true);
-            NodesInfoResponse response = client.execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
+            NodesInfoResponse response = client().execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
             Object obj = response.iterator().next().getTransport().getAddress().publishAddress();
             if (obj instanceof InetSocketTransportAddress) {
                 InetSocketTransportAddress address = (InetSocketTransportAddress) obj;
@@ -175,16 +173,15 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
                     .put(getNodeSettings())
                     .put("node.name", id)
                     .build();
-            node = new MockNode(nodeSettings);
-            client = (AbstractClient) node.client();
+            this.node = new MockNode(nodeSettings);
             return node;
         }
 
+        ElasticsearchClient client() {
+            return node.client();
+        }
+
         void closeNodes() {
-            if (client != null) {
-                logger.info("closing client");
-                client.close();
-            }
             if (node != null) {
                 logger.info("closing all nodes");
                 node.close();
@@ -193,7 +190,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
 
         void greenHealth() throws IOException {
             try {
-                ClusterHealthResponse healthResponse = client.execute(ClusterHealthAction.INSTANCE,
+                ClusterHealthResponse healthResponse = client().execute(ClusterHealthAction.INSTANCE,
                         new ClusterHealthRequest().waitForStatus(ClusterHealthStatus.GREEN)
                                 .timeout(TimeValue.timeValueSeconds(30))).actionGet();
                 if (healthResponse != null && healthResponse.isTimedOut()) {
@@ -208,7 +205,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         String clusterName() {
             ClusterStateRequest clusterStateRequest = new ClusterStateRequest().all();
             ClusterStateResponse clusterStateResponse =
-                    client.execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
+                    client().execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
             return clusterStateResponse.getClusterName().value();
         }
 

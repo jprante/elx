@@ -48,7 +48,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     }
 
     @Override
-    public BulkProcessor getBulkController() {
+    public BulkProcessor getBulkProcessor() {
         return bulkProcessor;
     }
 
@@ -100,14 +100,12 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         }
         Settings settings = Settings.builder().loadFromSource(indexDefinition.getSettings()).build();
         createIndexRequestBuilder.setSettings(settings);
-        // must be Map<String, Object> to match prototype of addMapping()!
-        Map<String, Object> mappings = indexDefinition.getMappings() == null ? null :
-                JsonXContent.jsonXContent.createParser(indexDefinition.getMappings()).mapOrdered();
-        if (mappings != null) {
+        if (indexDefinition.getMappings() != null) {
+            Map<String, Object> mappings = JsonXContent.jsonXContent.createParser(indexDefinition.getMappings()).mapOrdered();
             createIndexRequestBuilder.addMapping(type, mappings);
         } else {
-            createIndexRequestBuilder.addMapping(type,
-                    JsonXContent.contentBuilder().startObject().startObject(type).endObject().endObject());
+            XContentBuilder builder = JsonXContent.contentBuilder().startObject().startObject(type).endObject().endObject();
+            createIndexRequestBuilder.addMapping(type, builder);
         }
         CreateIndexResponse createIndexResponse = createIndexRequestBuilder.execute().actionGet();
         if (createIndexResponse.isAcknowledged()) {
@@ -117,8 +115,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
             return;
         }
         // we really need state GREEN. If yellow, we may trigger shard write errors and queue will exceed quickly.
-        logger.info("waiting for GREEN after index {} was created", index);
-        waitForCluster("GREEN", indexDefinition.getMaxWaitTime(), indexDefinition.getMaxWaitTimeUnit());
+        waitForCluster("GREEN", 300L, TimeUnit.SECONDS);
     }
 
     @Override
@@ -126,17 +123,19 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         if (isIndexDefinitionDisabled(indexDefinition)) {
             return;
         }
-        ensureClientIsPresent();
-        Long bulkQueueSize = getThreadPoolQueueSize("bulk");
-        if (bulkQueueSize != null && bulkQueueSize <= 64) {
-            logger.info("found bulk queue size " + bulkQueueSize + ", expanding to " + bulkQueueSize * 4);
-            bulkQueueSize = bulkQueueSize * 4;
-        } else {
-            logger.warn("undefined or small bulk queue size found: " + bulkQueueSize + " assuming 256");
-            bulkQueueSize = 256L;
+        if (bulkProcessor != null) {
+            ensureClientIsPresent();
+            Long bulkQueueSize = getThreadPoolQueueSize("bulk");
+            if (bulkQueueSize != null && bulkQueueSize <= 64) {
+                logger.info("found bulk queue size " + bulkQueueSize + ", expanding to " + bulkQueueSize * 4);
+                bulkQueueSize = bulkQueueSize * 4;
+            } else {
+                logger.warn("undefined or small bulk queue size found: " + bulkQueueSize + " assuming 256");
+                bulkQueueSize = 256L;
+            }
+            putClusterSetting("threadpool.bulk.queue_size", bulkQueueSize, 30L, TimeUnit.SECONDS);
+            bulkProcessor.startBulkMode(indexDefinition);
         }
-        putClusterSetting("threadpool.bulk.queue_size", bulkQueueSize, 30L, TimeUnit.SECONDS);
-        bulkProcessor.startBulkMode(indexDefinition);
     }
 
     @Override
@@ -144,8 +143,10 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         if (isIndexDefinitionDisabled(indexDefinition)) {
             return;
         }
-        ensureClientIsPresent();
-        bulkProcessor.stopBulkMode(indexDefinition);
+        if (bulkProcessor != null) {
+            ensureClientIsPresent();
+            bulkProcessor.stopBulkMode(indexDefinition);
+        }
     }
 
     @Override
@@ -166,8 +167,10 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public BulkClient index(IndexRequest indexRequest) {
-        ensureClientIsPresent();
-        bulkProcessor.add(indexRequest);
+        if (bulkProcessor != null) {
+            ensureClientIsPresent();
+            bulkProcessor.add(indexRequest);
+        }
         return this;
     }
 
@@ -184,8 +187,10 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public BulkClient delete(DeleteRequest deleteRequest) {
-        ensureClientIsPresent();
-        bulkProcessor.add(deleteRequest);
+        if (bulkProcessor != null) {
+            ensureClientIsPresent();
+            bulkProcessor.add(deleteRequest);
+        }
         return this;
     }
 
@@ -214,8 +219,11 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public boolean waitForResponses(long timeout, TimeUnit timeUnit) {
-        ensureClientIsPresent();
-        return bulkProcessor.waitForBulkResponses(timeout, timeUnit);
+        if (bulkProcessor != null) {
+            ensureClientIsPresent();
+            return bulkProcessor.waitForBulkResponses(timeout, timeUnit);
+        }
+        return true;
     }
 
     @Override

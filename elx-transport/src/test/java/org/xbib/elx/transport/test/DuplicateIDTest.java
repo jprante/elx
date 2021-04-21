@@ -7,7 +7,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.DefaultIndexDefinition;
-import org.xbib.elx.common.Parameters;
 import org.xbib.elx.transport.TransportBulkClient;
 import org.xbib.elx.transport.TransportBulkClientProvider;
 import java.util.concurrent.TimeUnit;
@@ -22,8 +21,6 @@ class DuplicateIDTest {
 
     private static final Long ACTIONS = 100L;
 
-    private static final Long MAX_ACTIONS_PER_REQUEST = 5L;
-
     private final TestExtension.Helper helper;
 
     DuplicateIDTest(TestExtension.Helper helper) {
@@ -36,7 +33,6 @@ class DuplicateIDTest {
         try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
                 .put(helper.getTransportSettings())
-                .put(Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);
@@ -44,15 +40,14 @@ class DuplicateIDTest {
                 bulkClient.index(indexDefinition, helper.randomString(1), false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
-            bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
             bulkClient.refreshIndex(indexDefinition);
             assertTrue(bulkClient.getSearchableDocs(indexDefinition) < ACTIONS);
-            assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
-            if (bulkClient.getBulkController().getLastBulkError() != null) {
-                logger.error("error", bulkClient.getBulkController().getLastBulkError());
+            assertEquals(numactions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }
-            assertNull(bulkClient.getBulkController().getLastBulkError());
+            assertNull(bulkClient.getBulkProcessor().getLastBulkError());
         }
     }
 }

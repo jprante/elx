@@ -36,10 +36,10 @@ public class NodeClientHelper {
                 key -> innerCreateClient(settings));
     }
 
-    public void closeClient(Settings settings) {
+    public void closeClient(Settings settings) throws IOException {
         ElasticsearchClient client = clientMap.remove(settings.get("cluster.name"));
         if (client != null) {
-            logger.debug("closing node");
+            logger.debug("closing node...");
             node.close();
             node = null;
         }

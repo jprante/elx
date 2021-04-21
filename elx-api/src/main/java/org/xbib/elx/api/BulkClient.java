@@ -36,8 +36,8 @@ public interface BulkClient extends BasicClient, Flushable {
      * Add index request. Each request will be added to a queue for bulking requests.
      * Submitting request will be done when limits are exceeded.
      *
-     * @param indexDefinition  the index definition
-     * @param id     the id
+     * @param indexDefinition the index definition
+     * @param id the id
      * @param create true if document must be created
      * @param source the source
      * @return this
@@ -48,8 +48,8 @@ public interface BulkClient extends BasicClient, Flushable {
      * Index request. Each request will be added to a queue for bulking requests.
      * Submitting request will be done when limits are exceeded.
      *
-     * @param indexDefinition  the index definition
-     * @param id     the id
+     * @param indexDefinition the index definition
+     * @param id the id
      * @param create true if document is to be created, false otherwise
      * @param source the source
      * @return this client methods
@@ -88,7 +88,7 @@ public interface BulkClient extends BasicClient, Flushable {
      * Submitting request will be done when bulk limits are exceeded.
      * Note that updates only work correctly when all operations between nodes are synchronized.
      *
-     * @param indexDefinition  the index definition
+     * @param indexDefinition the index definition
      * @param id     the id
      * @param source the source
      * @return this
@@ -149,5 +149,5 @@ public interface BulkClient extends BasicClient, Flushable {
      */
     void flushIndex(IndexDefinition indexDefinition);
 
-    BulkProcessor getBulkController();
+    BulkProcessor getBulkProcessor();
 }

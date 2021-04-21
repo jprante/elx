@@ -15,7 +15,7 @@ public class NodeAdminClient extends AbstractAdminClient {
     }
 
     @Override
-    protected ElasticsearchClient createClient(Settings settings) {
+    public ElasticsearchClient createClient(Settings settings) {
         return helper.createClient(settings, null);
     }
 

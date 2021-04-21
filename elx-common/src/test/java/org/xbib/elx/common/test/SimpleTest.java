@@ -33,7 +33,7 @@ class SimpleTest {
         try {
             DeleteIndexRequest deleteIndexRequest =
                     new DeleteIndexRequest().indices("test");
-            helper.client("1").execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
+            helper.client().execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
         } catch (IndexNotFoundException e) {
             // ignore if index not found
         }
@@ -44,22 +44,22 @@ class SimpleTest {
                 .build();
         CreateIndexRequest createIndexRequest = new CreateIndexRequest();
         createIndexRequest.index("test").settings(indexSettings);
-        helper.client("1").execute(CreateIndexAction.INSTANCE, createIndexRequest).actionGet();
+        helper.client().execute(CreateIndexAction.INSTANCE, createIndexRequest).actionGet();
         IndexRequest indexRequest = new IndexRequest();
         indexRequest.index("test").type("test").id("1")
                 .source(XContentFactory.jsonBuilder().startObject().field("field",
                         "1%2fPJJP3JV2C24iDfEu9XpHBaYxXh%2fdHTbmchB35SDznXO2g8Vz4D7GTIvY54iMiX_149c95f02a8").endObject());
-        helper.client("1").execute(IndexAction.INSTANCE, indexRequest).actionGet();
+        helper.client().execute(IndexAction.INSTANCE, indexRequest).actionGet();
         RefreshRequest refreshRequest = new RefreshRequest();
         refreshRequest.indices("test");
-        helper.client("1").execute(RefreshAction.INSTANCE, refreshRequest).actionGet();
+        helper.client().execute(RefreshAction.INSTANCE, refreshRequest).actionGet();
         SearchSourceBuilder builder = new SearchSourceBuilder();
         builder.query(QueryBuilders.matchQuery("field",
                 "1%2fPJJP3JV2C24iDfEu9XpHBaYxXh%2fdHTbmchB35SDznXO2g8Vz4D7GTIvY54iMiX_149c95f02a8"));
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.indices("test").types("test");
         searchRequest.source(builder);
-        String doc = helper.client("1").execute(SearchAction.INSTANCE, searchRequest).actionGet()
+        String doc = helper.client().execute(SearchAction.INSTANCE, searchRequest).actionGet()
                 .getHits().getAt(0).getSourceAsString();
         assertEquals(doc,
                 "{\"field\":\"1%2fPJJP3JV2C24iDfEu9XpHBaYxXh%2fdHTbmchB35SDznXO2g8Vz4D7GTIvY54iMiX_149c95f02a8\"}");

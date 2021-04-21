@@ -35,7 +35,7 @@ class DuplicateIDTest {
     @Test
     void testDuplicateDocIDs() throws Exception {
         long numactions = ACTIONS;
-        try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client)
+        try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(helper.getNodeSettings())
                 .put(Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
@@ -46,15 +46,14 @@ class DuplicateIDTest {
                 bulkClient.index(indexDefinition, helper.randomString(1), false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
-            bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
             bulkClient.refreshIndex(indexDefinition);
             assertTrue(bulkClient.getSearchableDocs(indexDefinition) < ACTIONS);
-            assertEquals(numactions, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
-            if (bulkClient.getBulkController().getLastBulkError() != null) {
-                logger.error("error", bulkClient.getBulkController().getLastBulkError());
+            assertEquals(numactions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }
-            assertNull(bulkClient.getBulkController().getLastBulkError());
+            assertNull(bulkClient.getBulkProcessor().getLastBulkError());
         }
     }
 }

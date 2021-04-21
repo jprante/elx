@@ -3,6 +3,8 @@ package org.xbib.elx.transport.test;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
@@ -41,9 +43,9 @@ class SmokeTest {
                      .put(helper.getTransportSettings())
                      .build()) {
             IndexDefinition indexDefinition =
-                    new DefaultIndexDefinition(adminClient, "test_smoke", "doc", Settings.EMPTY);
-            assertEquals("test_smoke", indexDefinition.getIndex());
-            assertTrue(indexDefinition.getFullIndexName().startsWith("test_smoke"));
+                    new DefaultIndexDefinition(adminClient, "test", "doc", Settings.EMPTY);
+            assertEquals("test", indexDefinition.getIndex());
+            assertTrue(indexDefinition.getFullIndexName().startsWith("test"));
             assertEquals(0, indexDefinition.getReplicaLevel());
             assertEquals(helper.getClusterName(), adminClient.getClusterName());
             bulkClient.newIndex(indexDefinition);
@@ -63,13 +65,26 @@ class SmokeTest {
             adminClient.updateReplicaLevel(indexDefinition, 2);
             int replica = adminClient.getReplicaLevel(indexDefinition);
             assertEquals(2, replica);
-            assertEquals(0, bulkClient.getBulkController().getBulkMetric().getFailed().getCount());
-            assertEquals(6, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
-            if (bulkClient.getBulkController().getLastBulkError() != null) {
-                logger.error("error", bulkClient.getBulkController().getLastBulkError());
+            assertEquals(0, bulkClient.getBulkProcessor().getBulkMetric().getFailed().getCount());
+            assertEquals(6, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }
-            assertNull(bulkClient.getBulkController().getLastBulkError());
+            assertNull(bulkClient.getBulkProcessor().getLastBulkError());
             adminClient.deleteIndex(indexDefinition);
+            XContentBuilder builder = JsonXContent.contentBuilder()
+                    .startObject()
+                    .startObject("doc")
+                    .startObject("properties")
+                    .startObject("location")
+                    .field("type", "geo_point")
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject();
+            indexDefinition.setMappings(builder.string());
+            bulkClient.newIndex(indexDefinition);
+            assertTrue(adminClient.getMapping(indexDefinition).containsKey("properties"));
         }
     }
 }

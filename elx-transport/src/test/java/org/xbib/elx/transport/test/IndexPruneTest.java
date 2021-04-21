@@ -47,6 +47,7 @@ class IndexPruneTest {
                      .put(helper.getTransportSettings())
                      .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
+            indexDefinition.setIndex("test_prune");
             indexDefinition.setFullIndexName("test_prune1");
             bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
@@ -64,10 +65,6 @@ class IndexPruneTest {
             indexDefinition.setShift(true);
             adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
             IndexRetention indexRetention = new DefaultIndexRetention();
-            indexRetention.setDelta(2);
-            indexRetention.setMinToKeep(2);
-            indexDefinition.setIndex("test_prune");
-            indexDefinition.setFullIndexName("test_prune4");
             indexDefinition.setRetention(indexRetention);
             indexDefinition.setEnabled(true);
             indexDefinition.setPrune(true);
@@ -88,10 +85,10 @@ class IndexPruneTest {
             assertFalse(list.get(1));
             assertTrue(list.get(2));
             assertTrue(list.get(3));
-            if (bulkClient.getBulkController().getLastBulkError() != null) {
-                logger.error("error", bulkClient.getBulkController().getLastBulkError());
+            if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }
-            assertNull(bulkClient.getBulkController().getLastBulkError());
+            assertNull(bulkClient.getBulkProcessor().getLastBulkError());
         }
     }
 }

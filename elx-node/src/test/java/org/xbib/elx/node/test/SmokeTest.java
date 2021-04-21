@@ -3,6 +3,8 @@ package org.xbib.elx.node.test;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.common.ClientBuilder;
@@ -32,13 +34,13 @@ class SmokeTest {
 
     @Test
     void smokeTest() throws Exception {
-        try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client)
+        try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client())
                 .setAdminClientProvider(NodeAdminClientProvider.class)
                 .put(helper.getNodeSettings())
                 .build();
-             NodeBulkClient bulkClient = ClientBuilder.builder(helper.client)
+             NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                     .put(helper.getNodeSettings())
+                .put(helper.getNodeSettings())
                 .build()) {
             assertEquals(helper.getClusterName(), adminClient.getClusterName());
             IndexDefinition indexDefinition =
@@ -54,28 +56,37 @@ class SmokeTest {
             adminClient.checkMapping(indexDefinition);
             bulkClient.update(indexDefinition, "1", "{ \"name\" : \"Another name\"}");
             bulkClient.delete(indexDefinition, "1");
-            bulkClient.flush();
             bulkClient.waitForResponses(30, TimeUnit.SECONDS);
             bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}");
             bulkClient.delete(indexDefinition, "1");
-            bulkClient.flush();
             bulkClient.waitForResponses(30, TimeUnit.SECONDS);
             adminClient.deleteIndex(indexDefinition);
             bulkClient.newIndex(indexDefinition);
             bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}");
-            bulkClient.flush();
             bulkClient.waitForResponses(30, TimeUnit.SECONDS);
             adminClient.updateReplicaLevel(indexDefinition, 2);
             int replica = adminClient.getReplicaLevel(indexDefinition);
             assertEquals(2, replica);
-            assertEquals(0, bulkClient.getBulkController().getBulkMetric().getFailed().getCount());
-            assertEquals(6, bulkClient.getBulkController().getBulkMetric().getSucceeded().getCount());
-            if (bulkClient.getBulkController().getLastBulkError() != null) {
-                logger.error("error", bulkClient.getBulkController().getLastBulkError());
+            assertEquals(0, bulkClient.getBulkProcessor().getBulkMetric().getFailed().getCount());
+            assertEquals(6, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }
-            assertNull(bulkClient.getBulkController().getLastBulkError());
+            assertNull(bulkClient.getBulkProcessor().getLastBulkError());
             adminClient.deleteIndex(indexDefinition);
-            logger.info("done");
+            XContentBuilder builder = JsonXContent.contentBuilder()
+                    .startObject()
+                    .startObject("doc")
+                    .startObject("properties")
+                    .startObject("location")
+                    .field("type", "geo_point")
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject();
+            indexDefinition.setMappings(builder.string());
+            bulkClient.newIndex(indexDefinition);
+            assertTrue(adminClient.getMapping(indexDefinition).containsKey("properties"));
         }
     }
 }
