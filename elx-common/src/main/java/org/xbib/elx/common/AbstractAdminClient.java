@@ -112,7 +112,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         }
         DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest().indices(index);
         client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
-        waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
+        waitForCluster("GREEN", 30L, TimeUnit.MINUTES);
         return this;
     }
 
@@ -229,7 +229,6 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         if (index.equals(fullIndexName)) {
             return new EmptyIndexShiftResult(); // nothing to shift to
         }
-        waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
         // two situations: 1. a new alias 2. there is already an old index with the alias
         Optional<String> oldIndex = resolveAlias(index).stream().sorted().findFirst();
         Map<String, String> oldAliasMap = oldIndex.map(this::getAliases).orElse(null);
@@ -410,7 +409,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         if (forceMergeResponse.getFailedShards() > 0) {
             throw new IllegalStateException("failed shards after force merge: " + forceMergeResponse.getFailedShards());
         }
-        waitForCluster("GREEN", 300L, TimeUnit.SECONDS);
+        waitForCluster("GREEN", 30L, TimeUnit.MINUTES);
         return true;
     }
 
@@ -422,7 +421,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(index)
                 .settings(updateSettingsBuilder).timeout(toTimeValue(timeout, timeUnit));
         client.execute(UpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
-        waitForCluster("GREEN", 300L, TimeUnit.SECONDS);
+        waitForCluster("GREEN", 30L, TimeUnit.MINUTES);
     }
 
     @Override

@@ -114,8 +114,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
             logger.warn("index creation of {} not acknowledged", index);
             return;
         }
-        // we really need state GREEN. If yellow, we may trigger shard write errors and queue will exceed quickly.
-        waitForCluster("GREEN", 300L, TimeUnit.SECONDS);
+        waitForCluster("GREEN", 30L, TimeUnit.MINUTES);
     }
 
     @Override
