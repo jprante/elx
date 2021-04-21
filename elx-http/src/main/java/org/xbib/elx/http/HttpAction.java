@@ -166,6 +166,8 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
         } catch (Throwable e) {
             // catch all kinds of errors in the entity parsing process
             logger.error(e.getMessage(), e);
+            logger.error("status = " + httpActionContext.getHttpResponse().getStatus().getCode());
+            logger.error("body = " + httpActionContext.getHttpResponse().getBodyAsString(StandardCharsets.UTF_8));
             return null;
         }
     }

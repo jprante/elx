@@ -68,10 +68,10 @@ public class HttpClientHelper {
         if (settings.hasValue("url")) {
             this.url = settings.get("url");
             httpAddress = HttpAddress.http1(this.url);
-        } else if (settings.hasValue("host") && settings.hasValue("post")) {
-            URL u =  URL.http()
-                    .host(settings.get("host")).port(settings.getAsInt("port", 9200))
-                    .build();
+        } else if (settings.hasValue("host")) {
+            // use only first host
+            URL u = findAddresses(settings).stream().findFirst()
+                    .orElseGet(() -> URL.http().host("localhost").port(9200).build());
             httpAddress = HttpAddress.http1(u);
             this.url = u.toExternalForm();
         } else {
@@ -150,5 +150,28 @@ public class HttpClientHelper {
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
         }
+    }
+
+
+    private List<URL> findAddresses(Settings settings) {
+        final int defaultPort = settings.getAsInt("port", 9200);
+        List<URL> addresses = new ArrayList<>();
+        for (String hostname : settings.getAsList("host")) {
+            String[] splitHost = hostname.split(":", 2);
+            if (splitHost.length == 2) {
+                try {
+                    String host = splitHost[0];
+                    int port = Integer.parseInt(splitHost[1]);
+                    addresses.add(URL.from("http://" + host + ":" + port));
+                } catch (NumberFormatException e) {
+                    logger.warn(e.getMessage(), e);
+                }
+            }
+            if (splitHost.length == 1) {
+                String host = splitHost[0];
+                addresses.add(URL.from("http://" + host + ":" + defaultPort));
+            }
+        }
+        return addresses;
     }
 }
