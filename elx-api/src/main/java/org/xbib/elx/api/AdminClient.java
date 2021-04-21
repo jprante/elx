@@ -1,6 +1,5 @@
 package org.xbib.elx.api;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -9,7 +8,7 @@ import java.util.Map;
  */
 public interface AdminClient extends BasicClient {
 
-    Map<String, ?> getMapping(IndexDefinition indexDefinition) throws IOException;
+    Map<String, ?> getMapping(IndexDefinition indexDefinition);
 
     void checkMapping(IndexDefinition indexDefinition);
 
@@ -25,9 +24,8 @@ public interface AdminClient extends BasicClient {
      * @param indexDefinition the index definition
      * @param level the replica level
      * @return this
-     * @throws IOException if replica setting could not be updated
      */
-    AdminClient updateReplicaLevel(IndexDefinition indexDefinition, int level) throws IOException;
+    AdminClient updateReplicaLevel(IndexDefinition indexDefinition, int level);
 
     /**
      * Get replica level.
@@ -92,7 +90,6 @@ public interface AdminClient extends BasicClient {
      * @param indexDefinition the index definition
      * @param timestampfieldname the timestamp field name
      * @return millis UTC millis of the most recent document
-     * @throws IOException if most rcent document can not be found
      */
-    Long mostRecentDocument(IndexDefinition indexDefinition, String timestampfieldname) throws IOException;
+    Long mostRecentDocument(IndexDefinition indexDefinition, String timestampfieldname);
 }
