@@ -7,10 +7,6 @@ import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
-import org.elasticsearch.action.admin.cluster.node.info.NodeInfo;
-import org.elasticsearch.action.admin.cluster.node.info.NodesInfoAction;
-import org.elasticsearch.action.admin.cluster.node.info.NodesInfoRequest;
-import org.elasticsearch.action.admin.cluster.node.info.NodesInfoResponse;
 import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsAction;
 import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
@@ -30,8 +26,6 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.threadpool.ThreadPool;
-import org.elasticsearch.threadpool.ThreadPoolInfo;
 import org.xbib.elx.api.BasicClient;
 import org.xbib.elx.api.IndexDefinition;
 import java.io.IOException;
@@ -123,6 +117,7 @@ public abstract class AbstractBasicClient implements BasicClient {
     @Override
     public void waitForCluster(String statusString, long maxWaitTime, TimeUnit timeUnit) {
         ensureClientIsPresent();
+        logger.info("waiting for cluster status " + statusString + " for " + maxWaitTime + " " + timeUnit);
         ClusterHealthStatus status = ClusterHealthStatus.fromString(statusString);
         TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
         ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
