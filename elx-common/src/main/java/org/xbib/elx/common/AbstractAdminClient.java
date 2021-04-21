@@ -16,6 +16,7 @@ import org.elasticsearch.action.admin.indices.delete.DeleteIndexAction;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeAction;
 import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeRequest;
+import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeResponse;
 import org.elasticsearch.action.admin.indices.get.GetIndexAction;
 import org.elasticsearch.action.admin.indices.get.GetIndexRequestBuilder;
 import org.elasticsearch.action.admin.indices.get.GetIndexResponse;
@@ -64,9 +65,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -107,7 +106,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         ensureClientIsPresent();
         DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest().indices(index);
         client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
-        waitForCluster("YELLOW", 30L, TimeUnit.SECONDS);
+        waitForCluster("GREEN", 300L, TimeUnit.SECONDS);
         return this;
     }
 
@@ -120,10 +119,10 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             logger.warn("invalid replica level");
             return this;
         }
-        String index = indexDefinition.getFullIndexName();
-        long maxWaitTime = indexDefinition.getMaxWaitTime();
-        TimeUnit timeUnit = indexDefinition.getMaxWaitTimeUnit();
-        updateIndexSetting(index, "number_of_replicas", level, maxWaitTime, timeUnit);
+        logger.info("update replica level for " + indexDefinition + " to " + level);
+        updateIndexSetting(indexDefinition.getFullIndexName(), "number_of_replicas", level,
+                30L, TimeUnit.SECONDS);
+        waitForCluster("GREEN", 300L, TimeUnit.SECONDS);
         return this;
     }
 
@@ -196,8 +195,10 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         if (indexMetadata == null) {
             return Collections.emptyList();
         }
-        return indexMetadata.stream().map(im -> im.getIndex().getName())
-                .sorted().collect(Collectors.toList());
+        return indexMetadata.stream()
+                .map(im -> im.getIndex().getName())
+                .sorted() // important
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -403,22 +404,16 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             return false;
         }
         ensureClientIsPresent();
-        String index = indexDefinition.getFullIndexName();
+        logger.info("force merge of " + indexDefinition);
         ForceMergeRequest forceMergeRequest = new ForceMergeRequest();
-        forceMergeRequest.indices(index);
-        try {
-            client.execute(ForceMergeAction.INSTANCE, forceMergeRequest)
-                    .get(indexDefinition.getMaxWaitTime(), indexDefinition.getMaxWaitTimeUnit());
-            return true;
-        } catch (TimeoutException e) {
-            logger.error("timeout");
-        } catch (ExecutionException e) {
-            logger.error(e.getMessage(), e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.error(e.getMessage(), e);
+        forceMergeRequest.indices(indexDefinition.getFullIndexName());
+        ForceMergeResponse forceMergeResponse = client.execute(ForceMergeAction.INSTANCE, forceMergeRequest)
+                    .actionGet();
+        if (forceMergeResponse.getFailedShards() > 0) {
+            throw new IllegalStateException("failed shards after force merge: " + forceMergeResponse.getFailedShards());
         }
-        return false;
+        waitForCluster("GREEN", 300L, TimeUnit.SECONDS);
+        return true;
     }
 
     @Override

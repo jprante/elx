@@ -62,7 +62,7 @@ class AliasTest {
         long t1 = (System.nanoTime() - t0) / 1000000;
         logger.info("{} time(ms) = {}", getAliasesResponse.getAliases(), t1);
         assertTrue(t1 >= 0);
-        client.execute(ClusterHealthAction.INSTANCE, new ClusterHealthRequest());
+        client.execute(ClusterHealthAction.INSTANCE, new ClusterHealthRequest().waitForGreenStatus());
     }
 
     @Test
@@ -76,7 +76,11 @@ class AliasTest {
         indexRequest = new CreateIndexRequest("test20160103");
         client.execute(CreateIndexAction.INSTANCE, indexRequest).actionGet();
         IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
-        String[] indices = new String[] { "test20160101", "test20160102", "test20160103" };
+        String[] indices = {
+                "test20160101",
+                "test20160102",
+                "test20160103"
+        };
         String[] aliases = new String[] { alias };
         IndicesAliasesRequest.AliasActions aliasAction =
                 new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.ADD)
@@ -89,6 +93,7 @@ class AliasTest {
         GetAliasesResponse getAliasesResponse =
                 client.execute(GetAliasesAction.INSTANCE, getAliasesRequest).actionGet();
         Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
+        // reverse order
         Set<String> result = new TreeSet<>(Collections.reverseOrder());
         for (ObjectCursor<String> indexName : getAliasesResponse.getAliases().keys()) {
             Matcher m = pattern.matcher(indexName.value);

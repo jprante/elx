@@ -118,8 +118,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
             return;
         }
         // we really need state GREEN. If yellow, we may trigger shard write errors and queue will exceed quickly.
-        logger.info("waiting for GREEN after index {} was created", index);
-        waitForCluster("GREEN", indexDefinition.getMaxWaitTime(), indexDefinition.getMaxWaitTimeUnit());
+        waitForCluster("GREEN", 300L, TimeUnit.SECONDS);
     }
 
     @Override

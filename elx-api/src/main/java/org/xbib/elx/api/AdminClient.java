@@ -47,7 +47,7 @@ public interface AdminClient extends BasicClient {
      * Resolve alias.
      *
      * @param alias the alias
-     * @return the index names behind the alias or an empty list if there is no such index
+     * @return the index names in ordered sequence behind the alias or an empty list if there is no such alias
      */
     List<String> resolveAlias(String alias);
 

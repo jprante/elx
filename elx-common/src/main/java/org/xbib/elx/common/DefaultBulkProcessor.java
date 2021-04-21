@@ -102,7 +102,8 @@ public class DefaultBulkProcessor implements BulkProcessor {
         int interval = indexDefinition.getStartBulkRefreshSeconds();
         if (interval != 0) {
             logger.info("starting bulk on " + indexName + " with new refresh interval " + interval);
-            bulkClient.updateIndexSetting(indexName, "refresh_interval", interval + "s", 30L, TimeUnit.SECONDS);
+            bulkClient.updateIndexSetting(indexName, "refresh_interval",
+                    interval >=0 ? interval + "s" : interval, 30L, TimeUnit.SECONDS);
         } else {
             logger.warn("ignoring starting bulk on " + indexName + " with refresh interval " + interval);
         }
@@ -116,7 +117,8 @@ public class DefaultBulkProcessor implements BulkProcessor {
         if (waitForBulkResponses(indexDefinition.getMaxWaitTime(), indexDefinition.getMaxWaitTimeUnit())) {
             if (interval != 0) {
                 logger.info("stopping bulk on " + indexName + " with new refresh interval " + interval);
-                bulkClient.updateIndexSetting(indexName, "refresh_interval", interval + "s", 30L, TimeUnit.SECONDS);
+                bulkClient.updateIndexSetting(indexName, "refresh_interval",
+                        interval >= 0 ? interval + "s" : interval, 30L, TimeUnit.SECONDS);
             } else {
                 logger.warn("ignoring stopping bulk on " + indexName + " with refresh interval " + interval);
             }
