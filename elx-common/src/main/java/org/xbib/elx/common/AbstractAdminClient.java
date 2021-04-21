@@ -53,7 +53,6 @@ import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.api.IndexPruneResult;
 import org.xbib.elx.api.IndexShiftResult;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -111,7 +110,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     }
 
     @Override
-    public AdminClient updateReplicaLevel(IndexDefinition indexDefinition, int level) throws IOException {
+    public AdminClient updateReplicaLevel(IndexDefinition indexDefinition, int level) {
         if (isIndexDefinitionDisabled(indexDefinition)) {
             return this;
         }
@@ -417,16 +416,14 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     }
 
     @Override
-    public void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) throws IOException {
-        if (index == null) {
-            throw new IOException("no index name given");
-        }
+    public void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) {
         ensureClientIsPresent();
         Settings.Builder updateSettingsBuilder = Settings.builder();
         updateSettingsBuilder.put(key, value.toString());
         UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(index)
                 .settings(updateSettingsBuilder).timeout(toTimeValue(timeout, timeUnit));
         client.execute(UpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
+        waitForCluster("GREEN", 300L, TimeUnit.SECONDS);
     }
 
     @Override
