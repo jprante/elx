@@ -111,9 +111,13 @@ public class HttpClientHelper {
         return nettyHttpClient;
     }
 
-    protected void closeClient(Settings settings) throws IOException {
+    protected void closeClient(Settings settings) {
         if (closed.compareAndSet(false, true)) {
-            nettyHttpClient.shutdownGracefully();
+            try {
+                nettyHttpClient.shutdownGracefully();
+            } catch (IOException e) {
+                logger.log(Level.WARN, e.getMessage(), e);
+            }
         }
     }
 

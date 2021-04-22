@@ -43,7 +43,7 @@ class SearchTest {
         IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                .put(helper.getNodeSettings())
+                .put(helper.getClientSettings())
                 .put(Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
                 .build()) {
             bulkClient.newIndex(indexDefinition);
@@ -64,7 +64,7 @@ class SearchTest {
         }
         try (NodeSearchClient searchClient = ClientBuilder.builder(helper.client())
                 .setSearchClientProvider(NodeSearchClientProvider.class)
-                .put(helper.getNodeSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             // test stream count
             Stream<SearchHit> stream = searchClient.search(qb -> qb

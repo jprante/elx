@@ -35,7 +35,7 @@ class BulkClientTest {
     void testNewIndex() throws Exception {
         try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
-                .put(helper.getTransportSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);
@@ -46,7 +46,7 @@ class BulkClientTest {
     void testSingleDoc() throws Exception {
         try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
-                .put(helper.getTransportSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);
@@ -65,7 +65,7 @@ class BulkClientTest {
         long numactions = ACTIONS;
         try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
-                .put(helper.getTransportSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);
@@ -93,7 +93,7 @@ class BulkClientTest {
         final long timeout = 120L;
         try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
-                .put(helper.getTransportSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);

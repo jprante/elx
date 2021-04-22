@@ -70,7 +70,7 @@ public abstract class AbstractBasicClient implements BasicClient {
     }
 
     @Override
-    public void init(Settings settings) throws IOException {
+    public void init(Settings settings) {
         if (closed.compareAndSet(false, true)) {
             logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
             this.settings = settings;
@@ -99,13 +99,13 @@ public abstract class AbstractBasicClient implements BasicClient {
     }
 
     @Override
-    public void putClusterSetting(String key, Object value, long timeout, TimeUnit timeUnit) throws IOException {
+    public void putClusterSetting(String key, Object value, long timeout, TimeUnit timeUnit) {
         ensureClientIsPresent();
         if (key == null) {
-            throw new IOException("no key given");
+            throw new IllegalArgumentException("no key given");
         }
         if (value == null) {
-            throw new IOException("no value given");
+            throw new IllegalArgumentException("no value given");
         }
         Settings.Builder updateSettingsBuilder = Settings.builder();
         updateSettingsBuilder.put(key, value.toString());
@@ -115,8 +115,15 @@ public abstract class AbstractBasicClient implements BasicClient {
     }
 
     @Override
-    public void waitForCluster(String statusString, long maxWaitTime, TimeUnit timeUnit) {
+    public void waitForHealthyCluster() {
         ensureClientIsPresent();
+        String statusString = settings.get(Parameters.CLUSTER_TARGET_HEALTH.getName(),
+                Parameters.CLUSTER_TARGET_HEALTH.getString());
+        String waitTimeStr = settings.get(Parameters.CLUSTER_TARGET_HEALTH_TIMEOUT.getName(),
+                Parameters.CLUSTER_TARGET_HEALTH_TIMEOUT.getString());
+        TimeValue timeValue = TimeValue.parseTimeValue(waitTimeStr, TimeValue.timeValueMinutes(30L), "");
+        long maxWaitTime = timeValue.minutes();
+        TimeUnit timeUnit = TimeUnit.MINUTES;
         logger.info("waiting for cluster status " + statusString + " for " + maxWaitTime + " " + timeUnit);
         ClusterHealthStatus status = ClusterHealthStatus.fromString(statusString);
         TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
@@ -127,24 +134,6 @@ public abstract class AbstractBasicClient implements BasicClient {
                 client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
         if (healthResponse != null && healthResponse.isTimedOut()) {
             String message = "timeout, cluster state is " + healthResponse.getStatus().name() + " and not " + status.name();
-            logger.error(message);
-            throw new IllegalStateException(message);
-        }
-    }
-
-    @Override
-    public void waitForShards(long maxWaitTime, TimeUnit timeUnit) {
-        ensureClientIsPresent();
-        logger.info("waiting for cluster shard settling");
-        TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
-        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
-                .waitForNoInitializingShards(true)
-                .waitForNoRelocatingShards(true)
-                .timeout(timeout);
-        ClusterHealthResponse healthResponse =
-                client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
-        if (healthResponse.isTimedOut()) {
-            String message = "timeout waiting for cluster shards: " + timeout;
             logger.error(message);
             throw new IllegalStateException(message);
         }
@@ -205,20 +194,20 @@ public abstract class AbstractBasicClient implements BasicClient {
         }
     }
 
-    protected abstract ElasticsearchClient createClient(Settings settings) throws IOException;
+    protected abstract ElasticsearchClient createClient(Settings settings);
 
     protected abstract void closeClient(Settings settings) throws IOException;
 
-    protected void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) throws IOException {
+    protected void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) {
         ensureClientIsPresent();
         if (index == null) {
-            throw new IOException("no index name given");
+            throw new IllegalArgumentException("no index name given");
         }
         if (key == null) {
-            throw new IOException("no key given");
+            throw new IllegalArgumentException("no key given");
         }
         if (value == null) {
-            throw new IOException("no value given");
+            throw new IllegalArgumentException("no value given");
         }
         Settings.Builder updateSettingsBuilder = Settings.builder();
         updateSettingsBuilder.put(key, value.toString());

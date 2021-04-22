@@ -39,11 +39,11 @@ class IndexShiftTest {
     void testIndexShift() throws Exception {
         try (TransportAdminClient adminClient = ClientBuilder.builder()
                 .setAdminClientProvider(TransportAdminClientProvider.class)
-                .put(helper.getTransportSettings())
+                .put(helper.getClientSettings())
                 .build();
              TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
-                .put(helper.getTransportSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             indexDefinition.setFullIndexName("test_shift");

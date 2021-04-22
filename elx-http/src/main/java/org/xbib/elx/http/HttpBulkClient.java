@@ -24,7 +24,7 @@ public class HttpBulkClient extends AbstractBulkClient implements ElasticsearchC
     }
 
     @Override
-    public void init(Settings settings) throws IOException {
+    public void init(Settings settings) {
         super.init(settings);
         helper.init(settings);
     }

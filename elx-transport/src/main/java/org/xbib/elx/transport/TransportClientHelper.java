@@ -1,5 +1,6 @@
 package org.xbib.elx.transport;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.Version;
@@ -55,7 +56,7 @@ public class TransportClientHelper {
         }
     }
 
-    public void init(TransportClient transportClient, Settings settings) throws IOException {
+    public void init(TransportClient transportClient, Settings settings) {
         Collection<TransportAddress> addrs = findAddresses(settings);
         if (!connect(transportClient, addrs, settings.getAsBoolean("autodiscover", false))) {
             throw new NoNodeAvailableException("no cluster nodes available, check settings = "
@@ -63,7 +64,7 @@ public class TransportClientHelper {
         }
     }
 
-    private Collection<TransportAddress> findAddresses(Settings settings) throws IOException {
+    private Collection<TransportAddress> findAddresses(Settings settings) {
         final int defaultPort = settings.getAsInt("port", 9300);
         Collection<TransportAddress> addresses = new ArrayList<>();
         for (String hostname : settings.getAsList("host")) {
@@ -71,19 +72,27 @@ public class TransportClientHelper {
             if (splitHost.length == 2) {
                 try {
                     String host = splitHost[0];
-                    InetAddress inetAddress = NetworkUtils.resolveInetAddress(host, null);
-                    int port = Integer.parseInt(splitHost[1]);
-                    TransportAddress address = new TransportAddress(inetAddress, port);
-                    addresses.add(address);
+                    try {
+                        InetAddress inetAddress = NetworkUtils.resolveInetAddress(host, null);
+                        int port = Integer.parseInt(splitHost[1]);
+                        TransportAddress address = new TransportAddress(inetAddress, port);
+                        addresses.add(address);
+                    } catch (IOException e) {
+                        logger.log(Level.WARN, e.getMessage(), e);
+                    }
                 } catch (NumberFormatException e) {
                     logger.warn(e.getMessage(), e);
                 }
             }
             if (splitHost.length == 1) {
                 String host = splitHost[0];
-                InetAddress inetAddress = NetworkUtils.resolveInetAddress(host, null);
-                TransportAddress address = new TransportAddress(inetAddress, defaultPort);
-                addresses.add(address);
+                try {
+                    InetAddress inetAddress = NetworkUtils.resolveInetAddress(host, null);
+                    TransportAddress address = new TransportAddress(inetAddress, defaultPort);
+                    addresses.add(address);
+                } catch (IOException e) {
+                    logger.log(Level.WARN, e.getMessage(), e);
+                }
             }
         }
         return addresses;

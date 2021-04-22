@@ -39,7 +39,7 @@ class SearchTest {
         IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
         try (HttpBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(HttpBulkClientProvider.class)
-                .put(helper.getHttpSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             bulkClient.newIndex(indexDefinition);
             for (int i = 0; i < ACTIONS; i++) {
@@ -57,7 +57,7 @@ class SearchTest {
         }
         try (HttpSearchClient searchClient = ClientBuilder.builder()
                 .setSearchClientProvider(HttpSearchClientProvider.class)
-                .put(helper.getHttpSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             Stream<SearchHit> stream = searchClient.search(qb -> qb
                             .setIndices(indexDefinition.getFullIndexName())

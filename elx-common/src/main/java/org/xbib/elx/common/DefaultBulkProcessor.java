@@ -97,7 +97,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
     }
 
     @Override
-    public void startBulkMode(IndexDefinition indexDefinition) throws IOException {
+    public void startBulkMode(IndexDefinition indexDefinition) {
         String indexName = indexDefinition.getFullIndexName();
         int interval = indexDefinition.getStartBulkRefreshSeconds();
         if (interval != 0) {
@@ -110,7 +110,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
     }
 
     @Override
-    public void stopBulkMode(IndexDefinition indexDefinition) throws IOException {
+    public void stopBulkMode(IndexDefinition indexDefinition) {
         String indexName = indexDefinition.getFullIndexName();
         int interval = indexDefinition.getStopBulkRefreshSeconds();
         flush();

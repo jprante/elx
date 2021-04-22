@@ -1,6 +1,7 @@
 package org.xbib.elx.http.test;
 
 import org.elasticsearch.index.query.QueryBuilders;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
@@ -14,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
+@Disabled
 class DumpIDTest {
 
     @Test

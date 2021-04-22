@@ -40,11 +40,11 @@ class IndexShiftTest {
     void testIndexShift() throws Exception {
         try (HttpAdminClient adminClient = ClientBuilder.builder()
                 .setAdminClientProvider(HttpAdminClientProvider.class)
-                .put(helper.getHttpSettings())
+                .put(helper.getClientSettings())
                 .build();
              HttpBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(HttpBulkClientProvider.class)
-                .put(helper.getHttpSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             indexDefinition.setFullIndexName("test_shift");

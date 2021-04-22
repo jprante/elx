@@ -49,7 +49,7 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
     }
 
     @Override
-    public void init(Settings settings) throws IOException {
+    public void init(Settings settings) {
         if (closed.compareAndSet(true, false)) {
             super.init(settings);
             this.searchMetric = new DefaultSearchMetric(getScheduler(), settings);

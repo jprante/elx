@@ -40,7 +40,7 @@ class SearchTest {
         IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
         try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
-                .put(helper.getTransportSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             bulkClient.newIndex(indexDefinition);
             bulkClient.startBulk(indexDefinition);
@@ -59,7 +59,7 @@ class SearchTest {
         }
         try (TransportSearchClient searchClient = ClientBuilder.builder()
                 .setSearchClientProvider(TransportSearchClientProvider.class)
-                .put(helper.getTransportSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             // test stream count
             Stream<SearchHit> stream = searchClient.search(qb -> qb

@@ -24,18 +24,18 @@ public class HttpAdminClient extends AbstractAdminClient implements Elasticsearc
     }
 
     @Override
-    public void init(Settings settings) throws IOException {
+    public void init(Settings settings) {
         super.init(settings);
         helper.init(settings);
     }
 
     @Override
-    protected ElasticsearchClient createClient(Settings settings) throws IOException {
+    protected ElasticsearchClient createClient(Settings settings) {
         return this;
     }
 
     @Override
-    protected void closeClient(Settings settings) throws IOException {
+    protected void closeClient(Settings settings) {
         helper.closeClient(settings);
     }
 

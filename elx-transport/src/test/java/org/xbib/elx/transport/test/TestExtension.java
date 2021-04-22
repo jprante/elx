@@ -2,21 +2,12 @@ package org.xbib.elx.transport.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchTimeoutException;
-import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction;
-import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
-import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoAction;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoRequest;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoResponse;
-import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
-import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
-import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.client.ElasticsearchClient;
-import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.node.NodeValidationException;
 import org.elasticsearch.plugins.Plugin;
@@ -86,21 +77,6 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         TransportAddress address = response.getNodes().get(0).getNode().getAddress();
         helper.host = address.address().getHostName();
         helper.port = address.address().getPort();
-        try {
-            ClusterHealthResponse healthResponse = helper.client().execute(ClusterHealthAction.INSTANCE,
-                    new ClusterHealthRequest().waitForStatus(ClusterHealthStatus.GREEN)
-                            .timeout(TimeValue.timeValueSeconds(30))).actionGet();
-            if (healthResponse != null && healthResponse.isTimedOut()) {
-                throw new IOException("cluster state is " + healthResponse.getStatus().name()
-                        + ", from here on, everything will fail!");
-            }
-        } catch (ElasticsearchTimeoutException e) {
-            throw new IOException("cluster does not respond to health request, cowardly refusing to continue");
-        }
-        ClusterStateRequest clusterStateRequest = new ClusterStateRequest().all();
-        ClusterStateResponse clusterStateResponse =
-                helper.client().execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
-        logger.info("cluster name = {}", clusterStateResponse.getClusterName().value());
     }
 
     @Override
@@ -176,12 +152,14 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return cluster;
         }
 
-        Settings getTransportSettings() {
+        Settings getClientSettings() {
             return Settings.builder()
                     .put("cluster.name", cluster)
                     .put("path.home", getHome())
                     .put("host", host)
                     .put("port", port)
+                    .put("cluster.target_health", "YELLOW")
+                    .put("cluster.target_health_timeout", "1m")
                     .build();
         }
 

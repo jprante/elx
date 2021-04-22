@@ -24,13 +24,13 @@ public class HttpSearchClient extends AbstractSearchClient implements Elasticsea
     }
 
     @Override
-    public void init(Settings settings) throws IOException {
+    public void init(Settings settings) {
         super.init(settings);
         helper.init(settings);
     }
 
     @Override
-    protected ElasticsearchClient createClient(Settings settings) throws IOException {
+    protected ElasticsearchClient createClient(Settings settings) {
         return this;
     }
 

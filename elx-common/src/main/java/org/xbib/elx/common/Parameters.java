@@ -2,6 +2,10 @@ package org.xbib.elx.common;
 
 public enum Parameters {
 
+    CLUSTER_TARGET_HEALTH("cluster.target_health", String.class, "GREEN"),
+
+    CLUSTER_TARGET_HEALTH_TIMEOUT("cluster.target_health_timeout", String.class, "30m"),
+
     DATE_TIME_FORMAT("dateTimeFormat", String.class, "yyyyMMdd"),
 
     BULK_MAX_WAIT_RESPONSE("bulk.max_wait_response", String.class, "30s"),
