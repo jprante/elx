@@ -47,7 +47,7 @@ class SmokeTest {
                     new DefaultIndexDefinition(adminClient, "test", "doc", Settings.EMPTY);
             assertEquals("test", indexDefinition.getIndex());
             assertTrue(indexDefinition.getFullIndexName().startsWith("test"));
-            assertEquals(0, indexDefinition.getReplicaLevel());
+            assertEquals(1, indexDefinition.getReplicaCount());
             assertEquals(helper.getClusterName(), adminClient.getClusterName());
             indexDefinition.setType("doc");
             bulkClient.newIndex(indexDefinition);
@@ -64,7 +64,7 @@ class SmokeTest {
             bulkClient.newIndex(indexDefinition);
             bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}");
             assertTrue(bulkClient.waitForResponses(30, TimeUnit.SECONDS));
-            adminClient.updateReplicaLevel(indexDefinition, 1);
+            adminClient.updateReplicaLevel(indexDefinition);
             assertEquals(1, adminClient.getReplicaLevel(indexDefinition));
             assertEquals(0, bulkClient.getBulkProcessor().getBulkMetric().getFailed().getCount());
             assertEquals(6, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
@@ -76,14 +76,30 @@ class SmokeTest {
             XContentBuilder builder = JsonXContent.contentBuilder()
                     .startObject()
                     .startObject("properties")
+                    .startObject("name")
+                    .field("type", "keyword")
+                    .endObject()
                     .startObject("location")
                     .field("type", "geo_point")
+                    .endObject()
+                    .startObject("point")
+                    .field("type", "object")
+                    .startObject("properties")
+                    .startObject("x")
+                    .field("type", "integer")
+                    .endObject()
+                    .startObject("y")
+                    .field("type", "integer")
+                    .endObject()
+                    .endObject()
                     .endObject()
                     .endObject()
                     .endObject();
             indexDefinition.setMappings(Strings.toString(builder));
+            assertTrue(indexDefinition.getMappings().containsKey("properties"));
             bulkClient.newIndex(indexDefinition);
             assertTrue(adminClient.getMapping(indexDefinition).containsKey("properties"));
+            logger.info("mappings = " + indexDefinition.getMappingFields());
         }
     }
 }

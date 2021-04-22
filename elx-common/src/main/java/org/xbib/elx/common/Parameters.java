@@ -8,8 +8,6 @@ public enum Parameters {
 
     DATE_TIME_FORMAT("dateTimeFormat", String.class, "yyyyMMdd"),
 
-    BULK_MAX_WAIT_RESPONSE("bulk.max_wait_response", String.class, "30s"),
-
     BULK_START_REFRESH_SECONDS("bulk.start_refresh_seconds", Integer.class, -1),
 
     BULK_STOP_REFRESH_SECONDS("bulk.stop_refresh_seconds", Integer.class, 30),

@@ -14,7 +14,6 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.xbib.elx.api.BulkClient;
 import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.BulkProcessor;
-import org.xbib.elx.api.IndexDefinition;
 
 import java.io.IOException;
 import java.util.concurrent.ScheduledFuture;
@@ -33,8 +32,6 @@ import java.util.concurrent.atomic.AtomicLong;
 public class DefaultBulkProcessor implements BulkProcessor {
 
     private static final Logger logger = LogManager.getLogger(DefaultBulkProcessor.class);
-
-    private final BulkClient bulkClient;
 
     private final AtomicBoolean enabled;
 
@@ -59,7 +56,6 @@ public class DefaultBulkProcessor implements BulkProcessor {
     private final int permits;
 
     public DefaultBulkProcessor(BulkClient bulkClient, Settings settings) {
-        this.bulkClient = bulkClient;
         int maxActionsPerRequest = settings.getAsInt(Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getName(),
                 Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getInteger());
         String flushIntervalStr = settings.get(Parameters.BULK_FLUSH_INTERVAL.getName(),
@@ -94,35 +90,6 @@ public class DefaultBulkProcessor implements BulkProcessor {
     @Override
     public void setEnabled(boolean enabled) {
         this.enabled.set(enabled);
-    }
-
-    @Override
-    public void startBulkMode(IndexDefinition indexDefinition) {
-        String indexName = indexDefinition.getFullIndexName();
-        int interval = indexDefinition.getStartBulkRefreshSeconds();
-        if (interval != 0) {
-            logger.info("starting bulk on " + indexName + " with new refresh interval " + interval);
-            bulkClient.updateIndexSetting(indexName, "refresh_interval",
-                    interval >=0 ? interval + "s" : interval, 30L, TimeUnit.SECONDS);
-        } else {
-            logger.warn("ignoring starting bulk on " + indexName + " with refresh interval " + interval);
-        }
-    }
-
-    @Override
-    public void stopBulkMode(IndexDefinition indexDefinition) {
-        String indexName = indexDefinition.getFullIndexName();
-        int interval = indexDefinition.getStopBulkRefreshSeconds();
-        flush();
-        if (waitForBulkResponses(indexDefinition.getMaxWaitTime(), indexDefinition.getMaxWaitTimeUnit())) {
-            if (interval != 0) {
-                logger.info("stopping bulk on " + indexName + " with new refresh interval " + interval);
-                bulkClient.updateIndexSetting(indexName, "refresh_interval",
-                        interval >= 0 ? interval + "s" : interval, 30L, TimeUnit.SECONDS);
-            } else {
-                logger.warn("ignoring stopping bulk on " + indexName + " with refresh interval " + interval);
-            }
-        }
     }
 
     @Override

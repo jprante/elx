@@ -78,7 +78,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     private static final Logger logger = LogManager.getLogger(AbstractAdminClient.class.getName());
 
     @Override
-    public Map<String, ?> getMapping(IndexDefinition indexDefinition) {
+    public Map<String, Object> getMapping(IndexDefinition indexDefinition) {
         if (isIndexDefinitionDisabled(indexDefinition)) {
             return null;
         }
@@ -110,17 +110,18 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     }
 
     @Override
-    public AdminClient updateReplicaLevel(IndexDefinition indexDefinition, int level) {
+    public AdminClient updateReplicaLevel(IndexDefinition indexDefinition) {
         if (isIndexDefinitionDisabled(indexDefinition)) {
             return this;
         }
-        if (level < 1) {
+        if (indexDefinition.getReplicaCount() < 1) {
             logger.warn("invalid replica level");
             return this;
         }
-        logger.info("update replica level for " + indexDefinition + " to " + level);
-        updateIndexSetting(indexDefinition.getFullIndexName(), "number_of_replicas", level,
-                30L, TimeUnit.SECONDS);
+        logger.info("update replica level for " +
+                indexDefinition + " to " + indexDefinition.getReplicaCount());
+        updateIndexSetting(indexDefinition.getFullIndexName(), "number_of_replicas",
+                indexDefinition.getReplicaCount(), 30L, TimeUnit.SECONDS);
         waitForHealthyCluster();
         return this;
     }
@@ -295,13 +296,12 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     @Override
     public IndexPruneResult pruneIndex(IndexDefinition indexDefinition) {
         return indexDefinition != null&& indexDefinition.isEnabled() && indexDefinition.isPruneEnabled() &&
-                indexDefinition.getRetention() != null &&
                 indexDefinition.getDateTimePattern() != null ?
                 pruneIndex(indexDefinition.getIndex(),
                 indexDefinition.getFullIndexName(),
                 indexDefinition.getDateTimePattern(),
-                indexDefinition.getRetention().getDelta(),
-                indexDefinition.getRetention().getMinToKeep()) : new EmptyPruneResult();
+                indexDefinition.getDelta(),
+                indexDefinition.getMinToKeep()) : new EmptyPruneResult();
     }
 
     private IndexPruneResult pruneIndex(String index,

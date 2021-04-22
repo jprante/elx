@@ -2,7 +2,6 @@ package org.xbib.elx.common;
 
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.DeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.ToXContent;
@@ -11,7 +10,6 @@ import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.elasticsearch.common.xcontent.yaml.YamlXContent;
 import org.xbib.elx.api.AdminClient;
 import org.xbib.elx.api.IndexDefinition;
-import org.xbib.elx.api.IndexRetention;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,7 +21,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public class DefaultIndexDefinition implements IndexDefinition {
@@ -50,17 +48,17 @@ public class DefaultIndexDefinition implements IndexDefinition {
 
     private boolean forcemerge;
 
-    private int replicaLevel;
+    private int shardCount;
 
-    private IndexRetention indexRetention;
-
-    private long maxWaitTime;
-
-    private TimeUnit maxWaitTimeUnit;
+    private int replicaCount;
 
     private int startRefreshInterval;
 
     private int stopRefreshInterval;
+
+    private int delta;
+
+    private int minToKeep;
 
     public DefaultIndexDefinition(String index, String type) {
         setIndex(index);
@@ -68,24 +66,25 @@ public class DefaultIndexDefinition implements IndexDefinition {
         setDateTimeFormatter(DateTimeFormatter.ofPattern("yyyyMMdd", Locale.getDefault()));
         setDateTimePattern(Pattern.compile("^(.*?)(\\d+)$"));
         setFullIndexName(index + getDateTimeFormatter().format(LocalDateTime.now()));
-        setMaxWaitTime(30, TimeUnit.SECONDS);
+        setShardCount(1);
         setShift(false);
         setPrune(false);
+        setForceMerge(false);
         setEnabled(true);
     }
 
     public DefaultIndexDefinition(AdminClient adminClient, String index, String type, Settings settings)
             throws IOException {
-        String timeValueStr = settings.get(Parameters.BULK_MAX_WAIT_RESPONSE.getName(),
-                Parameters.BULK_MAX_WAIT_RESPONSE.getString());
-        TimeValue timeValue = TimeValue.parseTimeValue(timeValueStr, TimeValue.timeValueSeconds(30), "");
-        setMaxWaitTime(timeValue.seconds(), TimeUnit.SECONDS);
         String indexName = settings.get("name", index);
         String indexType = settings.get("type", type);
-        boolean enabled = settings.getAsBoolean("enabled", true);
         setIndex(indexName);
         setType(indexType);
+        boolean enabled = settings.getAsBoolean("enabled", true);
         setEnabled(enabled);
+        boolean forcemerge = settings.getAsBoolean("forcemerge", true);
+        setForceMerge(forcemerge);
+        setShardCount(settings.getAsInt("shards", 1));
+        setReplicaCount(settings.getAsInt("replicas", 1));
         String fullIndexName = adminClient.resolveAlias(indexName).stream().findFirst().orElse(indexName);
         setFullIndexName(fullIndexName);
         setStartBulkRefreshSeconds(settings.getAsInt(Parameters.BULK_START_REFRESH_SECONDS.getName(),
@@ -95,7 +94,7 @@ public class DefaultIndexDefinition implements IndexDefinition {
         if (settings.get("settings") != null && settings.get("mapping") != null) {
             setSettings(findSettingsFrom(settings.get("settings")));
             setMappings(findMappingsFrom(settings.get("mapping")));
-            setReplicaLevel(settings.getAsInt("replica", 0));
+            setReplicaCount(settings.getAsInt("replica", 0));
             boolean shift = settings.getAsBoolean("shift", false);
             setShift(shift);
             if (shift) {
@@ -113,19 +112,16 @@ public class DefaultIndexDefinition implements IndexDefinition {
                 boolean prune = settings.getAsBoolean("prune", false);
                 setPrune(prune);
                 if (prune) {
-                    IndexRetention indexRetention = new DefaultIndexRetention()
-                            .setMinToKeep(settings.getAsInt("retention.mintokeep", 0))
-                            .setDelta(settings.getAsInt("retention.delta", 0));
-                    setRetention(indexRetention);
+                    setMinToKeep(settings.getAsInt("retention.mintokeep", 2));
+                    setDelta(settings.getAsInt("retention.delta", 2));
                 }
             }
         }
     }
 
     @Override
-    public IndexDefinition setIndex(String index) {
+    public void setIndex(String index) {
         this.index = index;
-        return this;
     }
 
     @Override
@@ -134,9 +130,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public IndexDefinition setType(String type) {
+    public void setType(String type) {
         this.type = type;
-        return this;
     }
 
     @Override
@@ -145,9 +140,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public IndexDefinition setFullIndexName(String fullIndexName) {
+    public void setFullIndexName(String fullIndexName) {
         this.fullIndexName = fullIndexName;
-        return this;
     }
 
     @Override
@@ -156,9 +150,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public IndexDefinition setSettings(String settings) {
+    public void setSettings(String settings) {
         this.settings = settings;
-        return this;
     }
 
     @Override
@@ -167,20 +160,38 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public IndexDefinition setMappings(String mappings) {
+    public void setMappings(String mappings) {
         this.mappings = mappings;
-        return this;
     }
 
     @Override
-    public String getMappings() {
-        return mappings;
+    public Map<String, Object> getMappings() {
+        if (mappings == null) {
+            return null;
+        }
+        try {
+            return JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
+                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION, mappings).mapOrdered();
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    public Set<String> getMappingFields() {
+        if (mappings == null) {
+            return null;
+        }
+        try {
+            return Settings.fromXContent(JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
+                DeprecationHandler.THROW_UNSUPPORTED_OPERATION, mappings)).getGroups("properties").keySet();
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     @Override
-    public IndexDefinition setDateTimeFormatter(DateTimeFormatter formatter) {
+    public void setDateTimeFormatter(DateTimeFormatter formatter) {
         this.formatter = formatter;
-        return this;
     }
 
     @Override
@@ -189,9 +200,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public IndexDefinition setDateTimePattern(Pattern pattern) {
+    public void setDateTimePattern(Pattern pattern) {
         this.pattern = pattern;
-        return this;
     }
 
     @Override
@@ -200,9 +210,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public IndexDefinition setStartBulkRefreshSeconds(int seconds) {
+    public void setStartBulkRefreshSeconds(int seconds) {
         this.startRefreshInterval = seconds;
-        return this;
     }
 
     @Override
@@ -211,9 +220,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public IndexDefinition setStopBulkRefreshSeconds(int seconds) {
+    public void setStopBulkRefreshSeconds(int seconds) {
         this.stopRefreshInterval = seconds;
-        return this;
     }
 
     @Override
@@ -222,9 +230,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public IndexDefinition setEnabled(boolean enabled) {
+    public void setEnabled(boolean enabled) {
         this.enabled = enabled;
-        return this;
     }
 
     @Override
@@ -233,9 +240,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public IndexDefinition setShift(boolean shift) {
+    public void setShift(boolean shift) {
         this.shift = shift;
-        return this;
     }
 
     @Override
@@ -244,9 +250,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public IndexDefinition setPrune(boolean prune) {
+    public void setPrune(boolean prune) {
         this.prune = prune;
-        return this;
     }
 
     @Override
@@ -255,9 +260,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public IndexDefinition setForceMerge(boolean forcemerge) {
+    public void setForceMerge(boolean forcemerge) {
         this.forcemerge = forcemerge;
-        return this;
     }
 
     @Override
@@ -266,44 +270,44 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public IndexDefinition setReplicaLevel(int replicaLevel) {
-        this.replicaLevel = replicaLevel;
-        return this;
+    public void setShardCount(int shardCount) {
+        this.shardCount = shardCount;
     }
 
     @Override
-    public int getReplicaLevel() {
-        return replicaLevel;
+    public int getShardCount() {
+        return shardCount;
     }
 
     @Override
-    public IndexDefinition setRetention(IndexRetention indexRetention) {
-        this.indexRetention = indexRetention;
-        return this;
+    public void setReplicaCount(int replicaCount) {
+        this.replicaCount = replicaCount;
     }
 
     @Override
-    public IndexRetention getRetention() {
-        return indexRetention;
+    public int getReplicaCount() {
+        return replicaCount;
     }
 
     @Override
-    public IndexDefinition setMaxWaitTime(long maxWaitTime, TimeUnit timeUnit) {
-        this.maxWaitTime = maxWaitTime;
-        this.maxWaitTimeUnit = timeUnit;
-        return this;
+    public void setDelta(int delta) {
+        this.delta = delta;
     }
 
     @Override
-    public long getMaxWaitTime() {
-        return maxWaitTime;
+    public int getDelta() {
+        return delta;
     }
 
     @Override
-    public TimeUnit getMaxWaitTimeUnit() {
-        return maxWaitTimeUnit;
+    public void setMinToKeep(int minToKeep) {
+        this.minToKeep = minToKeep;
     }
 
+    @Override
+    public int getMinToKeep() {
+        return minToKeep;
+    }
     private static String findSettingsFrom(String string) throws IOException {
         if (string == null) {
             return null;

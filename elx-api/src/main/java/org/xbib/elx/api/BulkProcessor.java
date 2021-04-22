@@ -10,10 +10,6 @@ public interface BulkProcessor extends Closeable, Flushable {
 
     void setEnabled(boolean enabled);
 
-    void startBulkMode(IndexDefinition indexDefinition);
-
-    void stopBulkMode(IndexDefinition indexDefinition);
-
     void add(DocWriteRequest<?> request);
 
     boolean waitForBulkResponses(long timeout, TimeUnit unit);
@@ -29,5 +25,4 @@ public interface BulkProcessor extends Closeable, Flushable {
     void setMaxBulkVolume(long bulkSize);
 
     long getMaxBulkVolume();
-
 }

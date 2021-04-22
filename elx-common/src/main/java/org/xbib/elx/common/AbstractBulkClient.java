@@ -17,8 +17,6 @@ import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.xcontent.DeprecationHandler;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
@@ -27,7 +25,6 @@ import org.xbib.elx.api.BulkProcessor;
 import org.xbib.elx.api.IndexDefinition;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -89,15 +86,16 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
             throw new IllegalArgumentException("no index name given");
         }
         ensureClientIsPresent();
-        CreateIndexRequestBuilder createIndexRequestBuilder = new CreateIndexRequestBuilder(client, CreateIndexAction.INSTANCE)
+        CreateIndexRequestBuilder createIndexRequestBuilder =
+                new CreateIndexRequestBuilder(client, CreateIndexAction.INSTANCE)
                 .setIndex(index);
         if (indexDefinition.getSettings() == null) {
             try {
                 XContentBuilder builder = JsonXContent.contentBuilder()
                         .startObject()
                         .startObject("index")
-                        .field("number_of_shards", 1)
-                        .field("number_of_replicas", 0)
+                        .field("number_of_shards", indexDefinition.getShardCount())
+                        .field("number_of_replicas", 0) // always 0
                         .endObject()
                         .endObject();
                 indexDefinition.setSettings(Strings.toString(builder));
@@ -105,15 +103,18 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
                 logger.log(Level.WARN, e.getMessage(), e);
             }
         }
-        Settings settings = Settings.builder().loadFromSource(indexDefinition.getSettings(), XContentType.JSON).build();
+        Settings settings = Settings.builder()
+                .loadFromSource(indexDefinition.getSettings(), XContentType.JSON)
+                .put("index.number_of_shards", indexDefinition.getShardCount())
+                .put("index.number_of_replicas", 0) // always 0
+                .build();
         createIndexRequestBuilder.setSettings(settings);
         try {
             if (indexDefinition.getMappings() != null) {
-                Map<String, Object> mappings = JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
-                        DeprecationHandler.THROW_UNSUPPORTED_OPERATION, indexDefinition.getMappings()).mapOrdered();
-                createIndexRequestBuilder.addMapping(TYPE_NAME, mappings);
+                createIndexRequestBuilder.addMapping(TYPE_NAME, indexDefinition.getMappings());
             } else {
-                XContentBuilder builder = JsonXContent.contentBuilder().startObject().startObject(TYPE_NAME).endObject().endObject();
+                XContentBuilder builder = JsonXContent.contentBuilder()
+                        .startObject().startObject(TYPE_NAME).endObject().endObject();
                 createIndexRequestBuilder.addMapping(TYPE_NAME, builder);
             }
         } catch (IOException e) {
@@ -135,9 +136,15 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         if (isIndexDefinitionDisabled(indexDefinition)) {
             return;
         }
-        if (bulkProcessor != null) {
-            ensureClientIsPresent();
-            bulkProcessor.startBulkMode(indexDefinition);
+        ensureClientIsPresent();
+        String indexName = indexDefinition.getFullIndexName();
+        int interval = indexDefinition.getStartBulkRefreshSeconds();
+        if (interval != 0) {
+            logger.info("starting bulk on " + indexName + " with new refresh interval " + interval);
+            updateIndexSetting(indexName, "refresh_interval",
+                    interval >=0 ? interval + "s" : interval, 30L, TimeUnit.SECONDS);
+        } else {
+            logger.warn("ignoring starting bulk on " + indexName + " with refresh interval " + interval);
         }
     }
 
@@ -148,7 +155,22 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         }
         if (bulkProcessor != null) {
             ensureClientIsPresent();
-            bulkProcessor.stopBulkMode(indexDefinition);
+            String indexName = indexDefinition.getFullIndexName();
+            int interval = indexDefinition.getStopBulkRefreshSeconds();
+            try {
+                bulkProcessor.flush();
+            } catch (IOException e) {
+                // can never happen
+            }
+            if (bulkProcessor.waitForBulkResponses(60L, TimeUnit.SECONDS)) {
+                if (interval != 0) {
+                    logger.info("stopping bulk on " + indexName + " with new refresh interval " + interval);
+                    updateIndexSetting(indexName, "refresh_interval",
+                            interval >= 0 ? interval + "s" : interval, 30L, TimeUnit.SECONDS);
+                } else {
+                    logger.warn("ignoring stopping bulk on " + indexName + " with refresh interval " + interval);
+                }
+            }
         }
     }
 
