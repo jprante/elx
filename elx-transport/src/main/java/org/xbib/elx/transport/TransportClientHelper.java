@@ -46,7 +46,7 @@ public class TransportClientHelper {
         }
     }
 
-    public void init(TransportClient transportClient, Settings settings) throws IOException {
+    public void init(TransportClient transportClient, Settings settings) {
         Collection<TransportAddress> addrs = findAddresses(settings);
         if (!connect(transportClient, addrs, settings.getAsBoolean("autodiscover", false))) {
             throw new NoNodeAvailableException("no cluster nodes available, check settings = "
@@ -54,7 +54,7 @@ public class TransportClientHelper {
         }
     }
 
-    private Collection<TransportAddress> findAddresses(Settings settings) throws IOException {
+    private Collection<TransportAddress> findAddresses(Settings settings) {
         final int defaultPort = settings.getAsInt("port", 9300);
         Collection<TransportAddress> addresses = new ArrayList<>();
         for (String hostname : settings.getAsArray("host")) {
@@ -66,16 +66,20 @@ public class TransportClientHelper {
                     int port = Integer.parseInt(splitHost[1]);
                     TransportAddress address = new InetSocketTransportAddress(inetAddress, port);
                     addresses.add(address);
-                } catch (NumberFormatException e) {
+                } catch (IOException e) {
                     logger.warn(e.getMessage(), e);
                 }
             } else if (splitHost.length == 1) {
-                String host = splitHost[0];
-                InetAddress inetAddress = NetworkUtils.resolveInetAddress(host, null);
-                TransportAddress address = new InetSocketTransportAddress(inetAddress, defaultPort);
-                addresses.add(address);
+                try {
+                    String host = splitHost[0];
+                    InetAddress inetAddress = NetworkUtils.resolveInetAddress(host, null);
+                    TransportAddress address = new InetSocketTransportAddress(inetAddress, defaultPort);
+                    addresses.add(address);
+                } catch (IOException e) {
+                    logger.warn(e.getMessage(), e);
+                }
             } else {
-                throw new IOException("invalid hostname specification: " + hostname);
+                throw new IllegalArgumentException("invalid hostname specification: " + hostname);
             }
         }
         return addresses;

@@ -76,10 +76,10 @@ public abstract class AbstractBasicClient implements BasicClient {
     }
 
     @Override
-    public void init(Settings settings) throws IOException {
+    public void init(Settings settings) {
+        this.settings = settings;
         if (closed.compareAndSet(false, true)) {
             logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
-            this.settings = settings;
             setClient(createClient(settings));
         }
     }
@@ -105,13 +105,13 @@ public abstract class AbstractBasicClient implements BasicClient {
     }
 
     @Override
-    public void putClusterSetting(String key, Object value, long timeout, TimeUnit timeUnit) throws IOException {
+    public void putClusterSetting(String key, Object value, long timeout, TimeUnit timeUnit) {
         ensureClientIsPresent();
         if (key == null) {
-            throw new IOException("no key given");
+            throw new IllegalArgumentException("no key given");
         }
         if (value == null) {
-            throw new IOException("no value given");
+            throw new IllegalArgumentException("no value given");
         }
         Settings.Builder updateSettingsBuilder = Settings.builder();
         updateSettingsBuilder.put(key, value.toString());
@@ -120,26 +120,16 @@ public abstract class AbstractBasicClient implements BasicClient {
         client.execute(ClusterUpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
     }
 
-    protected Long getThreadPoolQueueSize(String name) {
-        ensureClientIsPresent();
-        NodesInfoRequest nodesInfoRequest = new NodesInfoRequest();
-        nodesInfoRequest.threadPool(true);
-        NodesInfoResponse nodesInfoResponse =
-                client.execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
-        for (NodeInfo nodeInfo : nodesInfoResponse.getNodes()) {
-            ThreadPoolInfo threadPoolInfo = nodeInfo.getThreadPool();
-            for (ThreadPool.Info info : threadPoolInfo) {
-                if (info.getName().equals(name)) {
-                    return info.getQueueSize().getSingles();
-                }
-            }
-        }
-        return null;
-    }
-
     @Override
-    public void waitForCluster(String statusString, long maxWaitTime, TimeUnit timeUnit) {
+    public void waitForHealthyCluster() {
         ensureClientIsPresent();
+        String statusString = settings.get(Parameters.CLUSTER_TARGET_HEALTH.getName(),
+                Parameters.CLUSTER_TARGET_HEALTH.getString());
+        String waitTimeStr = settings.get(Parameters.CLUSTER_TARGET_HEALTH_TIMEOUT.getName(),
+                Parameters.CLUSTER_TARGET_HEALTH_TIMEOUT.getString());
+        TimeValue timeValue = TimeValue.parseTimeValue(waitTimeStr, TimeValue.timeValueMinutes(30L), "");
+        long maxWaitTime = timeValue.minutes();
+        TimeUnit timeUnit = TimeUnit.MINUTES;
         logger.info("waiting for cluster status " + statusString + " for " + maxWaitTime + " " + timeUnit);
         ClusterHealthStatus status = ClusterHealthStatus.fromString(statusString);
         TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
@@ -150,23 +140,6 @@ public abstract class AbstractBasicClient implements BasicClient {
                 client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
         if (healthResponse != null && healthResponse.isTimedOut()) {
             String message = "timeout, cluster state is " + healthResponse.getStatus().name() + " and not " + status.name();
-            logger.error(message);
-            throw new IllegalStateException(message);
-        }
-    }
-
-    @Override
-    public void waitForShards(long maxWaitTime, TimeUnit timeUnit) {
-        ensureClientIsPresent();
-        logger.info("waiting for cluster shard settling");
-        TimeValue timeout = toTimeValue(maxWaitTime, timeUnit);
-        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest()
-                .waitForRelocatingShards(0)
-                .timeout(timeout);
-        ClusterHealthResponse healthResponse =
-                client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
-        if (healthResponse.isTimedOut()) {
-            String message = "timeout waiting for cluster shards: " + timeout;
             logger.error(message);
             throw new IllegalStateException(message);
         }
@@ -228,7 +201,7 @@ public abstract class AbstractBasicClient implements BasicClient {
         }
     }
 
-    protected abstract ElasticsearchClient createClient(Settings settings) throws IOException;
+    protected abstract ElasticsearchClient createClient(Settings settings);
 
     protected abstract void closeClient(Settings settings) throws IOException;
 
@@ -283,5 +256,22 @@ public abstract class AbstractBasicClient implements BasicClient {
             default:
                 throw new IllegalArgumentException("unknown time unit: " + timeUnit);
         }
+    }
+
+    protected Long getThreadPoolQueueSize(String name) {
+        ensureClientIsPresent();
+        NodesInfoRequest nodesInfoRequest = new NodesInfoRequest();
+        nodesInfoRequest.threadPool(true);
+        NodesInfoResponse nodesInfoResponse =
+                client.execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
+        for (NodeInfo nodeInfo : nodesInfoResponse.getNodes()) {
+            ThreadPoolInfo threadPoolInfo = nodeInfo.getThreadPool();
+            for (ThreadPool.Info info : threadPoolInfo) {
+                if (info.getName().equals(name)) {
+                    return info.getQueueSize().getSingles();
+                }
+            }
+        }
+        return null;
     }
 }

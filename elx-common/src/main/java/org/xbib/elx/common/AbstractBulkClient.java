@@ -40,7 +40,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     }
 
     @Override
-    public void init(Settings settings) throws IOException {
+    public void init(Settings settings) {
         if (closed.compareAndSet(true, false)) {
             super.init(settings);
             bulkProcessor = new DefaultBulkProcessor(this, settings);
@@ -114,7 +114,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
             logger.warn("index creation of {} not acknowledged", index);
             return;
         }
-        waitForCluster("GREEN", 30L, TimeUnit.MINUTES);
+        waitForHealthyCluster();
     }
 
     @Override

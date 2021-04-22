@@ -112,7 +112,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         }
         DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest().indices(index);
         client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
-        waitForCluster("GREEN", 30L, TimeUnit.MINUTES);
+        waitForHealthyCluster();
         return this;
     }
 
@@ -129,6 +129,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         long maxWaitTime = indexDefinition.getMaxWaitTime();
         TimeUnit timeUnit = indexDefinition.getMaxWaitTimeUnit();
         updateIndexSetting(index, "number_of_replicas", level, maxWaitTime, timeUnit);
+        waitForHealthyCluster();
         return this;
     }
 
@@ -409,7 +410,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         if (forceMergeResponse.getFailedShards() > 0) {
             throw new IllegalStateException("failed shards after force merge: " + forceMergeResponse.getFailedShards());
         }
-        waitForCluster("GREEN", 30L, TimeUnit.MINUTES);
+        waitForHealthyCluster();
         return true;
     }
 
@@ -421,7 +422,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(index)
                 .settings(updateSettingsBuilder).timeout(toTimeValue(timeout, timeUnit));
         client.execute(UpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
-        waitForCluster("GREEN", 30L, TimeUnit.MINUTES);
+        waitForHealthyCluster();
     }
 
     @Override

@@ -25,10 +25,6 @@ public class MockSearchClient extends AbstractSearchClient {
     }
 
     @Override
-    public void waitForShards(long maxWaitTime, TimeUnit timeUnit) {
-    }
-
-    @Override
     protected ElasticsearchClient createClient(Settings settings) {
         return null;
     }

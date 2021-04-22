@@ -32,7 +32,7 @@ class DuplicateIDTest {
         long numactions = ACTIONS;
         try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
-                .put(helper.getTransportSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);

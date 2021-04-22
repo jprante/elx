@@ -5,8 +5,6 @@ import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
 import org.xbib.elx.common.AbstractAdminClient;
 
-import java.io.IOException;
-
 /**
  * Transport admin client.
  */
@@ -20,12 +18,12 @@ public class TransportAdminClient extends AbstractAdminClient {
     }
 
     @Override
-    public ElasticsearchClient createClient(Settings settings) throws IOException {
+    public ElasticsearchClient createClient(Settings settings) {
         return helper.createClient(settings);
     }
 
     @Override
-    public void init(Settings settings) throws IOException {
+    public void init(Settings settings) {
         super.init(settings);
         helper.init((TransportClient) getClient(), settings);
     }

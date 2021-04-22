@@ -36,11 +36,11 @@ class SmokeTest {
     void smokeTest() throws Exception {
         try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client())
                 .setAdminClientProvider(NodeAdminClientProvider.class)
-                .put(helper.getNodeSettings())
+                .put(helper.getClientSettings())
                 .build();
              NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                .put(helper.getNodeSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             assertEquals(helper.getClusterName(), adminClient.getClusterName());
             IndexDefinition indexDefinition =
@@ -51,22 +51,20 @@ class SmokeTest {
             indexDefinition.setType("doc");
             bulkClient.newIndex(indexDefinition);
             bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
-            bulkClient.flush();
-            bulkClient.waitForResponses(30, TimeUnit.SECONDS);
+            assertTrue(bulkClient.waitForResponses(30, TimeUnit.SECONDS));
             adminClient.checkMapping(indexDefinition);
             bulkClient.update(indexDefinition, "1", "{ \"name\" : \"Another name\"}");
             bulkClient.delete(indexDefinition, "1");
             bulkClient.waitForResponses(30, TimeUnit.SECONDS);
             bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}");
             bulkClient.delete(indexDefinition, "1");
-            bulkClient.waitForResponses(30, TimeUnit.SECONDS);
+            assertTrue(bulkClient.waitForResponses(30, TimeUnit.SECONDS));
             adminClient.deleteIndex(indexDefinition);
             bulkClient.newIndex(indexDefinition);
             bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}");
-            bulkClient.waitForResponses(30, TimeUnit.SECONDS);
-            adminClient.updateReplicaLevel(indexDefinition, 2);
-            int replica = adminClient.getReplicaLevel(indexDefinition);
-            assertEquals(2, replica);
+            assertTrue(bulkClient.waitForResponses(30, TimeUnit.SECONDS));
+            adminClient.updateReplicaLevel(indexDefinition, 1);
+            assertEquals(1, adminClient.getReplicaLevel(indexDefinition));
             assertEquals(0, bulkClient.getBulkProcessor().getBulkMetric().getFailed().getCount());
             assertEquals(6, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
             if (bulkClient.getBulkProcessor().getLastBulkError() != null) {

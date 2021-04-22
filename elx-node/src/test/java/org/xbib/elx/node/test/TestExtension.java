@@ -102,7 +102,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
 
     private Helper create() {
         Helper helper = new Helper();
-        String home = System.getProperty("path.home", "build/elxnode");
+        String home = System.getProperty("path.home", "build/elxnode/");
         helper.setHome(home + "/" + helper.randomString(8));
         helper.setClusterName("test-cluster-" + helper.randomString(8));
         logger.info("cluster: " + helper.getClusterName() + " home: " + helper.getHome());
@@ -137,11 +137,17 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return cluster;
         }
 
-        Settings getNodeSettings() {
+        Settings getClientSettings() {
             return Settings.builder()
-                    .put("name", "elx-client") // for threadpool name
                     .put("cluster.name", getClusterName())
                     .put("path.home", getHome())
+                    .put("name", getClusterName() + "-name-client") // for threadpool setting
+                    .put("node.name", getClusterName() + "-client")
+                    .put("node.master", "false")
+                    .put("node.data", "false")
+                    .put("node.client", "true")
+                    .put("cluster.target_health", "YELLOW")
+                    .put("cluster.target_health_timeout", "1m")
                     .build();
         }
 
@@ -168,10 +174,14 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         }
 
         Node buildNode() {
-            String id = "1";
             Settings nodeSettings = Settings.builder()
-                    .put(getNodeSettings())
-                    .put("node.name", id)
+                    .put("cluster.name", getClusterName())
+                    .put("path.home", getHome())
+                    .put("name", getClusterName() + "-name-server") // for threadpool setting
+                    .put("node.name", getClusterName() + "-server")
+                    .put("node.master", "true")
+                    .put("node.data", "true")
+                    .put("node.client", "false")
                     .build();
             this.node = new MockNode(nodeSettings);
             return node;
