@@ -90,7 +90,6 @@ public class DefaultIndexDefinition implements IndexDefinition {
         if (settings.get("settings") != null && settings.get("mapping") != null) {
             setSettings(findSettingsFrom(settings.get("settings")));
             setMappings(findMappingsFrom(settings.get("mapping")));
-            setReplicaCount(settings.getAsInt("replica", 0));
             boolean shift = settings.getAsBoolean("shift", false);
             setShift(shift);
             if (shift) {
