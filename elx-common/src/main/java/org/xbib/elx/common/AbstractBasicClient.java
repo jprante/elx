@@ -205,16 +205,16 @@ public abstract class AbstractBasicClient implements BasicClient {
 
     protected abstract void closeClient(Settings settings) throws IOException;
 
-    protected void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) throws IOException {
+    protected void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) {
         ensureClientIsPresent();
         if (index == null) {
-            throw new IOException("no index name given");
+            throw new IllegalArgumentException("no index name given");
         }
         if (key == null) {
-            throw new IOException("no key given");
+            throw new IllegalArgumentException("no key given");
         }
         if (value == null) {
-            throw new IOException("no value given");
+            throw new IllegalArgumentException("no value given");
         }
         Settings.Builder updateSettingsBuilder = Settings.builder();
         updateSettingsBuilder.put(key, value.toString());

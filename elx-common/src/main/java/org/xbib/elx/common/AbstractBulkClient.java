@@ -13,7 +13,6 @@ import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
@@ -92,18 +91,29 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
                 new CreateIndexRequestBuilder(client, CreateIndexAction.INSTANCE)
                 .setIndex(index);
         if (indexDefinition.getSettings() != null) {
-            indexDefinition.setSettings(Strings.toString(Settings.builder()
+            Settings settings = Settings.builder()
                     .loadFromSource(indexDefinition.getSettings())
                     .put("index.number_of_shards", indexDefinition.getShardCount())
                     .put("index.number_of_replicas", 0) // always 0
-                    .build()));
+                    .build();
+            try {
+                createIndexRequestBuilder.setSettings(JsonXContent.contentBuilder()
+                        .map(settings.getAsStructuredMap()).string());
+            } catch (IOException e) {
+                logger.warn(e.getMessage(), e);
+            }
         } else {
-            indexDefinition.setSettings(Strings.toString(Settings.builder()
+            Settings settings = Settings.builder()
                     .put("index.number_of_shards", indexDefinition.getShardCount())
                     .put("index.number_of_replicas", 0) // always 0
-                    .build()));
+                    .build();
+            try {
+                createIndexRequestBuilder.setSettings(JsonXContent.contentBuilder()
+                        .map(settings.getAsStructuredMap()).string());
+            } catch (IOException e) {
+                logger.warn(e.getMessage(), e);
+            }
         }
-        createIndexRequestBuilder.setSettings(indexDefinition.getSettings());
         if (indexDefinition.getMappings() != null) {
             try {
                 Map<String, Object> mappings = JsonXContent.jsonXContent.createParser(indexDefinition.getMappings()).mapOrdered();
