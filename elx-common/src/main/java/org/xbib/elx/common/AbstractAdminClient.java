@@ -81,7 +81,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     private static final Logger logger = LogManager.getLogger(AbstractAdminClient.class.getName());
 
     @Override
-    public Map<String, ?> getMapping(IndexDefinition indexDefinition) {
+    public Map<String, Object> getMapping(IndexDefinition indexDefinition) {
         if (isIndexDefinitionDisabled(indexDefinition)) {
             return null;
         }
@@ -102,33 +102,34 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     @Override
     public AdminClient deleteIndex(IndexDefinition indexDefinition) {
         if (isIndexDefinitionDisabled(indexDefinition)) {
-            return null;
+            return this;
         }
-        ensureClientIsPresent();
         String index = indexDefinition.getFullIndexName();
         if (index == null) {
             logger.warn("no index name given to delete index");
             return this;
         }
+        ensureClientIsPresent();
         DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest().indices(index);
         client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
-        waitForCluster("GREEN", 30L, TimeUnit.MINUTES);
+        waitForHealthyCluster();
         return this;
     }
 
     @Override
-    public AdminClient updateReplicaLevel(IndexDefinition indexDefinition, int level) {
+    public AdminClient updateReplicaLevel(IndexDefinition indexDefinition) {
         if (isIndexDefinitionDisabled(indexDefinition)) {
             return null;
         }
-        if (level < 1) {
+        if (indexDefinition.getReplicaCount() < 1) {
             logger.warn("invalid replica level");
             return this;
         }
-        String index = indexDefinition.getFullIndexName();
-        long maxWaitTime = indexDefinition.getMaxWaitTime();
-        TimeUnit timeUnit = indexDefinition.getMaxWaitTimeUnit();
-        updateIndexSetting(index, "number_of_replicas", level, maxWaitTime, timeUnit);
+        logger.info("update replica level for " +
+                indexDefinition + " to " + indexDefinition.getReplicaCount());
+        updateIndexSetting(indexDefinition.getFullIndexName(), "number_of_replicas", indexDefinition.getReplicaCount(),
+                30L, TimeUnit.SECONDS);
+        waitForHealthyCluster();
         return this;
     }
 
@@ -294,13 +295,12 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     @Override
     public IndexPruneResult pruneIndex(IndexDefinition indexDefinition) {
         return indexDefinition != null && indexDefinition.isEnabled() && indexDefinition.isPruneEnabled() &&
-                indexDefinition.getRetention() != null &&
                 indexDefinition.getDateTimePattern() != null ?
                 pruneIndex(indexDefinition.getIndex(),
                 indexDefinition.getFullIndexName(),
                 indexDefinition.getDateTimePattern(),
-                indexDefinition.getRetention().getDelta(),
-                indexDefinition.getRetention().getMinToKeep()) : new EmptyPruneResult();
+                indexDefinition.getDelta(),
+                indexDefinition.getMinToKeep()) : new EmptyPruneResult();
     }
 
     private IndexPruneResult pruneIndex(String index,
@@ -409,7 +409,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         if (forceMergeResponse.getFailedShards() > 0) {
             throw new IllegalStateException("failed shards after force merge: " + forceMergeResponse.getFailedShards());
         }
-        waitForCluster("GREEN", 30L, TimeUnit.MINUTES);
+        waitForHealthyCluster();
         return true;
     }
 
@@ -421,7 +421,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(index)
                 .settings(updateSettingsBuilder).timeout(toTimeValue(timeout, timeUnit));
         client.execute(UpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
-        waitForCluster("GREEN", 30L, TimeUnit.MINUTES);
+        waitForHealthyCluster();
     }
 
     @Override

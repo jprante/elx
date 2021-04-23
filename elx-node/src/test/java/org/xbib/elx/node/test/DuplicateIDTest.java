@@ -37,7 +37,7 @@ class DuplicateIDTest {
         long numactions = ACTIONS;
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                .put(helper.getNodeSettings())
+                .put(helper.getClientSettings())
                 .put(Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");

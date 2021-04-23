@@ -4,6 +4,8 @@
 /.idea
 /target
 .DS_Store
+*.iml
+*~
 /.settings
 /.classpath
 /.project
@@ -11,5 +13,3 @@
 build
 out
 plugins
-*.iml
-*~

@@ -35,7 +35,7 @@ class BulkClientTest {
     void testNewIndex() throws Exception {
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                .put(helper.getNodeSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);
@@ -46,7 +46,7 @@ class BulkClientTest {
     void testSingleDoc() throws Exception {
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                .put(helper.getNodeSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);
@@ -65,7 +65,7 @@ class BulkClientTest {
         long numactions = ACTIONS;
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                .put(helper.getNodeSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);
@@ -93,7 +93,7 @@ class BulkClientTest {
         long timeout = 120L;
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                .put(helper.getNodeSettings())
+                .put(helper.getClientSettings())
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);

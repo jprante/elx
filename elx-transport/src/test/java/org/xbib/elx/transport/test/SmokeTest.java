@@ -36,17 +36,16 @@ class SmokeTest {
     void smokeTest() throws Exception {
         try (TransportAdminClient adminClient = ClientBuilder.builder()
                 .setAdminClientProvider(TransportAdminClientProvider.class)
-                .put(helper.getTransportSettings())
+                .put(helper.getClientSettings())
                 .build();
              TransportBulkClient bulkClient = ClientBuilder.builder()
                      .setBulkClientProvider(TransportBulkClientProvider.class)
-                     .put(helper.getTransportSettings())
+                     .put(helper.getClientSettings())
                      .build()) {
             IndexDefinition indexDefinition =
                     new DefaultIndexDefinition(adminClient, "test", "doc", Settings.EMPTY);
             assertEquals("test", indexDefinition.getIndex());
             assertTrue(indexDefinition.getFullIndexName().startsWith("test"));
-            assertEquals(0, indexDefinition.getReplicaLevel());
             assertEquals(helper.getClusterName(), adminClient.getClusterName());
             bulkClient.newIndex(indexDefinition);
             bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
@@ -62,9 +61,8 @@ class SmokeTest {
             bulkClient.newIndex(indexDefinition);
             bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}");
             bulkClient.waitForResponses(30, TimeUnit.SECONDS);
-            adminClient.updateReplicaLevel(indexDefinition, 2);
-            int replica = adminClient.getReplicaLevel(indexDefinition);
-            assertEquals(2, replica);
+            adminClient.updateReplicaLevel(indexDefinition);
+            assertEquals(1, adminClient.getReplicaLevel(indexDefinition));
             assertEquals(0, bulkClient.getBulkProcessor().getBulkMetric().getFailed().getCount());
             assertEquals(6, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
             if (bulkClient.getBulkProcessor().getLastBulkError() != null) {

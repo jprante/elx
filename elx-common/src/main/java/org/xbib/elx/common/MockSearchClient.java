@@ -3,8 +3,6 @@ package org.xbib.elx.common;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 
-import java.util.concurrent.TimeUnit;
-
 /**
  * A mocked client, it does not perform any actions on a cluster. Useful for testing.
  */
@@ -22,10 +20,6 @@ public class MockSearchClient extends AbstractSearchClient {
     @Override
     public String getClusterName() {
         return null;
-    }
-
-    @Override
-    public void waitForShards(long maxWaitTime, TimeUnit timeUnit) {
     }
 
     @Override

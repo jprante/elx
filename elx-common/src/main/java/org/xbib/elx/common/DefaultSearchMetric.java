@@ -125,7 +125,11 @@ public class DefaultSearchMetric implements SearchMetric {
 
     private void log() {
         if (logger.isInfoEnabled()) {
-            logger.info("docs = " + getTotalQueries().getCount());
+            logger.info("queries = " + getTotalQueries().getCount() +
+                            " succeeded = " + getSucceededQueries().getCount() +
+                            " empty = " + getEmptyQueries().getCount() +
+                            " failed = " + getFailedQueries() +
+                            " timeouts = " + getTimeoutQueries().getCount());
         }
     }
 }

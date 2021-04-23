@@ -5,7 +5,6 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.common.bytes.BytesReference;
 import java.io.Flushable;
-import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 public interface BulkClient extends BasicClient, Flushable {
@@ -13,24 +12,21 @@ public interface BulkClient extends BasicClient, Flushable {
     /**
      * Create a new index.
      * @param indexDefinition the index definition
-     * @throws IOException if settings/mapping is invalid or index creation fails
      */
-    void newIndex(IndexDefinition indexDefinition) throws IOException;
+    void newIndex(IndexDefinition indexDefinition);
 
     /**
      * Start bulk mode for indexes.
      * @param indexDefinition index definition
-     * @throws IOException if bulk could not be started
      */
-    void startBulk(IndexDefinition indexDefinition) throws IOException;
+    void startBulk(IndexDefinition indexDefinition);
 
     /**
      * Stop bulk mode.
      *
      * @param indexDefinition index definition
-     * @throws IOException if bulk could not be startet
      */
-    void stopBulk(IndexDefinition indexDefinition) throws IOException;
+    void stopBulk(IndexDefinition indexDefinition);
 
     /**
      * Add index request. Each request will be added to a queue for bulking requests.
@@ -69,7 +65,7 @@ public interface BulkClient extends BasicClient, Flushable {
      * Delete request.
      *
      * @param indexDefinition the index definition
-     * @param id    the id
+     * @param id the id
      * @return this
      */
     BulkClient delete(IndexDefinition indexDefinition, String id);
@@ -89,7 +85,7 @@ public interface BulkClient extends BasicClient, Flushable {
      * Note that updates only work correctly when all operations between nodes are synchronized.
      *
      * @param indexDefinition the index definition
-     * @param id     the id
+     * @param id the id
      * @param source the source
      * @return this
      */
@@ -98,8 +94,8 @@ public interface BulkClient extends BasicClient, Flushable {
     /**
      * Update document. Use with precaution! Does not work in all cases.
      *
-     * @param indexDefinition  the index definition
-     * @param id     the id
+     * @param indexDefinition the index definition
+     * @param id the id
      * @param source the source
      * @return this
      */
@@ -131,9 +127,8 @@ public interface BulkClient extends BasicClient, Flushable {
      * @param value the new value
      * @param timeout timeout
      * @param timeUnit time unit
-     * @throws IOException if update index setting failed
      */
-    void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) throws IOException;
+    void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit);
 
     /**
      * Refresh the index.

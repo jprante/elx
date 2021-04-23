@@ -6,10 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.api.IndexPruneResult;
-import org.xbib.elx.api.IndexRetention;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.DefaultIndexDefinition;
-import org.xbib.elx.common.DefaultIndexRetention;
 import org.xbib.elx.transport.TransportAdminClient;
 import org.xbib.elx.transport.TransportAdminClientProvider;
 import org.xbib.elx.transport.TransportBulkClient;
@@ -40,11 +38,11 @@ class IndexPruneTest {
     void testPrune() throws IOException {
         try (TransportAdminClient adminClient = ClientBuilder.builder()
                 .setAdminClientProvider(TransportAdminClientProvider.class)
-                .put(helper.getTransportSettings())
+                .put(helper.getClientSettings())
                 .build();
              TransportBulkClient bulkClient = ClientBuilder.builder()
                      .setBulkClientProvider(TransportBulkClientProvider.class)
-                     .put(helper.getTransportSettings())
+                     .put(helper.getClientSettings())
                      .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             indexDefinition.setIndex("test_prune");
@@ -64,9 +62,9 @@ class IndexPruneTest {
             bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
             adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
-            IndexRetention indexRetention = new DefaultIndexRetention();
-            indexDefinition.setRetention(indexRetention);
             indexDefinition.setEnabled(true);
+            indexDefinition.setDelta(2);
+            indexDefinition.setMinToKeep(2);
             indexDefinition.setPrune(true);
             IndexPruneResult indexPruneResult = adminClient.pruneIndex(indexDefinition);
             logger.info("prune result = " + indexPruneResult);

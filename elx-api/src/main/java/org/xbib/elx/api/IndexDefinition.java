@@ -1,74 +1,75 @@
 package org.xbib.elx.api;
 
 import java.time.format.DateTimeFormatter;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 public interface IndexDefinition {
 
-    IndexDefinition setIndex(String index);
+    void setIndex(String index);
 
     String getIndex();
 
-    IndexDefinition setType(String type);
+    void setType(String type);
 
     String getType();
 
-    IndexDefinition setFullIndexName(String fullIndexName);
+    void setFullIndexName(String fullIndexName);
 
     String getFullIndexName();
 
-    IndexDefinition setSettings(String settings);
+    void setSettings(String settings);
 
     String getSettings();
 
-    IndexDefinition setMappings(String mappings);
+    void setMappings(String mappings);
 
     String getMappings();
 
-    IndexDefinition setDateTimeFormatter(DateTimeFormatter formatter);
+    void setDateTimeFormatter(DateTimeFormatter formatter);
 
     DateTimeFormatter getDateTimeFormatter();
 
-    IndexDefinition setDateTimePattern(Pattern pattern);
+    void setDateTimePattern(Pattern pattern);
 
     Pattern getDateTimePattern();
 
-    IndexDefinition setStartBulkRefreshSeconds(int seconds);
+    void setStartBulkRefreshSeconds(int seconds);
 
     int getStartBulkRefreshSeconds();
 
-    IndexDefinition setStopBulkRefreshSeconds(int seconds);
+    void setStopBulkRefreshSeconds(int seconds);
 
     int getStopBulkRefreshSeconds();
 
-    IndexDefinition setEnabled(boolean enabled);
+    void setEnabled(boolean enabled);
 
     boolean isEnabled();
 
-    IndexDefinition setShift(boolean shift);
+    void setShift(boolean shift);
 
     boolean isShiftEnabled();
 
-    IndexDefinition setPrune(boolean prune);
+    void setPrune(boolean prune);
 
     boolean isPruneEnabled();
 
-    IndexDefinition setForceMerge(boolean forcemerge);
+    void setForceMerge(boolean forcemerge);
 
     boolean isForceMergeEnabled();
 
-    IndexDefinition setReplicaLevel(int replicaLevel);
+    void setShardCount(int shardCount);
 
-    int getReplicaLevel();
+    int getShardCount();
 
-    IndexDefinition setRetention(IndexRetention indexRetention);
+    void setReplicaCount(int replicaLevel);
 
-    IndexRetention getRetention();
+    int getReplicaCount();
 
-    IndexDefinition setMaxWaitTime(long maxWaitTime, TimeUnit timeUnit);
+    void setDelta(int delta);
 
-    long getMaxWaitTime();
+    int getDelta();
 
-    TimeUnit getMaxWaitTimeUnit();
+    void setMinToKeep(int minToKeep);
+
+    int getMinToKeep();
 }

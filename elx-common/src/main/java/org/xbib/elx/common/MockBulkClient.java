@@ -27,10 +27,6 @@ public class MockBulkClient extends AbstractBulkClient {
     }
 
     @Override
-    public void waitForShards(long maxWaitTime, TimeUnit timeUnit) {
-    }
-
-    @Override
     protected ElasticsearchClient createClient(Settings settings) {
         return null;
     }

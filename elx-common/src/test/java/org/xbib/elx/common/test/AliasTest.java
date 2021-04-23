@@ -3,8 +3,6 @@ package org.xbib.elx.common.test;
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction;
-import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesAction;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesAction;
@@ -62,7 +60,6 @@ class AliasTest {
         long t1 = (System.nanoTime() - t0) / 1000000;
         logger.info("{} time(ms) = {}", getAliasesResponse.getAliases(), t1);
         assertTrue(t1 >= 0);
-        client.execute(ClusterHealthAction.INSTANCE, new ClusterHealthRequest());
     }
 
     @Test
@@ -90,6 +87,7 @@ class AliasTest {
         getAliasesRequest.aliases(alias);
         GetAliasesResponse getAliasesResponse = client.execute(GetAliasesAction.INSTANCE, getAliasesRequest).actionGet();
         Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
+        // reverse order
         Set<String> result = new TreeSet<>(Collections.reverseOrder());
         for (ObjectCursor<String> indexName : getAliasesResponse.getAliases().keys()) {
             Matcher m = pattern.matcher(indexName.value);

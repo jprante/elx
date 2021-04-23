@@ -8,7 +8,7 @@ import java.util.Map;
  */
 public interface AdminClient extends BasicClient {
 
-    Map<String, ?> getMapping(IndexDefinition indexDefinition);
+    Map<String, Object> getMapping(IndexDefinition indexDefinition);
 
     void checkMapping(IndexDefinition indexDefinition);
 
@@ -20,12 +20,11 @@ public interface AdminClient extends BasicClient {
     AdminClient deleteIndex(IndexDefinition indexDefinition);
 
     /**
-     * Update replica level.
+     * Update replica level to the one in the index definition.
      * @param indexDefinition the index definition
-     * @param level the replica level
      * @return this
      */
-    AdminClient updateReplicaLevel(IndexDefinition indexDefinition, int level);
+    AdminClient updateReplicaLevel(IndexDefinition indexDefinition);
 
     /**
      * Get replica level.

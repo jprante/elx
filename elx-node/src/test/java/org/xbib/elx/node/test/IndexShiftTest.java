@@ -38,11 +38,11 @@ class IndexShiftTest {
     void testIndexShift() throws Exception {
         try (NodeAdminClient adminClient = ClientBuilder.builder(helper.client())
                 .setAdminClientProvider(NodeAdminClientProvider.class)
-                .put(helper.getNodeSettings())
+                .put(helper.getClientSettings())
                 .build();
              NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
-                     .put(helper.getNodeSettings())
+                     .put(helper.getClientSettings())
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             indexDefinition.setFullIndexName("test_shift");

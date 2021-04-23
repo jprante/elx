@@ -4,7 +4,6 @@ import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
 import org.xbib.elx.common.AbstractSearchClient;
-import java.io.IOException;
 
 /**
  * Transport search client with additional methods.
@@ -19,12 +18,12 @@ public class TransportSearchClient extends AbstractSearchClient {
     }
 
     @Override
-    public ElasticsearchClient createClient(Settings settings) throws IOException {
+    public ElasticsearchClient createClient(Settings settings) {
         return helper.createClient(settings);
     }
 
     @Override
-    public void init(Settings settings) throws IOException {
+    public void init(Settings settings) {
         super.init(settings);
         helper.init((TransportClient) getClient(), settings);
     }

@@ -49,7 +49,7 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
     }
 
     @Override
-    public void init(Settings settings) throws IOException {
+    public void init(Settings settings) {
         if (closed.compareAndSet(true, false)) {
             super.init(settings);
             this.searchMetric = new DefaultSearchMetric(getScheduler(), settings);
@@ -136,7 +136,6 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
                                     TimeValue scrollTime, int scrollSize) {
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE);
         queryBuilder.accept(searchRequestBuilder);
-        searchRequestBuilder.setScroll(scrollTime).setSize(scrollSize);
         searchRequestBuilder.setScroll(scrollTime).setSize(scrollSize);
         ActionFuture<SearchResponse> actionFuture = searchRequestBuilder.execute();
         searchMetric.getCurrentQueries().inc();
