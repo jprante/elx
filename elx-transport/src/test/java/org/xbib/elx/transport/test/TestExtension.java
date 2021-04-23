@@ -5,7 +5,6 @@ import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoAction;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoRequest;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoResponse;
-import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.node.Node;
@@ -57,7 +56,6 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         Helper helper = extensionContext.getParent().isPresent() ?
                 extensionContext.getParent().get().getStore(ns).getOrComputeIfAbsent(key + count.get(), key -> create(), Helper.class) : null;
         Objects.requireNonNull(helper);
-        logger.info("starting cluster with helper " + helper + " at " + helper.getHome());
         helper.startNode();
     }
 
@@ -127,16 +125,14 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return cluster;
         }
 
-        ElasticsearchClient client() {
-            return node.client();
-        }
-
         Settings getClientSettings() {
             return Settings.builder()
                     .put("cluster.name", cluster)
                     .put("path.home", getHome())
                     .put("host", host)
                     .put("port", port)
+                    .put("cluster.target_health", "YELLOW")
+                    .put("cluster.target_health_timeout", "1m")
                     .build();
         }
 
@@ -164,22 +160,22 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
         }
 
         Node buildNode() {
-            node = new MockNode(Settings.builder()
-                    .put("name", getClusterName() + "-server-name") // for threadpool name
+            Settings nodeSettings = Settings.builder()
                     .put("cluster.name", getClusterName())
                     .put("path.home", getHome())
-                    .put("node.name", getClusterName() + "-node")
-                    .put("node.client", false)
-                    .put("node.master", true)
-                    .put("node.data", true)
-                    .build());
+                    .put("name", getClusterName() + "-name-server") // for threadpool setting
+                    .put("node.name", getClusterName() + "-server")
+                    .put("node.master", "true")
+                    .put("node.data", "true")
+                    .put("node.client", "false")
+                    .build();
+            this.node = new MockNode(nodeSettings);
             return node;
         }
 
         void closeNodes() {
             if (node != null) {
                 logger.info("closing node");
-                node.client().close();
                 node.close();
             }
         }

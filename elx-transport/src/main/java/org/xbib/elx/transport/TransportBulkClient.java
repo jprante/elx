@@ -4,7 +4,6 @@ import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
 import org.xbib.elx.common.AbstractBulkClient;
-import java.io.IOException;
 
 /**
  * Transport search client with additional methods.

@@ -135,6 +135,8 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
                     .put("node.client", true)
                     .put("node.master", false)
                     .put("node.data", false)
+                    .put("cluster.target_health", "YELLOW")
+                    .put("cluster.target_health_timeout", "1m")
                     .build();
         }
 

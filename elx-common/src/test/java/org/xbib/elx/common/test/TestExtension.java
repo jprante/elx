@@ -2,21 +2,12 @@ package org.xbib.elx.common.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchTimeoutException;
-import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction;
-import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
-import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoAction;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoRequest;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoResponse;
-import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
-import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
-import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.client.ElasticsearchClient;
-import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.node.Node;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -68,23 +59,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
     public void beforeEach(ExtensionContext extensionContext) throws Exception {
         Helper helper = extensionContext.getParent().get().getStore(ns)
                 .getOrComputeIfAbsent(key + count.get(), key -> create(), Helper.class);
-        logger.info("starting cluster with helper " + helper + " at " + helper.getHome());
         helper.startNode();
-        try {
-            ClusterHealthResponse healthResponse = helper.client().execute(ClusterHealthAction.INSTANCE,
-                    new ClusterHealthRequest().waitForStatus(ClusterHealthStatus.GREEN)
-                            .timeout(TimeValue.timeValueSeconds(30))).actionGet();
-            if (healthResponse != null && healthResponse.isTimedOut()) {
-                throw new IOException("cluster state is " + healthResponse.getStatus().name()
-                        + ", from here on, everything will fail!");
-            }
-        } catch (ElasticsearchTimeoutException e) {
-            throw new IOException("cluster does not respond to health request, cowardly refusing to continue");
-        }
-        ClusterStateRequest clusterStateRequest = new ClusterStateRequest().all();
-        ClusterStateResponse clusterStateResponse =
-                helper.client().execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
-        logger.info("cluster name = {}", clusterStateResponse.getClusterName().value());
     }
 
     @Override
@@ -197,7 +172,8 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
                     .put(getNodeSettings())
                     .put("node.name", "1")
                     .build();
-            return new MockNode(nodeSettings);
+            this.node = new MockNode(nodeSettings);
+            return node;
         }
     }
 }

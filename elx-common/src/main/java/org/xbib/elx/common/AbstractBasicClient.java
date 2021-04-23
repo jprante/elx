@@ -77,9 +77,9 @@ public abstract class AbstractBasicClient implements BasicClient {
 
     @Override
     public void init(Settings settings) {
+        this.settings = settings;
         if (closed.compareAndSet(false, true)) {
             logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
-            this.settings = settings;
             setClient(createClient(settings));
         }
     }
@@ -118,23 +118,6 @@ public abstract class AbstractBasicClient implements BasicClient {
         ClusterUpdateSettingsRequest updateSettingsRequest = new ClusterUpdateSettingsRequest();
         updateSettingsRequest.transientSettings(updateSettingsBuilder).timeout(toTimeValue(timeout, timeUnit));
         client.execute(ClusterUpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
-    }
-
-    protected Long getThreadPoolQueueSize(String name) {
-        ensureClientIsPresent();
-        NodesInfoRequest nodesInfoRequest = new NodesInfoRequest();
-        nodesInfoRequest.threadPool(true);
-        NodesInfoResponse nodesInfoResponse =
-                client.execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
-        for (NodeInfo nodeInfo : nodesInfoResponse.getNodes()) {
-            ThreadPoolInfo threadPoolInfo = nodeInfo.getThreadPool();
-            for (ThreadPool.Info info : threadPoolInfo) {
-                if (info.getName().equals(name)) {
-                    return info.getQueueSize().getSingles();
-                }
-            }
-        }
-        return null;
     }
 
     @Override
@@ -222,16 +205,16 @@ public abstract class AbstractBasicClient implements BasicClient {
 
     protected abstract void closeClient(Settings settings) throws IOException;
 
-    protected void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) {
+    protected void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) throws IOException {
         ensureClientIsPresent();
         if (index == null) {
-            throw new IllegalArgumentException("no index name given");
+            throw new IOException("no index name given");
         }
         if (key == null) {
-            throw new IllegalArgumentException("no key given");
+            throw new IOException("no key given");
         }
         if (value == null) {
-            throw new IllegalArgumentException("no value given");
+            throw new IOException("no value given");
         }
         Settings.Builder updateSettingsBuilder = Settings.builder();
         updateSettingsBuilder.put(key, value.toString());
@@ -273,5 +256,22 @@ public abstract class AbstractBasicClient implements BasicClient {
             default:
                 throw new IllegalArgumentException("unknown time unit: " + timeUnit);
         }
+    }
+
+    protected Long getThreadPoolQueueSize(String name) {
+        ensureClientIsPresent();
+        NodesInfoRequest nodesInfoRequest = new NodesInfoRequest();
+        nodesInfoRequest.threadPool(true);
+        NodesInfoResponse nodesInfoResponse =
+                client.execute(NodesInfoAction.INSTANCE, nodesInfoRequest).actionGet();
+        for (NodeInfo nodeInfo : nodesInfoResponse.getNodes()) {
+            ThreadPoolInfo threadPoolInfo = nodeInfo.getThreadPool();
+            for (ThreadPool.Info info : threadPoolInfo) {
+                if (info.getName().equals(name)) {
+                    return info.getQueueSize().getSingles();
+                }
+            }
+        }
+        return null;
     }
 }
