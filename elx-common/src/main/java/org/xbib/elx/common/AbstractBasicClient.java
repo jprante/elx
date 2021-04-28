@@ -71,9 +71,9 @@ public abstract class AbstractBasicClient implements BasicClient {
 
     @Override
     public void init(Settings settings) {
+        this.settings = settings;
         if (closed.compareAndSet(false, true)) {
             logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
-            this.settings = settings;
             setClient(createClient(settings));
         }
     }
@@ -176,6 +176,7 @@ public abstract class AbstractBasicClient implements BasicClient {
 
     @Override
     public boolean isIndexExists(IndexDefinition indexDefinition) {
+        ensureClientIsPresent();
         IndicesExistsRequest indicesExistsRequest = new IndicesExistsRequest();
         indicesExistsRequest.indices(indexDefinition.getFullIndexName());
         IndicesExistsResponse indicesExistsResponse =
@@ -185,18 +186,17 @@ public abstract class AbstractBasicClient implements BasicClient {
 
     @Override
     public void close() throws IOException {
-        ensureClientIsPresent();
         if (closed.compareAndSet(false, true)) {
-            closeClient(settings);
             if (scheduler != null) {
                 scheduler.shutdown();
             }
+            closeClient(settings);
         }
     }
 
     protected abstract ElasticsearchClient createClient(Settings settings);
 
-    protected abstract void closeClient(Settings settings) throws IOException;
+    protected abstract void closeClient(Settings settings);
 
     protected void updateIndexSetting(String index, String key, Object value, long timeout, TimeUnit timeUnit) {
         ensureClientIsPresent();

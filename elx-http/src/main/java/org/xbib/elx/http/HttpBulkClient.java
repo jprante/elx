@@ -9,7 +9,6 @@ import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.xbib.elx.common.AbstractBulkClient;
-import java.io.IOException;
 
 /**
  * Elasticsearch HTTP bulk client.
@@ -35,7 +34,7 @@ public class HttpBulkClient extends AbstractBulkClient implements ElasticsearchC
     }
 
     @Override
-    protected void closeClient(Settings settings) throws IOException {
+    protected void closeClient(Settings settings) {
         helper.closeClient(settings);
     }
 

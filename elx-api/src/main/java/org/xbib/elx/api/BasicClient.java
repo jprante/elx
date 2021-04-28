@@ -8,6 +8,8 @@ import java.util.concurrent.TimeUnit;
 
 public interface BasicClient extends Closeable {
 
+    void init(Settings settings);
+
     void putClusterSetting(String key, Object value, long timeout, TimeUnit timeUnit);
 
     /**
@@ -22,8 +24,6 @@ public interface BasicClient extends Closeable {
      * @return Elasticsearch client
      */
     ElasticsearchClient getClient();
-
-    void init(Settings settings);
 
     /**
      * Get cluster name.

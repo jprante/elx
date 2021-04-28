@@ -131,6 +131,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         if (isIndexDefinitionDisabled(indexDefinition)) {
             return -1;
         }
+        ensureClientIsPresent();
         String index = indexDefinition.getFullIndexName();
         GetSettingsRequest request = new GetSettingsRequest().indices(index);
         GetSettingsResponse response = client.execute(GetSettingsAction.INSTANCE, request).actionGet();
@@ -168,6 +169,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         if (index == null) {
             return Collections.emptyMap();
         }
+        ensureClientIsPresent();
         GetAliasesRequest getAliasesRequest = new GetAliasesRequest().indices(index);
         return getFilters(client.execute(GetAliasesAction.INSTANCE, getAliasesRequest).actionGet());
     }
@@ -331,7 +333,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             }
         }
         if (candidateIndices.isEmpty()) {
-             logger.info("no candidates found");
+            logger.info("no candidates found");
             return new EmptyPruneResult();
         }
         if (mintokeep > 0 && candidateIndices.size() <= mintokeep) {

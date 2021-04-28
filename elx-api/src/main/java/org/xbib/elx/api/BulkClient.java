@@ -65,7 +65,7 @@ public interface BulkClient extends BasicClient, Flushable {
      * Delete request.
      *
      * @param indexDefinition the index definition
-     * @param id    the id
+     * @param id the id
      * @return this
      */
     BulkClient delete(IndexDefinition indexDefinition, String id);
@@ -85,7 +85,7 @@ public interface BulkClient extends BasicClient, Flushable {
      * Note that updates only work correctly when all operations between nodes are synchronized.
      *
      * @param indexDefinition the index definition
-     * @param id     the id
+     * @param id the id
      * @param source the source
      * @return this
      */
@@ -95,7 +95,7 @@ public interface BulkClient extends BasicClient, Flushable {
      * Update document. Use with precaution! Does not work in all cases.
      *
      * @param indexDefinition the index definition
-     * @param id     the id
+     * @param id the id
      * @param source the source
      * @return this
      */

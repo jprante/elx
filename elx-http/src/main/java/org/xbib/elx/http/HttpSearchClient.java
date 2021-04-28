@@ -9,7 +9,6 @@ import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.xbib.elx.common.AbstractSearchClient;
-import java.io.IOException;
 
 /**
  * Elasticsearch HTTP search client.
@@ -35,7 +34,7 @@ public class HttpSearchClient extends AbstractSearchClient implements Elasticsea
     }
 
     @Override
-    protected void closeClient(Settings settings) throws IOException {
+    protected void closeClient(Settings settings) {
         helper.closeClient(settings);
     }
 

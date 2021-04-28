@@ -191,8 +191,10 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public BulkClient index(IndexRequest indexRequest) {
-        ensureClientIsPresent();
-        bulkProcessor.add(indexRequest);
+        if (bulkProcessor != null) {
+            ensureClientIsPresent();
+            bulkProcessor.add(indexRequest);
+        }
         return this;
     }
 
