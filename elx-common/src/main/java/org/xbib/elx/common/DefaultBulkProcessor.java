@@ -16,6 +16,7 @@ import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.BulkProcessor;
 
 import java.io.IOException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -34,6 +35,8 @@ public class DefaultBulkProcessor implements BulkProcessor {
     private static final Logger logger = LogManager.getLogger(DefaultBulkProcessor.class);
 
     private final AtomicBoolean enabled;
+
+    private final BulkClient bulkClient;
 
     private final ElasticsearchClient client;
 
@@ -56,6 +59,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
     private final int permits;
 
     public DefaultBulkProcessor(BulkClient bulkClient, Settings settings) {
+        this.bulkClient = bulkClient;
         int maxActionsPerRequest = settings.getAsInt(Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getName(),
                 Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getInteger());
         String flushIntervalStr = settings.get(Parameters.BULK_FLUSH_INTERVAL.getName(),
@@ -69,7 +73,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
             this.scheduledFuture = bulkClient.getScheduler().scheduleWithFixedDelay(this::flush, flushInterval.millis(),
                     flushInterval.millis(), TimeUnit.MILLISECONDS);
         }
-        this.bulkListener = new DefaultBulkListener(this, bulkClient.getScheduler(), settings);
+        this.bulkListener = new DefaultBulkListener(this, settings);
         this.bulkActions = maxActionsPerRequest;
         this.bulkVolume = minVolumePerRequest.getBytes();
         this.bulkRequest = new BulkRequest();
@@ -113,8 +117,18 @@ public class DefaultBulkProcessor implements BulkProcessor {
     }
 
     @Override
+    public ScheduledExecutorService getScheduler() {
+        return bulkClient.getScheduler();
+    }
+
+    @Override
     public BulkMetric getBulkMetric() {
         return bulkListener.getBulkMetric();
+    }
+
+    @Override
+    public boolean isBulkMetricEnabled() {
+        return bulkListener.getBulkMetric() != null;
     }
 
     @Override

@@ -18,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
+import org.xbib.elx.common.Parameters;
 
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -154,8 +155,10 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
                     .put("node.max_local_storage_nodes", 2)
                     .put("cluster.initial_master_nodes", "1")
                     .put("discovery.seed_hosts",  "127.0.0.1:9300")
-                    .put("cluster.target_health", "YELLOW")
-                    .put("cluster.target_health_timeout", "1m")
+                    .put(Parameters.CLUSTER_TARGET_HEALTH.getName(), "YELLOW")
+                    .put(Parameters.CLUSTER_TARGET_HEALTH_TIMEOUT.getName(), "1m")
+                    .put(Parameters.BULK_METRIC_ENABLED.getName(), Boolean.TRUE)
+                    .put(Parameters.SEARCH_METRIC_ENABLED.getName(), Boolean.TRUE)
                     .build();
         }
 

@@ -3,7 +3,7 @@ package org.xbib.elx.api;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 import java.io.Closeable;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public interface BasicClient extends Closeable {
@@ -46,5 +46,5 @@ public interface BasicClient extends Closeable {
 
     boolean isIndexExists(IndexDefinition indexDefinition);
 
-    ScheduledThreadPoolExecutor getScheduler();
+    ScheduledExecutorService getScheduler();
 }

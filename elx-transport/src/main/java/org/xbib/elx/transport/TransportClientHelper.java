@@ -11,7 +11,6 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.cluster.ClusterName;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.common.Strings;
@@ -21,6 +20,7 @@ import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.transport.Netty4Plugin;
+import org.xbib.elx.common.Parameters;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -38,16 +38,16 @@ public class TransportClientHelper {
 
     private static final Logger logger = LogManager.getLogger(TransportClientHelper.class.getName());
 
-    private static final Map<String, ElasticsearchClient> clientMap = new HashMap<>();
+    private static final Map<String, ElasticsearchClient> transportClientMap = new HashMap<>();
 
     public ElasticsearchClient createClient(Settings settings) {
         String clusterName = settings.get("cluster.name", "elasticsearch");
-        return clientMap.computeIfAbsent(clusterName, key -> innerCreateClient(settings));
+        return transportClientMap.computeIfAbsent(clusterName, key -> innerCreateClient(settings));
     }
 
     public void closeClient(Settings settings) {
         String clusterName = settings.get("cluster.name", "elasticsearch");
-        ElasticsearchClient client = clientMap.remove(clusterName);
+        ElasticsearchClient client = transportClientMap.remove(clusterName);
         if (client != null) {
             if (client instanceof Client) {
                 ((Client) client).close();
@@ -65,9 +65,9 @@ public class TransportClientHelper {
     }
 
     private Collection<TransportAddress> findAddresses(Settings settings) {
-        final int defaultPort = settings.getAsInt("port", 9300);
+        final int defaultPort = settings.getAsInt(Parameters.PORT.getName(), 9300);
         Collection<TransportAddress> addresses = new ArrayList<>();
-        for (String hostname : settings.getAsList("host")) {
+        for (String hostname : settings.getAsList(Parameters.HOST.getName())) {
             String[] splitHost = hostname.split(":", 2);
             if (splitHost.length == 2) {
                 try {
@@ -127,17 +127,15 @@ public class TransportClientHelper {
                 + " " + System.getProperty("java.vm.vendor")
                 + " " + System.getProperty("java.vm.version")
                 + " Elasticsearch " + Version.CURRENT.toString();
-        logger.info("creating transport client on {} with custom settings {}",
-                systemIdentifier, Strings.toString(settings));
         Settings transportClientSettings = getTransportClientSettings(settings);
+        logger.info("creating transport client on {} with settings {}",
+                systemIdentifier, Strings.toString(transportClientSettings));
         return new MyTransportClient(transportClientSettings, Collections.singletonList(Netty4Plugin.class));
     }
 
     private Settings getTransportClientSettings(Settings settings) {
         return Settings.builder()
-                // "cluster.name"
-                .put(ClusterName.CLUSTER_NAME_SETTING.getKey(),
-                        settings.get(ClusterName.CLUSTER_NAME_SETTING.getKey()))
+                .put(settings.filter(key -> !isPrivateSettings(key)))
                 // "node.processors"
                 .put(EsExecutors.NODE_PROCESSORS_SETTING.getKey(),
                         settings.get(EsExecutors.NODE_PROCESSORS_SETTING.getKey(),
@@ -146,6 +144,15 @@ public class TransportClientHelper {
                 .put(NetworkModule.TRANSPORT_TYPE_KEY,
                         Netty4Plugin.NETTY_TRANSPORT_NAME)
                 .build();
+    }
+
+    private static boolean isPrivateSettings(String key) {
+        for (Parameters p : Parameters.values()) {
+            if (key.equals(p.getName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static class MyTransportClient extends TransportClient {

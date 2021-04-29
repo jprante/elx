@@ -7,7 +7,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.DefaultIndexDefinition;
-import org.xbib.elx.common.Parameters;
 import org.xbib.elx.node.NodeBulkClient;
 import org.xbib.elx.node.NodeBulkClientProvider;
 
@@ -22,9 +21,7 @@ class DuplicateIDTest {
 
     private static final Logger logger = LogManager.getLogger(DuplicateIDTest.class.getName());
 
-    private static final Long ACTIONS = 100L;
-
-    private static final Long MAX_ACTIONS_PER_REQUEST = 5L;
+    private static final Long ACTIONS = 10000L;
 
     private final TestExtension.Helper helper;
 
@@ -38,7 +35,6 @@ class DuplicateIDTest {
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(helper.getClientSettings())
-                .put(Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);

@@ -158,6 +158,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
             String indexName = indexDefinition.getFullIndexName();
             int interval = indexDefinition.getStopBulkRefreshSeconds();
             try {
+                logger.info("flushing bulk");
                 bulkProcessor.flush();
             } catch (IOException e) {
                 // can never happen

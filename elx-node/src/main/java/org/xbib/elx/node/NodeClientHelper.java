@@ -25,9 +25,7 @@ public class NodeClientHelper {
 
     private static Object configurationObject;
 
-    private static Node node;
-
-    private static final Map<String, ElasticsearchClient> clientMap = new HashMap<>();
+    private static final Map<String, Node> nodeMap = new HashMap<>();
 
     public ElasticsearchClient createClient(Settings settings, Object object) {
         if (configurationObject == null) {
@@ -36,24 +34,25 @@ public class NodeClientHelper {
         if (configurationObject instanceof ElasticsearchClient) {
             return (ElasticsearchClient) configurationObject;
         }
-        return clientMap.computeIfAbsent(settings.get("cluster.name"),
-                key -> innerCreateClient(settings));
+        String clusterName = settings.get("cluster.name", "elasticsearch");
+        Node node = nodeMap.computeIfAbsent(clusterName, key -> innerCreateClient(settings));
+        return node != null ? node.client() : null;
     }
 
     public void closeClient(Settings settings) {
-        clientMap.remove(settings.get("cluster.name"));
-        logger.debug("closing node...");
+        String clusterName = settings.get("cluster.name", "elasticsearch");
+        Node node = nodeMap.remove(clusterName);
         if (node != null) {
             try {
+                logger.debug("closing client...");
                 node.close();
             } catch (IOException e) {
                 logger.log(Level.WARN, e.getMessage(), e);
             }
-            node = null;
         }
     }
 
-    private ElasticsearchClient innerCreateClient(Settings settings) {
+    private Node innerCreateClient(Settings settings) {
         String version = System.getProperty("os.name")
                 + " " + System.getProperty("java.vm.name")
                 + " " + System.getProperty("java.vm.vendor")
@@ -77,10 +76,10 @@ public class NodeClientHelper {
                 version, effectiveSettings.toDelimitedString(','));
         Collection<Class<? extends Plugin>> plugins =
                 Collections.singletonList(Netty4Plugin.class);
-        node = new BulkNode(new Environment(effectiveSettings, null), plugins);
+        Node node = new BulkNode(new Environment(effectiveSettings, null), plugins);
         try {
             node.start();
-            return node.client();
+            return node;
         } catch (NodeValidationException e) {
             logger.log(Level.ERROR, e.getMessage(), e);
         }

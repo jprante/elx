@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.DefaultIndexDefinition;
+import org.xbib.elx.common.Parameters;
 import org.xbib.elx.transport.TransportSearchClient;
 import org.xbib.elx.transport.TransportSearchClientProvider;
 
@@ -24,7 +25,7 @@ class DumpIDTest {
         try (TransportSearchClient searchClient = ClientBuilder.builder()
                 .setSearchClientProvider(TransportSearchClientProvider.class)
                 .put("cluster.name", "es2")
-                .put("host", "atlas:9302")
+                .put(Parameters.HOST.getName(), "atlas:9302")
                 .build();
              BufferedWriter writer = Files.newBufferedWriter(Paths.get("zdb.txt"))) {
             Stream<String> stream = searchClient.getIds(qb -> qb

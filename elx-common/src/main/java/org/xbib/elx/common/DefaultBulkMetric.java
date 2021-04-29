@@ -16,8 +16,8 @@ import org.xbib.metrics.common.Meter;
 
 import java.io.IOException;
 import java.util.LongSummaryStatistics;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class DefaultBulkMetric implements BulkMetric {
@@ -63,7 +63,7 @@ public class DefaultBulkMetric implements BulkMetric {
     private int x = 0;
 
     public DefaultBulkMetric(DefaultBulkProcessor bulkProcessor,
-                             ScheduledThreadPoolExecutor scheduledThreadPoolExecutor,
+                             ScheduledExecutorService scheduledExecutorService,
                              Settings settings) {
         this.bulkProcessor = bulkProcessor;
         int ringBufferSize = settings.getAsInt(Parameters.BULK_RING_BUFFER_SIZE.getName(),
@@ -73,7 +73,7 @@ public class DefaultBulkMetric implements BulkMetric {
         TimeValue measureInterval = TimeValue.parseTimeValue(measureIntervalStr,
                 TimeValue.timeValueSeconds(1), "");
         this.measureIntervalSeconds = measureInterval.seconds();
-        this.totalIngest = new Meter(scheduledThreadPoolExecutor);
+        this.totalIngest = new Meter(scheduledExecutorService);
         this.ringBufferSize = ringBufferSize;
         this.ringBuffer = new LongRingBuffer(ringBufferSize);
         this.totalIngestSizeInBytes = new CountMetric();
@@ -93,7 +93,7 @@ public class DefaultBulkMetric implements BulkMetric {
                 Parameters.BULK_METRIC_LOG_INTERVAL.getString());
         TimeValue metricLoginterval = TimeValue.parseTimeValue(metricLogIntervalStr,
                 TimeValue.timeValueSeconds(10), "");
-        this.future = scheduledThreadPoolExecutor.scheduleAtFixedRate(this::log, 0L, metricLoginterval.seconds(), TimeUnit.SECONDS);
+        this.future = scheduledExecutorService.scheduleAtFixedRate(this::log, 0L, metricLoginterval.seconds(), TimeUnit.SECONDS);
     }
 
     @Override

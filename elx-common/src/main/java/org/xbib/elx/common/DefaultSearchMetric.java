@@ -4,13 +4,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.xbib.elx.api.SearchClient;
 import org.xbib.elx.api.SearchMetric;
 import org.xbib.metrics.api.Count;
 import org.xbib.metrics.api.Metered;
 import org.xbib.metrics.common.CountMetric;
 import org.xbib.metrics.common.Meter;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class DefaultSearchMetric implements SearchMetric {
@@ -37,9 +37,9 @@ public class DefaultSearchMetric implements SearchMetric {
 
     private Long stopped;
 
-    public DefaultSearchMetric(ScheduledThreadPoolExecutor scheduledThreadPoolExecutor,
+    public DefaultSearchMetric(SearchClient searchClient,
                                Settings settings) {
-        totalQuery = new Meter(scheduledThreadPoolExecutor);
+        totalQuery = new Meter(searchClient.getScheduler());
         currentQuery = new CountMetric();
         queries = new CountMetric();
         succeededQueries = new CountMetric();
@@ -50,7 +50,7 @@ public class DefaultSearchMetric implements SearchMetric {
                 Parameters.SEARCH_METRIC_LOG_INTERVAL.getString());
         TimeValue metricLoginterval = TimeValue.parseTimeValue(metricLogIntervalStr,
                 TimeValue.timeValueSeconds(10), "");
-        this.future = scheduledThreadPoolExecutor.scheduleAtFixedRate(this::log, 0L, metricLoginterval.seconds(), TimeUnit.SECONDS);
+        this.future = searchClient.getScheduler().scheduleAtFixedRate(this::log, 0L, metricLoginterval.seconds(), TimeUnit.SECONDS);
     }
 
     @Override
@@ -128,7 +128,7 @@ public class DefaultSearchMetric implements SearchMetric {
             logger.info("queries = " + getTotalQueries().getCount() +
                     " succeeded = " + getSucceededQueries().getCount() +
                     " empty = " + getEmptyQueries().getCount() +
-                    " failed = " + getFailedQueries() +
+                    " failed = " + getFailedQueries().getCount() +
                     " timeouts = " + getTimeoutQueries().getCount());
         }
     }

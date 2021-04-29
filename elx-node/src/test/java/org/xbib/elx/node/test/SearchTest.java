@@ -12,7 +12,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.DefaultIndexDefinition;
-import org.xbib.elx.common.Parameters;
 import org.xbib.elx.node.NodeBulkClient;
 import org.xbib.elx.node.NodeBulkClientProvider;
 import org.xbib.elx.node.NodeSearchClient;
@@ -29,8 +28,6 @@ class SearchTest {
 
     private static final Long ACTIONS = 100000L;
 
-    private static final Long MAX_ACTIONS_PER_REQUEST = 100L;
-
     private final TestExtension.Helper helper;
 
     SearchTest(TestExtension.Helper helper) {
@@ -44,7 +41,6 @@ class SearchTest {
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(helper.getClientSettings())
-                .put(Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
                 .build()) {
             bulkClient.newIndex(indexDefinition);
             bulkClient.startBulk(indexDefinition);

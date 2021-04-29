@@ -114,12 +114,12 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         if (isIndexDefinitionDisabled(indexDefinition)) {
             return this;
         }
-        if (indexDefinition.getReplicaCount() < 1) {
-            logger.warn("invalid replica level");
+        if (indexDefinition.getReplicaCount() < 0) {
+            logger.warn("invalid replica level defined for index "
+                    + indexDefinition.getIndex() + ": " + indexDefinition.getReplicaCount());
             return this;
         }
-        logger.info("update replica level for " +
-                indexDefinition + " to " + indexDefinition.getReplicaCount());
+        logger.info("update replica level for " + indexDefinition + " to " + indexDefinition.getReplicaCount());
         updateIndexSetting(indexDefinition.getFullIndexName(), "number_of_replicas",
                 indexDefinition.getReplicaCount(), 30L, TimeUnit.SECONDS);
         waitForHealthyCluster();

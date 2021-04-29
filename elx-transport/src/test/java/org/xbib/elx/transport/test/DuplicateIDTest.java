@@ -7,7 +7,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.DefaultIndexDefinition;
-import org.xbib.elx.common.Parameters;
 import org.xbib.elx.transport.TransportBulkClient;
 import org.xbib.elx.transport.TransportBulkClientProvider;
 
@@ -22,9 +21,7 @@ class DuplicateIDTest {
 
     private static final Logger logger = LogManager.getLogger(DuplicateIDTest.class.getName());
 
-    private static final Long ACTIONS = 100L;
-
-    private static final Long MAX_ACTIONS_PER_REQUEST = 5L;
+    private static final Long ACTIONS = 10000L;
 
     private final TestExtension.Helper helper;
 
@@ -37,7 +34,6 @@ class DuplicateIDTest {
         long numactions = ACTIONS;
         try (TransportBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(TransportBulkClientProvider.class)
-                .put(Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getName(), MAX_ACTIONS_PER_REQUEST)
                 .put(helper.getClientSettings())
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
@@ -49,7 +45,9 @@ class DuplicateIDTest {
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
             bulkClient.refreshIndex(indexDefinition);
             assertTrue(bulkClient.getSearchableDocs(indexDefinition) < ACTIONS);
-            assertEquals(numactions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkProcessor().isBulkMetricEnabled()) {
+                assertEquals(numactions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            }
             if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }

@@ -14,6 +14,7 @@ import org.xbib.elx.api.BasicClient;
 import org.xbib.elx.api.SearchClientProvider;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
 

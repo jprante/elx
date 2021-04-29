@@ -24,13 +24,12 @@ import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.xbib.elx.api.BasicClient;
 import org.xbib.elx.api.IndexDefinition;
 import java.io.IOException;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -42,21 +41,19 @@ public abstract class AbstractBasicClient implements BasicClient {
 
     protected Settings settings;
 
-    private final ScheduledThreadPoolExecutor scheduler;
+    private final ScheduledExecutorService executorService;
 
     private final AtomicBoolean closed;
 
     public AbstractBasicClient() {
-        this.scheduler = (ScheduledThreadPoolExecutor) Executors.newScheduledThreadPool(2,
-                EsExecutors.daemonThreadFactory("elx-bulk-processor"));
-        this.scheduler.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
-        this.scheduler.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
+        this.executorService = Executors.newScheduledThreadPool(2,
+                new DaemonThreadFactory("elx"));
         closed = new AtomicBoolean(false);
     }
 
     @Override
-    public ScheduledThreadPoolExecutor getScheduler() {
-        return scheduler;
+    public ScheduledExecutorService getScheduler() {
+        return executorService;
     }
 
     @Override
@@ -75,6 +72,16 @@ public abstract class AbstractBasicClient implements BasicClient {
         if (closed.compareAndSet(false, true)) {
             logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
             setClient(createClient(settings));
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+        if (closed.compareAndSet(false, true)) {
+            if (executorService != null) {
+                executorService.shutdownNow();
+            }
+            closeClient(settings);
         }
     }
 
@@ -182,16 +189,6 @@ public abstract class AbstractBasicClient implements BasicClient {
         IndicesExistsResponse indicesExistsResponse =
                 client.execute(IndicesExistsAction.INSTANCE, indicesExistsRequest).actionGet();
         return indicesExistsResponse.isExists();
-    }
-
-    @Override
-    public void close() throws IOException {
-        if (closed.compareAndSet(false, true)) {
-            if (scheduler != null) {
-                scheduler.shutdown();
-            }
-            closeClient(settings);
-        }
     }
 
     protected abstract ElasticsearchClient createClient(Settings settings);

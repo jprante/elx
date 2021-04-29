@@ -13,6 +13,7 @@ import org.elasticsearch.action.support.PlainActionFuture;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.threadpool.ThreadPool;
+import org.xbib.elx.common.Parameters;
 import org.xbib.net.URL;
 import org.xbib.netty.http.client.Client;
 import org.xbib.netty.http.common.HttpAddress;
@@ -68,7 +69,7 @@ public class HttpClientHelper {
         if (settings.hasValue("url")) {
             this.url = settings.get("url");
             httpAddress = HttpAddress.http1(this.url);
-        } else if (settings.hasValue("host")) {
+        } else if (settings.hasValue(Parameters.HOST.getName())) {
             // use only first host
             URL u = findAddresses(settings).stream().findFirst()
                     .orElseGet(() -> URL.http().host("localhost").port(9200).build());
@@ -156,11 +157,10 @@ public class HttpClientHelper {
         }
     }
 
-
     private List<URL> findAddresses(Settings settings) {
-        final int defaultPort = settings.getAsInt("port", 9200);
+        final int defaultPort = settings.getAsInt(Parameters.PORT.getName(), 9200);
         List<URL> addresses = new ArrayList<>();
-        for (String hostname : settings.getAsList("host")) {
+        for (String hostname : settings.getAsList(Parameters.HOST.getName())) {
             String[] splitHost = hostname.split(":", 2);
             if (splitHost.length == 2) {
                 try {
