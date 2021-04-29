@@ -42,7 +42,7 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
     private final DefaultBulkListener bulkListener;
 
-    private ScheduledFuture<?> scheduledFuture;
+    private ScheduledFuture<?> flushIntervalFuture;
 
     private BulkRequest bulkRequest;
 
@@ -66,16 +66,21 @@ public class DefaultBulkProcessor implements BulkProcessor {
                 Parameters.BULK_FLUSH_INTERVAL.getString());
         TimeValue flushInterval = TimeValue.parseTimeValue(flushIntervalStr,
                 TimeValue.timeValueSeconds(30), "");
-        ByteSizeValue minVolumePerRequest = settings.getAsBytesSize(Parameters.BULK_MIN_VOLUME_PER_REQUEST.getName(),
-                ByteSizeValue.parseBytesSizeValue(Parameters.BULK_MIN_VOLUME_PER_REQUEST.getString(), "1k"));
         this.client = bulkClient.getClient();
         if (flushInterval.millis() > 0L) {
-            this.scheduledFuture = bulkClient.getScheduler().scheduleWithFixedDelay(this::flush, flushInterval.millis(),
+            this.flushIntervalFuture = bulkClient.getScheduler().scheduleWithFixedDelay(this::flush, flushInterval.millis(),
                     flushInterval.millis(), TimeUnit.MILLISECONDS);
         }
         this.bulkListener = new DefaultBulkListener(this, settings);
         this.bulkActions = maxActionsPerRequest;
+        ByteSizeValue minVolumePerRequest = settings.getAsBytesSize(Parameters.BULK_MIN_VOLUME_PER_REQUEST.getName(),
+                ByteSizeValue.parseBytesSizeValue(Parameters.BULK_MIN_VOLUME_PER_REQUEST.getString(), "1k"));
         this.bulkVolume = minVolumePerRequest.getBytes();
+        if (!isBulkMetricEnabled()) {
+            ByteSizeValue maxVolumePerRequest = settings.getAsBytesSize(Parameters.BULK_MAX_VOLUME_PER_REQUEST.getName(),
+                    ByteSizeValue.parseBytesSizeValue(Parameters.BULK_MAX_VOLUME_PER_REQUEST.getString(), "1m"));
+            this.bulkVolume = maxVolumePerRequest.getBytes();
+        }
         this.bulkRequest = new BulkRequest();
         this.closed = new AtomicBoolean(false);
         this.enabled = new AtomicBoolean(false);
@@ -178,8 +183,8 @@ public class DefaultBulkProcessor implements BulkProcessor {
     public synchronized void close() throws IOException {
         if (closed.compareAndSet(false, true)) {
             try {
-                if (scheduledFuture != null) {
-                    scheduledFuture.cancel(true);
+                if (flushIntervalFuture != null) {
+                    flushIntervalFuture.cancel(true);
                 }
                 // like flush but without ensuring open
                 if (bulkRequest.numberOfActions() > 0) {

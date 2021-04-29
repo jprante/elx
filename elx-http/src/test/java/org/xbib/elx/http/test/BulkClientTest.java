@@ -53,7 +53,9 @@ class BulkClientTest {
             bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
             bulkClient.flush();
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-            assertEquals(1, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkProcessor().isBulkMetricEnabled()) {
+                assertEquals(1, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            }
             if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }
@@ -75,7 +77,9 @@ class BulkClientTest {
                 bulkClient.index(indexDefinition, null, false, "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-            assertEquals(numactions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkProcessor().isBulkMetricEnabled()) {
+                assertEquals(numactions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            }
             if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }
@@ -118,7 +122,9 @@ class BulkClientTest {
             bulkClient.stopBulk(indexDefinition);
             bulkClient.refreshIndex(indexDefinition);
             assertEquals(maxthreads * actions, bulkClient.getSearchableDocs(indexDefinition));
-            assertEquals(maxthreads * actions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkProcessor().isBulkMetricEnabled()) {
+                assertEquals(maxthreads * actions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            }
             if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }

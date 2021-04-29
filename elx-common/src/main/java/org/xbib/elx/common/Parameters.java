@@ -26,11 +26,11 @@ public enum Parameters {
 
     BULK_FLUSH_INTERVAL("bulk.flush_interval", String.class, "30s"),
 
-    BULK_MEASURE_INTERVAL("bulk.measure_interval", String.class, "1s"),
-
-    BULK_METRIC_ENABLED("bulk.metric.enabled", Boolean.class, Boolean.FALSE),
+    BULK_METRIC_ENABLED("bulk.metric.enabled", Boolean.class, Boolean.TRUE),
 
     BULK_METRIC_LOG_INTERVAL("bulk.metric.log_interval", String.class, "10s"),
+
+    BULK_MEASURE_INTERVAL("bulk.measure_interval", String.class, "1s"),
 
     BULK_RING_BUFFER_SIZE("bulk.ring_buffer_size", Integer.class, Runtime.getRuntime().availableProcessors()),
 

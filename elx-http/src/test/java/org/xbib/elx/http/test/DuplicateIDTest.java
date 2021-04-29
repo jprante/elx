@@ -46,7 +46,9 @@ class DuplicateIDTest {
             bulkClient.refreshIndex(indexDefinition);
             long hits = bulkClient.getSearchableDocs(indexDefinition);
             assertTrue(hits < ACTIONS);
-            assertEquals(numactions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkProcessor().isBulkMetricEnabled()) {
+                assertEquals(numactions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            }
             if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }

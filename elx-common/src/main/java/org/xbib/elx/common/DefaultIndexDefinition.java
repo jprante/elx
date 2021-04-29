@@ -94,26 +94,26 @@ public class DefaultIndexDefinition implements IndexDefinition {
         if (settings.get("settings") != null && settings.get("mapping") != null) {
             setSettings(findSettingsFrom(settings.get("settings")));
             setMappings(findMappingsFrom(settings.get("mapping")));
-            boolean shift = settings.getAsBoolean("shift", false);
-            setShift(shift);
-            if (shift) {
-                String dateTimeFormat = settings.get(Parameters.DATE_TIME_FORMAT.getName(),
-                        Parameters.DATE_TIME_FORMAT.getString());
-                DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimeFormat, Locale.getDefault())
-                        .withZone(ZoneId.systemDefault());
-                setDateTimeFormatter(dateTimeFormatter);
-                String dateTimePatternStr = settings.get("dateTimePattern", "^(.*?)(\\d+)$");
-                Pattern dateTimePattern = Pattern.compile(dateTimePatternStr);
-                setDateTimePattern(dateTimePattern);
-                String fullName = indexName + dateTimeFormatter.format(LocalDateTime.now());
-                fullIndexName = adminClient.resolveAlias(fullName).stream().findFirst().orElse(fullName);
-                setFullIndexName(fullIndexName);
-                boolean prune = settings.getAsBoolean("prune", false);
-                setPrune(prune);
-                if (prune) {
-                    setMinToKeep(settings.getAsInt("retention.mintokeep", 2));
-                    setDelta(settings.getAsInt("retention.delta", 2));
-                }
+        }
+        boolean shift = settings.getAsBoolean("shift", false);
+        setShift(shift);
+        if (shift) {
+            String dateTimeFormat = settings.get(Parameters.DATE_TIME_FORMAT.getName(),
+                    Parameters.DATE_TIME_FORMAT.getString());
+            DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimeFormat, Locale.getDefault())
+                    .withZone(ZoneId.systemDefault());
+            setDateTimeFormatter(dateTimeFormatter);
+            String dateTimePatternStr = settings.get("dateTimePattern", "^(.*?)(\\d+)$");
+            Pattern dateTimePattern = Pattern.compile(dateTimePatternStr);
+            setDateTimePattern(dateTimePattern);
+            String fullName = indexName + dateTimeFormatter.format(LocalDateTime.now());
+            fullIndexName = adminClient.resolveAlias(fullName).stream().findFirst().orElse(fullName);
+            setFullIndexName(fullIndexName);
+            boolean prune = settings.getAsBoolean("prune", false);
+            setPrune(prune);
+            if (prune) {
+                setMinToKeep(settings.getAsInt("retention.mintokeep", 2));
+                setDelta(settings.getAsInt("retention.delta", 2));
             }
         }
     }

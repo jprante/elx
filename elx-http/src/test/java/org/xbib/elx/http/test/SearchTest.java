@@ -49,7 +49,9 @@ class SearchTest {
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
             bulkClient.refreshIndex(indexDefinition);
             assertEquals(numactions, bulkClient.getSearchableDocs(indexDefinition));
-            assertEquals(numactions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkProcessor().isBulkMetricEnabled()) {
+                assertEquals(numactions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            }
             if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }
@@ -73,11 +75,13 @@ class SearchTest {
                 idcount.incrementAndGet();
             });
             assertEquals(numactions, idcount.get());
-            assertEquals(275, searchClient.getSearchMetric().getQueries().getCount());
-            assertEquals(273, searchClient.getSearchMetric().getSucceededQueries().getCount());
-            assertEquals(2, searchClient.getSearchMetric().getEmptyQueries().getCount());
-            assertEquals(0, searchClient.getSearchMetric().getFailedQueries().getCount());
-            assertEquals(0, searchClient.getSearchMetric().getTimeoutQueries().getCount());
+            if (searchClient.isSearchMetricEnabled()) {
+                assertEquals(275, searchClient.getSearchMetric().getQueries().getCount());
+                assertEquals(273, searchClient.getSearchMetric().getSucceededQueries().getCount());
+                assertEquals(2, searchClient.getSearchMetric().getEmptyQueries().getCount());
+                assertEquals(0, searchClient.getSearchMetric().getFailedQueries().getCount());
+                assertEquals(0, searchClient.getSearchMetric().getTimeoutQueries().getCount());
+            }
         }
     }
 }
