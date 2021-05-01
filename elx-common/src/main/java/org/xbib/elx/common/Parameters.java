@@ -2,19 +2,19 @@ package org.xbib.elx.common;
 
 public enum Parameters {
 
+    HOST("host", String.class, "localhost"),
+
+    PORT("port", Integer.class, 9300),
+
     CLUSTER_TARGET_HEALTH("cluster.target_health", String.class, "GREEN"),
 
     CLUSTER_TARGET_HEALTH_TIMEOUT("cluster.target_health_timeout", String.class, "30m"),
 
     DATE_TIME_FORMAT("dateTimeFormat", String.class, "yyyyMMdd"),
 
-    BULK_MAX_WAIT_RESPONSE("bulk.max_wait_response", String.class, "30s"),
-
     BULK_START_REFRESH_SECONDS("bulk.start_refresh_seconds", Integer.class, -1),
 
     BULK_STOP_REFRESH_SECONDS("bulk.stop_refresh_seconds", Integer.class, 30),
-
-    BULK_LOGGING_ENABLED("bulk.logging.enabled", Boolean.class, true),
 
     BULK_FAIL_ON_ERROR("bulk.fail_on_error", Boolean.class, true),
 
@@ -26,15 +26,19 @@ public enum Parameters {
 
     BULK_FLUSH_INTERVAL("bulk.flush_interval", String.class, "30s"),
 
-    BULK_MEASURE_INTERVAL("bulk.measure_interval", String.class, "1s"),
+    BULK_METRIC_ENABLED("bulk.metric.enabled", Boolean.class, Boolean.TRUE),
 
-    BULK_METRIC_LOG_INTERVAL("bulk.metric_log_interval", String.class, "10s"),
+    BULK_METRIC_LOG_INTERVAL("bulk.metric.log_interval", String.class, "10s"),
+
+    BULK_MEASURE_INTERVAL("bulk.measure_interval", String.class, "1s"),
 
     BULK_RING_BUFFER_SIZE("bulk.ring_buffer_size", Integer.class, Runtime.getRuntime().availableProcessors()),
 
     BULK_PERMITS("bulk.permits", Integer.class, Runtime.getRuntime().availableProcessors() - 1),
 
-    SEARCH_METRIC_LOG_INTERVAL("search.metric_log_interval", String.class, "10s");
+    SEARCH_METRIC_ENABLED("search.metric.enabled", Boolean.class, Boolean.FALSE),
+
+    SEARCH_METRIC_LOG_INTERVAL("search.metric.log_interval", String.class, "10s");
 
     private final String name;
 

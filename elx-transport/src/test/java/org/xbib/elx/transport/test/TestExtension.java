@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
+import org.xbib.elx.common.Parameters;
 
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -30,6 +31,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class TestExtension implements ParameterResolver, BeforeEachCallback, AfterEachCallback {
 
     private static final Logger logger = LogManager.getLogger("test");
+
+    private static final char[] numbersAndLetters = ("0123456789abcdefghijklmnopqrstuvwxyz").toCharArray();
+
+    private static final Random random = new SecureRandom();
 
     private static final String key = "es-instance-";
 
@@ -52,7 +57,7 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
     }
 
     @Override
-    public void beforeEach(ExtensionContext extensionContext) throws Exception {
+    public void beforeEach(ExtensionContext extensionContext) {
         Helper helper = extensionContext.getParent().isPresent() ?
                 extensionContext.getParent().get().getStore(ns).getOrComputeIfAbsent(key + count.get(), key -> create(), Helper.class) : null;
         Objects.requireNonNull(helper);
@@ -129,10 +134,14 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
             return Settings.builder()
                     .put("cluster.name", cluster)
                     .put("path.home", getHome())
-                    .put("host", host)
-                    .put("port", port)
-                    .put("cluster.target_health", "YELLOW")
-                    .put("cluster.target_health_timeout", "1m")
+                    .put("client.transport.nodes_sampler_interval", "1h")
+                    .put("client.transport.ping_timeout", "1h")
+                    .put(Parameters.HOST.getName(), host)
+                    .put(Parameters.PORT.getName(), port)
+                    .put(Parameters.CLUSTER_TARGET_HEALTH.getName(), "YELLOW")
+                    .put(Parameters.CLUSTER_TARGET_HEALTH_TIMEOUT.getName(), "1m")
+                    .put(Parameters.BULK_METRIC_ENABLED.getName(), Boolean.TRUE)
+                    .put(Parameters.SEARCH_METRIC_ENABLED.getName(), Boolean.TRUE)
                     .build();
         }
 
@@ -179,9 +188,5 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
                 node.close();
             }
         }
-
-        private static final char[] numbersAndLetters = ("0123456789abcdefghijklmnopqrstuvwxyz").toCharArray();
-
-        private static final Random random = new SecureRandom();
     }
 }

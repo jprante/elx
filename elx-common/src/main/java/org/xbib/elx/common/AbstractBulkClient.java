@@ -65,7 +65,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         if (closed.compareAndSet(false, true)) {
             ensureClientIsPresent();
             if (bulkProcessor != null) {
-                logger.info("closing bulk procesor");
+                logger.info("closing bulk processor");
                 bulkProcessor.close();
             }
             closeClient(settings);
@@ -100,7 +100,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
                 createIndexRequestBuilder.setSettings(JsonXContent.contentBuilder()
                         .map(settings.getAsStructuredMap()).string());
             } catch (IOException e) {
-                logger.warn(e.getMessage(), e);
+                logger.log(Level.WARN, e.getMessage(), e);
             }
         } else {
             Settings settings = Settings.builder()
@@ -115,15 +115,11 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
             }
         }
         if (indexDefinition.getMappings() != null) {
-            try {
-                Map<String, Object> mappings = JsonXContent.jsonXContent.createParser(indexDefinition.getMappings()).mapOrdered();
-                createIndexRequestBuilder.addMapping(type, mappings);
-            } catch (IOException e) {
-                logger.log(Level.WARN, e.getMessage(), e);
-            }
+            createIndexRequestBuilder.addMapping(type, indexDefinition.getMappings());
         } else {
             try {
-                XContentBuilder builder = JsonXContent.contentBuilder().startObject().startObject(type).endObject().endObject();
+                XContentBuilder builder = JsonXContent.contentBuilder()
+                        .startObject().startObject(type).endObject().endObject();
                 createIndexRequestBuilder.addMapping(type, builder);
             } catch (IOException e) {
                 logger.log(Level.WARN, e.getMessage(), e);
@@ -144,26 +140,24 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         if (isIndexDefinitionDisabled(indexDefinition)) {
             return;
         }
-        if (bulkProcessor != null) {
-            ensureClientIsPresent();
-            Long bulkQueueSize = getThreadPoolQueueSize("bulk");
-            if (bulkQueueSize != null && bulkQueueSize <= 64) {
-                logger.info("found bulk queue size " + bulkQueueSize + ", expanding to " + bulkQueueSize * 4);
-                bulkQueueSize = bulkQueueSize * 4;
-            } else {
-                logger.warn("undefined or small bulk queue size found: " + bulkQueueSize + " assuming 256");
-                bulkQueueSize = 256L;
-            }
-            putClusterSetting("threadpool.bulk.queue_size", bulkQueueSize, 30L, TimeUnit.SECONDS);
-            String indexName = indexDefinition.getFullIndexName();
-            int interval = indexDefinition.getStartBulkRefreshSeconds();
-            if (interval != 0) {
-                logger.info("starting bulk on " + indexName + " with new refresh interval " + interval);
-                updateIndexSetting(indexName, "refresh_interval",
-                        interval >= 0 ? interval + "s" : interval, 30L, TimeUnit.SECONDS);
-            } else {
-                logger.warn("ignoring starting bulk on " + indexName + " with refresh interval " + interval);
-            }
+        ensureClientIsPresent();
+        Long bulkQueueSize = getThreadPoolQueueSize("bulk");
+        if (bulkQueueSize != null && bulkQueueSize <= 64) {
+            logger.info("found bulk queue size " + bulkQueueSize + ", expanding to " + bulkQueueSize * 4);
+            bulkQueueSize = bulkQueueSize * 4;
+        } else {
+            logger.warn("undefined or small bulk queue size found: " + bulkQueueSize + " assuming 256");
+            bulkQueueSize = 256L;
+        }
+        putClusterSetting("threadpool.bulk.queue_size", bulkQueueSize, 30L, TimeUnit.SECONDS);
+        String indexName = indexDefinition.getFullIndexName();
+        int interval = indexDefinition.getStartBulkRefreshSeconds();
+        if (interval != 0) {
+            logger.info("starting bulk on " + indexName + " with new refresh interval " + interval);
+            updateIndexSetting(indexName, "refresh_interval",
+                    interval >= 0 ? interval + "s" : interval, 30L, TimeUnit.SECONDS);
+        } else {
+            logger.warn("ignoring starting bulk on " + indexName + " with refresh interval " + interval);
         }
     }
 
@@ -177,6 +171,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
             String indexName = indexDefinition.getFullIndexName();
             int interval = indexDefinition.getStopBulkRefreshSeconds();
             try {
+                logger.info("flushing bulk");
                 bulkProcessor.flush();
             } catch (IOException e) {
                 // can never happen
@@ -267,7 +262,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
             ensureClientIsPresent();
             return bulkProcessor.waitForBulkResponses(timeout, timeUnit);
         }
-        return true;
+        return false;
     }
 
     @Override

@@ -9,7 +9,6 @@ import org.elasticsearch.env.Environment;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.plugins.Plugin;
 import org.xbib.elx.common.Parameters;
-import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -21,9 +20,7 @@ public class NodeClientHelper {
 
     private static Object configurationObject;
 
-    private static Node node;
-
-    private static final Map<String, ElasticsearchClient> clientMap = new HashMap<>();
+    private static final Map<String, Node> nodeMap = new HashMap<>();
 
     public ElasticsearchClient createClient(Settings settings, Object object) {
         if (configurationObject == null) {
@@ -32,20 +29,21 @@ public class NodeClientHelper {
         if (configurationObject instanceof ElasticsearchClient) {
             return (ElasticsearchClient) configurationObject;
         }
-        return clientMap.computeIfAbsent(settings.get("cluster.name"),
-                key -> innerCreateClient(settings));
+        String clusterName = settings.get("cluster.name", "elasticsearch");
+        Node node = nodeMap.computeIfAbsent(clusterName, key -> innerCreateClient(settings));
+        return node != null ? node.client() : null;
     }
 
-    public void closeClient(Settings settings) throws IOException {
-        ElasticsearchClient client = clientMap.remove(settings.get("cluster.name"));
-        if (client != null) {
+    public void closeClient(Settings settings) {
+        String clusterName = settings.get("cluster.name", "elasticsearch");
+        Node node = nodeMap.remove(settings.get("cluster.name"));
+        if (node != null) {
             logger.debug("closing node...");
             node.close();
-            node = null;
         }
     }
 
-    private ElasticsearchClient innerCreateClient(Settings settings) {
+    private Node innerCreateClient(Settings settings) {
         String version = System.getProperty("os.name")
                 + " " + System.getProperty("java.vm.name")
                 + " " + System.getProperty("java.vm.vendor")
@@ -61,9 +59,9 @@ public class NodeClientHelper {
         logger.info("creating node client on {} with effective settings {}",
                 version, effectiveSettings.toDelimitedString(','));
         Collection<Class<? extends Plugin>> plugins = Collections.emptyList();
-        node = new BulkNode(new Environment(effectiveSettings), plugins);
+        Node node = new BulkNode(new Environment(effectiveSettings), plugins);
         node.start();
-        return node.client();
+        return node;
     }
 
     private static Settings filterSettings(Settings settings) {

@@ -18,6 +18,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public class DefaultIndexDefinition implements IndexDefinition {
@@ -90,26 +91,26 @@ public class DefaultIndexDefinition implements IndexDefinition {
         if (settings.get("settings") != null && settings.get("mapping") != null) {
             setSettings(findSettingsFrom(settings.get("settings")));
             setMappings(findMappingsFrom(settings.get("mapping")));
-            boolean shift = settings.getAsBoolean("shift", false);
-            setShift(shift);
-            if (shift) {
-                String dateTimeFormat = settings.get(Parameters.DATE_TIME_FORMAT.getName(),
-                        Parameters.DATE_TIME_FORMAT.getString());
-                DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimeFormat, Locale.getDefault())
-                        .withZone(ZoneId.systemDefault());
-                setDateTimeFormatter(dateTimeFormatter);
-                String dateTimePatternStr = settings.get("dateTimePattern", "^(.*?)(\\d+)$");
-                Pattern dateTimePattern = Pattern.compile(dateTimePatternStr);
-                setDateTimePattern(dateTimePattern);
-                String fullName = indexName + dateTimeFormatter.format(LocalDateTime.now());
-                fullIndexName = adminClient.resolveAlias(fullName).stream().findFirst().orElse(fullName);
-                setFullIndexName(fullIndexName);
-                boolean prune = settings.getAsBoolean("prune", false);
-                setPrune(prune);
-                if (prune) {
-                    setMinToKeep(settings.getAsInt("retention.mintokeep", 2));
-                    setDelta(settings.getAsInt("retention.delta", 2));
-                }
+        }
+        boolean shift = settings.getAsBoolean("shift", false);
+        setShift(shift);
+        if (shift) {
+            String dateTimeFormat = settings.get(Parameters.DATE_TIME_FORMAT.getName(),
+                    Parameters.DATE_TIME_FORMAT.getString());
+            DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimeFormat, Locale.getDefault())
+                    .withZone(ZoneId.systemDefault());
+            setDateTimeFormatter(dateTimeFormatter);
+            String dateTimePatternStr = settings.get("dateTimePattern", "^(.*?)(\\d+)$");
+            Pattern dateTimePattern = Pattern.compile(dateTimePatternStr);
+            setDateTimePattern(dateTimePattern);
+            String fullName = indexName + dateTimeFormatter.format(LocalDateTime.now());
+            fullIndexName = adminClient.resolveAlias(fullName).stream().findFirst().orElse(fullName);
+            setFullIndexName(fullIndexName);
+            boolean prune = settings.getAsBoolean("prune", false);
+            setPrune(prune);
+            if (prune) {
+                setMinToKeep(settings.getAsInt("retention.mintokeep", 2));
+                setDelta(settings.getAsInt("retention.delta", 2));
             }
         }
     }
@@ -133,7 +134,6 @@ public class DefaultIndexDefinition implements IndexDefinition {
     public String getType() {
         return type;
     }
-
 
     @Override
     public void setFullIndexName(String fullIndexName) {
@@ -161,8 +161,23 @@ public class DefaultIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public String getMappings() {
-        return mappings;
+    public Map<String, Object> getMappings() {
+        if (mappings == null) {
+            return null;
+        }
+        try {
+            return JsonXContent.jsonXContent.createParser(mappings).mapOrdered();
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    @Override
+    public Set<String> getMappingFields() {
+        if (mappings == null) {
+            return null;
+        }
+        return Settings.builder().loadFromSource(mappings).build().getGroups("properties").keySet();
     }
 
     @Override

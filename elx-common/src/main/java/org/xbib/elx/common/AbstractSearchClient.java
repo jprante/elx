@@ -34,9 +34,9 @@ import java.util.stream.StreamSupport;
 
 public abstract class AbstractSearchClient extends AbstractBasicClient implements SearchClient {
 
-    private SearchMetric searchMetric;
-
     private final AtomicBoolean closed;
+
+    private SearchMetric searchMetric;
 
     public AbstractSearchClient() {
         super();
@@ -44,16 +44,14 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
     }
 
     @Override
-    public SearchMetric getSearchMetric() {
-        return searchMetric;
-    }
-
-    @Override
     public void init(Settings settings) {
         if (closed.compareAndSet(true, false)) {
             super.init(settings);
-            this.searchMetric = new DefaultSearchMetric(getScheduler(), settings);
-            searchMetric.init(settings);
+            if (settings.getAsBoolean(Parameters.SEARCH_METRIC_ENABLED.getName(),
+                    Parameters.SEARCH_METRIC_ENABLED.getBoolean())) {
+                this.searchMetric = new DefaultSearchMetric(this, settings);
+                searchMetric.init(settings);
+            }
         }
     }
 
@@ -68,19 +66,37 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
     }
 
     @Override
+    public boolean isSearchMetricEnabled() {
+        return searchMetric != null;
+    }
+
+    @Override
+    public SearchMetric getSearchMetric() {
+        return searchMetric;
+    }
+
+    @Override
     public Optional<GetResponse> get(Consumer<GetRequestBuilder> getRequestBuilderConsumer) {
         GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE);
         getRequestBuilderConsumer.accept(getRequestBuilder);
         ActionFuture<GetResponse> actionFuture = getRequestBuilder.execute();
-        searchMetric.getCurrentQueries().inc();
+        if (searchMetric != null) {
+            searchMetric.getCurrentQueries().inc();
+        }
         GetResponse getResponse = actionFuture.actionGet();
-        searchMetric.getCurrentQueries().dec();
-        searchMetric.getQueries().inc();
-        searchMetric.markTotalQueries(1);
+        if (searchMetric != null) {
+            searchMetric.getCurrentQueries().dec();
+            searchMetric.getQueries().inc();
+            searchMetric.markTotalQueries(1);
+        }
         if (getResponse.isExists()) {
-            searchMetric.getSucceededQueries().inc();
+            if (searchMetric != null) {
+                searchMetric.getSucceededQueries().inc();
+            }
         } else {
-            searchMetric.getEmptyQueries().inc();
+            if (searchMetric != null) {
+                searchMetric.getEmptyQueries().inc();
+            }
         }
         return getResponse.isExists() ? Optional.of(getResponse) : Optional.empty();
     }
@@ -90,16 +106,24 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
         MultiGetRequestBuilder multiGetRequestBuilder = new MultiGetRequestBuilder(client, MultiGetAction.INSTANCE);
         multiGetRequestBuilderConsumer.accept(multiGetRequestBuilder);
         ActionFuture<MultiGetResponse> actionFuture = multiGetRequestBuilder.execute();
-        searchMetric.getCurrentQueries().inc();
+        if (searchMetric != null) {
+            searchMetric.getCurrentQueries().inc();
+        }
         MultiGetResponse multiGetItemResponse = actionFuture.actionGet();
-        searchMetric.getCurrentQueries().dec();
-        searchMetric.getQueries().inc();
-        searchMetric.markTotalQueries(1);
+        if (searchMetric != null) {
+            searchMetric.getCurrentQueries().dec();
+            searchMetric.getQueries().inc();
+            searchMetric.markTotalQueries(1);
+        }
         boolean isempty = multiGetItemResponse.getResponses().length == 0;
         if (isempty) {
-            searchMetric.getEmptyQueries().inc();
+            if (searchMetric != null) {
+                searchMetric.getEmptyQueries().inc();
+            }
         } else {
-            searchMetric.getSucceededQueries().inc();
+            if (searchMetric != null) {
+                searchMetric.getSucceededQueries().inc();
+            }
         }
         return isempty ?  Optional.empty() : Optional.of(multiGetItemResponse);
     }
@@ -109,24 +133,34 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE);
         queryBuilder.accept(searchRequestBuilder);
         ActionFuture<SearchResponse> actionFuture = searchRequestBuilder.execute();
-        searchMetric.getCurrentQueries().inc();
+        if (searchMetric != null) {
+            searchMetric.getCurrentQueries().inc();
+        }
         SearchResponse searchResponse = actionFuture.actionGet();
-        searchMetric.getCurrentQueries().dec();
-        searchMetric.getQueries().inc();
-        searchMetric.markTotalQueries(1);
+        if (searchMetric != null) {
+            searchMetric.getCurrentQueries().dec();
+            searchMetric.getQueries().inc();
+            searchMetric.markTotalQueries(1);
+        }
         if (searchResponse.getFailedShards() > 0) {
             StringBuilder sb = new StringBuilder("Search failed:");
             for (ShardSearchFailure failure : searchResponse.getShardFailures()) {
                 sb.append("\n").append(failure.reason());
             }
-            searchMetric.getEmptyQueries().inc();
+            if (searchMetric != null) {
+                searchMetric.getEmptyQueries().inc();
+            }
             throw new ElasticsearchException(sb.toString());
         }
         boolean isempty = searchResponse.getHits().getHits().length == 0;
         if (isempty) {
-            searchMetric.getEmptyQueries().inc();
+            if (searchMetric != null) {
+                searchMetric.getEmptyQueries().inc();
+            }
         } else {
-            searchMetric.getSucceededQueries().inc();
+            if (searchMetric != null) {
+                searchMetric.getSucceededQueries().inc();
+            }
         }
         return isempty ? Optional.empty() : Optional.of(searchResponse);
     }
@@ -138,19 +172,31 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
         queryBuilder.accept(searchRequestBuilder);
         searchRequestBuilder.setScroll(scrollTime).setSize(scrollSize);
         ActionFuture<SearchResponse> actionFuture = searchRequestBuilder.execute();
-        searchMetric.getCurrentQueries().inc();
+        if (searchMetric != null) {
+            searchMetric.getCurrentQueries().inc();
+        }
         SearchResponse initialSearchResponse = actionFuture.actionGet();
-        searchMetric.getCurrentQueries().dec();
-        searchMetric.getQueries().inc();
-        searchMetric.markTotalQueries(1);
+        if (searchMetric != null) {
+            searchMetric.getCurrentQueries().dec();
+            searchMetric.getQueries().inc();
+            searchMetric.markTotalQueries(1);
+        }
         if (initialSearchResponse.getFailedShards() > 0) {
-            searchMetric.getFailedQueries().inc();
+            if (searchMetric != null) {
+                searchMetric.getFailedQueries().inc();
+            }
         } else if (initialSearchResponse.isTimedOut()) {
-            searchMetric.getTimeoutQueries().inc();
+            if (searchMetric != null) {
+                searchMetric.getTimeoutQueries().inc();
+            }
         } else if (initialSearchResponse.getHits().getTotalHits() == 0) {
-            searchMetric.getEmptyQueries().inc();
+            if (searchMetric != null) {
+                searchMetric.getEmptyQueries().inc();
+            }
         } else {
-            searchMetric.getSucceededQueries().inc();
+            if (searchMetric != null) {
+                searchMetric.getSucceededQueries().inc();
+            }
         }
         Stream<SearchResponse> responseStream = Stream.iterate(initialSearchResponse,
                 searchResponse -> {
@@ -159,19 +205,23 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
                                     .setScrollId(searchResponse.getScrollId())
                                     .setScroll(scrollTime);
                     ActionFuture<SearchResponse> actionFuture1 = searchScrollRequestBuilder.execute();
-                    searchMetric.getCurrentQueries().inc();
+                    if (searchMetric != null) {
+                        searchMetric.getCurrentQueries().inc();
+                    }
                     SearchResponse searchResponse1 = actionFuture1.actionGet();
-                    searchMetric.getCurrentQueries().dec();
-                    searchMetric.getQueries().inc();
-                    searchMetric.markTotalQueries(1);
-                    if (searchResponse1.getFailedShards() > 0) {
-                        searchMetric.getFailedQueries().inc();
-                    } else if (searchResponse1.isTimedOut()) {
-                        searchMetric.getTimeoutQueries().inc();
-                    } else if (searchResponse1.getHits().getHits().length == 0) {
-                        searchMetric.getEmptyQueries().inc();
-                    } else {
-                        searchMetric.getSucceededQueries().inc();
+                    if (searchMetric != null) {
+                        searchMetric.getCurrentQueries().dec();
+                        searchMetric.getQueries().inc();
+                        searchMetric.markTotalQueries(1);
+                        if (searchResponse1.getFailedShards() > 0) {
+                            searchMetric.getFailedQueries().inc();
+                        } else if (searchResponse1.isTimedOut()) {
+                            searchMetric.getTimeoutQueries().inc();
+                        } else if (searchResponse1.getHits().getHits().length == 0) {
+                            searchMetric.getEmptyQueries().inc();
+                        } else {
+                            searchMetric.getSucceededQueries().inc();
+                        }
                     }
                     return searchResponse1;
                 });

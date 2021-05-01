@@ -16,6 +16,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.jboss.netty.channel.DefaultChannelFuture;
+import org.xbib.elx.common.Parameters;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.ArrayList;
@@ -23,21 +24,22 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 public class TransportClientHelper {
 
     private static final Logger logger = LogManager.getLogger(TransportClientHelper.class.getName());
 
-    private static final Map<String, ElasticsearchClient> clientMap = new HashMap<>();
+    private static final Map<String, ElasticsearchClient> transportClientMap = new HashMap<>();
 
     public ElasticsearchClient createClient(Settings settings) {
         String clusterName = settings.get("cluster.name", "elasticsearch");
-        return clientMap.computeIfAbsent(clusterName, key -> innerCreateClient(settings));
+        return transportClientMap.computeIfAbsent(clusterName, key -> innerCreateClient(settings));
     }
 
     public void closeClient(Settings settings) {
         String clusterName = settings.get("cluster.name", "elasticsearch");
-        ElasticsearchClient client = clientMap.remove(clusterName);
+        ElasticsearchClient client = transportClientMap.remove(clusterName);
         if (client != null) {
             if (client instanceof Client) {
                 ((Client) client).close();
@@ -55,31 +57,29 @@ public class TransportClientHelper {
     }
 
     private Collection<TransportAddress> findAddresses(Settings settings) {
-        final int defaultPort = settings.getAsInt("port", 9300);
+        final int defaultPort = settings.getAsInt(Parameters.PORT.getName(), 9300);
         Collection<TransportAddress> addresses = new ArrayList<>();
-        for (String hostname : settings.getAsArray("host")) {
+        for (String hostname : settings.getAsArray(Parameters.HOST.getName())) {
             String[] splitHost = hostname.split(":", 2);
-            if (splitHost.length == 2) {
-                try {
-                    String host = splitHost[0];
-                    InetAddress inetAddress = NetworkUtils.resolveInetAddress(host, null);
-                    int port = Integer.parseInt(splitHost[1]);
-                    TransportAddress address = new InetSocketTransportAddress(inetAddress, port);
+            try {
+                if (splitHost.length == 2) {
+                    InetAddress inetAddress =
+                            NetworkUtils.resolveInetAddress(splitHost[0], null);
+                    TransportAddress address =
+                            new InetSocketTransportAddress(inetAddress, Integer.parseInt(splitHost[1]));
                     addresses.add(address);
-                } catch (IOException e) {
-                    logger.warn(e.getMessage(), e);
-                }
-            } else if (splitHost.length == 1) {
-                try {
-                    String host = splitHost[0];
-                    InetAddress inetAddress = NetworkUtils.resolveInetAddress(host, null);
-                    TransportAddress address = new InetSocketTransportAddress(inetAddress, defaultPort);
+                } else if (splitHost.length == 1) {
+                    InetAddress inetAddress =
+                            NetworkUtils.resolveInetAddress(splitHost[0], null);
+                    TransportAddress address =
+                            new InetSocketTransportAddress(inetAddress, defaultPort);
                     addresses.add(address);
-                } catch (IOException e) {
-                    logger.warn(e.getMessage(), e);
+                } else {
+                    throw new IllegalArgumentException("invalid hostname specification: " + hostname);
                 }
-            } else {
-                throw new IllegalArgumentException("invalid hostname specification: " + hostname);
+            }
+            catch (IOException e) {
+                logger.warn(e.getMessage(), e);
             }
         }
         return addresses;
@@ -114,24 +114,39 @@ public class TransportClientHelper {
                 + " " + System.getProperty("java.vm.vendor")
                 + " " + System.getProperty("java.vm.version")
                 + " Elasticsearch " + Version.CURRENT.toString();
-        logger.info("creating transport client on {} with custom settings {}",
-                systemIdentifier, settings.getAsMap());
+        Settings transportClientSettings = getTransportClientSettings(settings);
+        logger.info("creating transport client on {} with settings {}",
+                systemIdentifier, transportClientSettings.getAsMap());
         // we need to disable dead lock check because we may have mixed node/transport clients
         DefaultChannelFuture.setUseDeadLockChecker(false);
         return TransportClient.builder()
-                .settings(getTransportClientSettings(settings))
+                .settings(transportClientSettings)
                 .build();
     }
 
     private Settings getTransportClientSettings(Settings settings) {
         return Settings.builder()
-                .put("cluster.name", settings.get("cluster.name", "elasticsearch"))
+                .put(filter(settings, key -> !isPrivateSettings(key)))
                 .put("path.home", settings.get("path.home", "."))
-                .put("processors", settings.getAsInt("processors", Runtime.getRuntime().availableProcessors())) // for thread pool size / worker count
-                .put("client.transport.sniff", settings.getAsBoolean("client.transport.sniff", false)) // always disable sniff
-                .put("client.transport.nodes_sampler_interval", settings.get("client.transport.nodes_sampler_interval", "10000s")) // ridculous long ping, default is 5 seconds
-                .put("client.transport.ping_timeout", settings.get("client.transport.ping_timeout", "10000s")) // ridiculous  ping for unresponsive nodes, defauult is 5 seconds
-                .put("client.transport.ignore_cluster_name", settings.getAsBoolean("client.transport.ignore_cluster_name", true)) // connect to any cluster
                 .build();
+    }
+
+    private static Settings filter(Settings settings, Predicate<String> predicate) {
+        Settings.Builder builder = Settings.settingsBuilder();
+        for (Map.Entry<String, String> me : settings.getAsMap().entrySet()) {
+            if (predicate.test(me.getKey())) {
+                builder.put(me.getKey(), me.getValue());
+            }
+        }
+        return builder.build();
+    }
+
+    private static boolean isPrivateSettings(String key) {
+        for (Parameters p : Parameters.values()) {
+            if (key.equals(p.getName())) {
+                return true;
+            }
+        }
+        return false;
     }
 }

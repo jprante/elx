@@ -119,16 +119,16 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     @Override
     public AdminClient updateReplicaLevel(IndexDefinition indexDefinition) {
         if (isIndexDefinitionDisabled(indexDefinition)) {
-            return null;
-        }
-        if (indexDefinition.getReplicaCount() < 1) {
-            logger.warn("invalid replica level");
             return this;
         }
-        logger.info("update replica level for " +
-                indexDefinition + " to " + indexDefinition.getReplicaCount());
-        updateIndexSetting(indexDefinition.getFullIndexName(), "number_of_replicas", indexDefinition.getReplicaCount(),
-                30L, TimeUnit.SECONDS);
+        if (indexDefinition.getReplicaCount() < 0) {
+            logger.warn("invalid replica level defined for index "
+                    + indexDefinition.getIndex() + ": " + indexDefinition.getReplicaCount());
+            return this;
+        }
+        logger.info("update replica level for " + indexDefinition + " to " + indexDefinition.getReplicaCount());
+        updateIndexSetting(indexDefinition.getFullIndexName(), "number_of_replicas",
+                indexDefinition.getReplicaCount(), 30L, TimeUnit.SECONDS);
         waitForHealthyCluster();
         return this;
     }
@@ -404,8 +404,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         logger.info("force merge of " + indexDefinition);
         ForceMergeRequest forceMergeRequest = new ForceMergeRequest();
         forceMergeRequest.indices(indexDefinition.getFullIndexName());
-        ForceMergeResponse forceMergeResponse =
-                client.execute(ForceMergeAction.INSTANCE, forceMergeRequest).actionGet();
+        ForceMergeResponse forceMergeResponse = client.execute(ForceMergeAction.INSTANCE, forceMergeRequest).actionGet();
         if (forceMergeResponse.getFailedShards() > 0) {
             throw new IllegalStateException("failed shards after force merge: " + forceMergeResponse.getFailedShards());
         }
@@ -504,9 +503,17 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             path = path + fieldName;
         }
         if (map.containsKey("index")) {
-            String mode = (String) map.get("index");
-            if ("no".equals(mode)) {
-                return;
+            Object mode = map.get("index");
+            if (mode instanceof String) {
+                if ("no".equals(mode)) {
+                    return;
+                }
+            }
+            if (mode instanceof Boolean) {
+                Boolean b = (Boolean) mode;
+                if (!b) {
+                    return;
+                }
             }
         }
         for (Map.Entry<String, Object> entry : map.entrySet()) {

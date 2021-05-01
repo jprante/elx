@@ -62,9 +62,9 @@ class IndexPruneTest {
             bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
             adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
+            indexDefinition.setEnabled(true);
             indexDefinition.setDelta(2);
             indexDefinition.setMinToKeep(2);
-            indexDefinition.setEnabled(true);
             indexDefinition.setPrune(true);
             IndexPruneResult indexPruneResult = adminClient.pruneIndex(indexDefinition);
             logger.info("prune result = " + indexPruneResult);

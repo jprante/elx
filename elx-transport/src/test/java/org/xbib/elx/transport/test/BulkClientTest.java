@@ -52,7 +52,9 @@ class BulkClientTest {
             bulkClient.newIndex(indexDefinition);
             bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-            assertEquals(1, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkProcessor().isBulkMetricEnabled()) {
+                assertEquals(1, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            }
             if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }
@@ -69,12 +71,15 @@ class BulkClientTest {
                 .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             bulkClient.newIndex(indexDefinition);
+            bulkClient.startBulk(indexDefinition);
             for (int i = 0; i < ACTIONS; i++) {
                 bulkClient.index(indexDefinition, null, false,
                         "{ \"name\" : \"" + helper.randomString(32) + "\"}");
             }
-            bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
-            assertEquals(numactions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            bulkClient.stopBulk(indexDefinition);
+            if (bulkClient.getBulkProcessor().isBulkMetricEnabled()) {
+                assertEquals(numactions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            }
             if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }
@@ -118,7 +123,9 @@ class BulkClientTest {
                 logger.error("latch timeout!");
             }
             bulkClient.stopBulk(indexDefinition);
-            assertEquals(maxthreads * actions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            if (bulkClient.getBulkProcessor().isBulkMetricEnabled()) {
+                assertEquals(maxthreads * actions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
+            }
             bulkClient.refreshIndex(indexDefinition);
             assertEquals(maxthreads * actions, bulkClient.getSearchableDocs(indexDefinition));
             if (bulkClient.getBulkProcessor().getLastBulkError() != null) {

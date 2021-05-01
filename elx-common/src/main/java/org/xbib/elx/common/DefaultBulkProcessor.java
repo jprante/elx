@@ -16,6 +16,7 @@ import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.BulkProcessor;
 
 import java.io.IOException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -35,11 +36,13 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
     private final AtomicBoolean enabled;
 
+    private final BulkClient bulkClient;
+
     private final ElasticsearchClient client;
 
     private final DefaultBulkListener bulkListener;
 
-    private ScheduledFuture<?> scheduledFuture;
+    private ScheduledFuture<?> flushIntervalFuture;
 
     private BulkRequest bulkRequest;
 
@@ -56,22 +59,28 @@ public class DefaultBulkProcessor implements BulkProcessor {
     private final int permits;
 
     public DefaultBulkProcessor(BulkClient bulkClient, Settings settings) {
+        this.bulkClient = bulkClient;
         int maxActionsPerRequest = settings.getAsInt(Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getName(),
                 Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getInteger());
         String flushIntervalStr = settings.get(Parameters.BULK_FLUSH_INTERVAL.getName(),
                 Parameters.BULK_FLUSH_INTERVAL.getString());
         TimeValue flushInterval = TimeValue.parseTimeValue(flushIntervalStr,
                 TimeValue.timeValueSeconds(30), "");
-        ByteSizeValue minVolumePerRequest = settings.getAsBytesSize(Parameters.BULK_MIN_VOLUME_PER_REQUEST.getName(),
-                ByteSizeValue.parseBytesSizeValue(Parameters.BULK_MIN_VOLUME_PER_REQUEST.getString(), "1k"));
         this.client = bulkClient.getClient();
         if (flushInterval.millis() > 0L) {
-            this.scheduledFuture = bulkClient.getScheduler().scheduleWithFixedDelay(this::flush, flushInterval.millis(),
+            this.flushIntervalFuture = bulkClient.getScheduler().scheduleWithFixedDelay(this::flush, flushInterval.millis(),
                     flushInterval.millis(), TimeUnit.MILLISECONDS);
         }
-        this.bulkListener = new DefaultBulkListener(this, bulkClient.getScheduler(), settings);
+        this.bulkListener = new DefaultBulkListener(this, settings);
         this.bulkActions = maxActionsPerRequest;
+        ByteSizeValue minVolumePerRequest = settings.getAsBytesSize(Parameters.BULK_MIN_VOLUME_PER_REQUEST.getName(),
+                ByteSizeValue.parseBytesSizeValue(Parameters.BULK_MIN_VOLUME_PER_REQUEST.getString(), "1k"));
         this.bulkVolume = minVolumePerRequest.getBytes();
+        if (!isBulkMetricEnabled()) {
+            ByteSizeValue maxVolumePerRequest = settings.getAsBytesSize(Parameters.BULK_MAX_VOLUME_PER_REQUEST.getName(),
+                    ByteSizeValue.parseBytesSizeValue(Parameters.BULK_MAX_VOLUME_PER_REQUEST.getString(), "1m"));
+            this.bulkVolume = maxVolumePerRequest.getBytes();
+        }
         this.bulkRequest = new BulkRequest();
         this.closed = new AtomicBoolean(false);
         this.enabled = new AtomicBoolean(false);
@@ -113,8 +122,18 @@ public class DefaultBulkProcessor implements BulkProcessor {
     }
 
     @Override
+    public ScheduledExecutorService getScheduler() {
+        return bulkClient.getScheduler();
+    }
+
+    @Override
     public BulkMetric getBulkMetric() {
         return bulkListener.getBulkMetric();
+    }
+
+    @Override
+    public boolean isBulkMetricEnabled() {
+        return bulkListener.getBulkMetric() != null;
     }
 
     @Override
@@ -163,8 +182,8 @@ public class DefaultBulkProcessor implements BulkProcessor {
     public synchronized void close() throws IOException {
         if (closed.compareAndSet(false, true)) {
             try {
-                if (scheduledFuture != null) {
-                    scheduledFuture.cancel(true);
+                if (flushIntervalFuture != null) {
+                    flushIntervalFuture.cancel(true);
                 }
                 // like flush but without ensuring open
                 if (bulkRequest.numberOfActions() > 0) {

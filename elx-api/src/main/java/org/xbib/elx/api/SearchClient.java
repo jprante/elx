@@ -14,6 +14,8 @@ import java.util.stream.Stream;
 
 public interface SearchClient extends BasicClient {
 
+    boolean isSearchMetricEnabled();
+
     SearchMetric getSearchMetric();
 
     Optional<GetResponse> get(Consumer<GetRequestBuilder> getRequestBuilder);

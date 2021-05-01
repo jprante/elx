@@ -3,7 +3,6 @@ package org.xbib.elx.node;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.common.settings.Settings;
 import org.xbib.elx.common.AbstractAdminClient;
-import java.io.IOException;
 
 public class NodeAdminClient extends AbstractAdminClient {
 
@@ -20,7 +19,7 @@ public class NodeAdminClient extends AbstractAdminClient {
     }
 
     @Override
-    public void closeClient(Settings settings) throws IOException {
+    public void closeClient(Settings settings) {
         helper.closeClient(settings);
     }
 }

@@ -41,9 +41,9 @@ class IndexPruneTest {
                 .put(helper.getClientSettings())
                 .build();
              TransportBulkClient bulkClient = ClientBuilder.builder()
-                     .setBulkClientProvider(TransportBulkClientProvider.class)
-                     .put(helper.getClientSettings())
-                     .build()) {
+                .setBulkClientProvider(TransportBulkClientProvider.class)
+                .put(helper.getClientSettings())
+                .build()) {
             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             indexDefinition.setIndex("test_prune");
             indexDefinition.setFullIndexName("test_prune1");
@@ -62,10 +62,10 @@ class IndexPruneTest {
             bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
             adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
-            indexDefinition.setEnabled(true);
             indexDefinition.setDelta(2);
             indexDefinition.setMinToKeep(2);
             indexDefinition.setPrune(true);
+            indexDefinition.setEnabled(true);
             IndexPruneResult indexPruneResult = adminClient.pruneIndex(indexDefinition);
             logger.info("prune result = " + indexPruneResult);
             assertTrue(indexPruneResult.getDeletedIndices().contains("test_prune1"));

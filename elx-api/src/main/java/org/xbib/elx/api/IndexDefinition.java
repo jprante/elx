@@ -1,6 +1,8 @@
 package org.xbib.elx.api;
 
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public interface IndexDefinition {
@@ -23,7 +25,9 @@ public interface IndexDefinition {
 
     void setMappings(String mappings);
 
-    String getMappings();
+    Map<String, Object> getMappings();
+
+    Set<String> getMappingFields();
 
     void setDateTimeFormatter(DateTimeFormatter formatter);
 
@@ -61,7 +65,7 @@ public interface IndexDefinition {
 
     int getShardCount();
 
-    void setReplicaCount(int replicaLevel);
+    void setReplicaCount(int replicaCount);
 
     int getReplicaCount();
 

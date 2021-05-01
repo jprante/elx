@@ -43,10 +43,10 @@ class IndexShiftTest {
                 .put(helper.getClientSettings())
                 .build();
              TransportBulkClient bulkClient = ClientBuilder.builder()
-                     .setBulkClientProvider(TransportBulkClientProvider.class)
-                     .put(helper.getClientSettings())
-                     .build()) {
-            IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
+                .setBulkClientProvider(TransportBulkClientProvider.class)
+                .put(helper.getClientSettings())
+                .build()) {
+             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             indexDefinition.setFullIndexName("test_shift");
             bulkClient.newIndex(indexDefinition);
             for (int i = 0; i < 1; i++) {
