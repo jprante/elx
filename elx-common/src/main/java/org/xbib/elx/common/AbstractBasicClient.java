@@ -9,6 +9,7 @@ import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsAction;
 import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
+import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
@@ -118,7 +119,11 @@ public abstract class AbstractBasicClient implements BasicClient {
         updateSettingsBuilder.put(key, value.toString());
         ClusterUpdateSettingsRequest updateSettingsRequest = new ClusterUpdateSettingsRequest();
         updateSettingsRequest.transientSettings(updateSettingsBuilder).timeout(toTimeValue(timeout, timeUnit));
-        client.execute(ClusterUpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
+        ClusterUpdateSettingsResponse clusterUpdateSettingsResponse =
+                client.execute(ClusterUpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
+        if (clusterUpdateSettingsResponse.isAcknowledged()) {
+            logger.info("cluster update of " + key + " to " + value + " acknowledged");
+        }
     }
 
     @Override
@@ -139,7 +144,8 @@ public abstract class AbstractBasicClient implements BasicClient {
                 .waitForStatus(status);
         ClusterHealthResponse healthResponse =
                 client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
-        if (healthResponse != null && healthResponse.isTimedOut()) {
+        logger.info("got cluster status " + healthResponse.getStatus().name());
+        if (healthResponse.isTimedOut()) {
             String message = "timeout, cluster state is " + healthResponse.getStatus().name() + " and not " + status.name();
             logger.error(message);
             throw new IllegalStateException(message);

@@ -141,8 +141,10 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         int interval = indexDefinition.getStartBulkRefreshSeconds();
         if (interval != 0) {
             logger.info("starting bulk on " + indexName + " with new refresh interval " + interval);
-            updateIndexSetting(indexName, "refresh_interval",
-                    interval >=0 ? interval + "s" : interval, 30L, TimeUnit.SECONDS);
+            updateIndexSetting(indexName,
+                    "refresh_interval", interval >=0 ? interval + "s" : interval, 30L, TimeUnit.SECONDS);
+            updateIndexSetting(indexName,
+                    "index.translog.durability", "async", 30L, TimeUnit.SECONDS);
         } else {
             logger.warn("ignoring starting bulk on " + indexName + " with refresh interval " + interval);
         }
@@ -168,6 +170,8 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
                     logger.info("stopping bulk on " + indexName + " with new refresh interval " + interval);
                     updateIndexSetting(indexName, "refresh_interval",
                             interval >= 0 ? interval + "s" : interval, 30L, TimeUnit.SECONDS);
+                    updateIndexSetting(indexName,
+                            "index.translog.durability", "request", 30L, TimeUnit.SECONDS);
                 } else {
                     logger.warn("ignoring stopping bulk on " + indexName + " with refresh interval " + interval);
                 }

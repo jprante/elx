@@ -120,9 +120,23 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             return this;
         }
         logger.info("update replica level for " + indexDefinition + " to " + indexDefinition.getReplicaCount());
+        int currentReplicaLevel = getReplicaLevel(indexDefinition);
+        logger.info("current replica level for " + indexDefinition + " is " + currentReplicaLevel);
+        if (currentReplicaLevel < indexDefinition.getReplicaCount()) {
+            putClusterSetting("cluster.routing.allocation.node_concurrent_recoveries", "5", 30L, TimeUnit.SECONDS);
+            putClusterSetting("indices.recovery.max_bytes_per_sec", "2gb", 30L, TimeUnit.SECONDS);
+            logger.info("recovery boost activated");
+        }
         updateIndexSetting(indexDefinition.getFullIndexName(), "number_of_replicas",
                 indexDefinition.getReplicaCount(), 30L, TimeUnit.SECONDS);
         waitForHealthyCluster();
+        if (currentReplicaLevel < indexDefinition.getReplicaCount()) {
+            // 2 = default setting
+            putClusterSetting("cluster.routing.allocation.node_concurrent_recoveries", "2", 30L, TimeUnit.SECONDS);
+            // 20m = default value
+            putClusterSetting("indices.recovery.max_bytes_per_sec", "40mb", 30L, TimeUnit.SECONDS);
+            logger.info("recovery boost deactivated");
+        }
         return this;
     }
 
