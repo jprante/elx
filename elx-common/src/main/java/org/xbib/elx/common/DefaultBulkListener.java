@@ -11,7 +11,6 @@ import org.xbib.elx.api.BulkMetric;
 import org.xbib.elx.api.BulkProcessor;
 
 import java.io.IOException;
-import java.util.concurrent.ScheduledExecutorService;
 
 public class DefaultBulkListener implements BulkListener {
 
@@ -28,9 +27,8 @@ public class DefaultBulkListener implements BulkListener {
     public DefaultBulkListener(DefaultBulkProcessor bulkProcessor,
                                Settings settings) {
         this.bulkProcessor = bulkProcessor;
-        boolean failOnBulkError = settings.getAsBoolean(Parameters.BULK_FAIL_ON_ERROR.getName(),
+        this.failOnError = settings.getAsBoolean(Parameters.BULK_FAIL_ON_ERROR.getName(),
                 Parameters.BULK_FAIL_ON_ERROR.getBoolean());
-        this.failOnError = failOnBulkError;
         if (settings.getAsBoolean(Parameters.BULK_METRIC_ENABLED.getName(),
                 Parameters.BULK_METRIC_ENABLED.getBoolean())) {
             this.bulkMetric = new DefaultBulkMetric(bulkProcessor, bulkProcessor.getScheduler(), settings);

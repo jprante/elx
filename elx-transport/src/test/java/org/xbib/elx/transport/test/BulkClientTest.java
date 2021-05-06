@@ -123,11 +123,11 @@ class BulkClientTest {
                 logger.error("latch timeout!");
             }
             bulkClient.stopBulk(indexDefinition);
+            bulkClient.refreshIndex(indexDefinition);
+            assertEquals(maxthreads * actions, bulkClient.getSearchableDocs(indexDefinition));
             if (bulkClient.getBulkProcessor().isBulkMetricEnabled()) {
                 assertEquals(maxthreads * actions, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());
             }
-            bulkClient.refreshIndex(indexDefinition);
-            assertEquals(maxthreads * actions, bulkClient.getSearchableDocs(indexDefinition));
             if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }

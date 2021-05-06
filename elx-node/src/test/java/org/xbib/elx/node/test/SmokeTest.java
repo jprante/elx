@@ -50,7 +50,6 @@ class SmokeTest {
             indexDefinition.setType("doc");
             bulkClient.newIndex(indexDefinition);
             bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}"); // single doc ingest
-            bulkClient.flush();
             assertTrue(bulkClient.waitForResponses(30, TimeUnit.SECONDS));
             adminClient.checkMapping(indexDefinition);
             bulkClient.update(indexDefinition, "1", "{ \"name\" : \"Another name\"}");
@@ -64,7 +63,6 @@ class SmokeTest {
             bulkClient.index(indexDefinition, "1", true, "{ \"name\" : \"Hello World\"}");
             assertTrue(bulkClient.waitForResponses(30, TimeUnit.SECONDS));
             adminClient.updateReplicaLevel(indexDefinition);
-            assertEquals(1, adminClient.getReplicaLevel(indexDefinition));
             if (bulkClient.getBulkProcessor().isBulkMetricEnabled()) {
                 assertEquals(0, bulkClient.getBulkProcessor().getBulkMetric().getFailed().getCount());
                 assertEquals(6, bulkClient.getBulkProcessor().getBulkMetric().getSucceeded().getCount());

@@ -13,6 +13,7 @@ import org.elasticsearch.action.admin.cluster.node.info.NodesInfoRequest;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoResponse;
 import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsAction;
 import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
+import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
@@ -28,7 +29,6 @@ import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.threadpool.ThreadPoolInfo;
@@ -86,10 +86,10 @@ public abstract class AbstractBasicClient implements BasicClient {
     public void close() throws IOException {
         ensureClientIsPresent();
         if (closed.compareAndSet(false, true)) {
-            closeClient(settings);
             if (executorService != null) {
-                executorService.shutdown();
+                executorService.shutdownNow();
             }
+            closeClient(settings);
         }
     }
 
@@ -126,7 +126,11 @@ public abstract class AbstractBasicClient implements BasicClient {
         updateSettingsBuilder.put(key, value.toString());
         ClusterUpdateSettingsRequest updateSettingsRequest = new ClusterUpdateSettingsRequest();
         updateSettingsRequest.transientSettings(updateSettingsBuilder).timeout(toTimeValue(timeout, timeUnit));
-        client.execute(ClusterUpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
+        ClusterUpdateSettingsResponse clusterUpdateSettingsResponse =
+                client.execute(ClusterUpdateSettingsAction.INSTANCE, updateSettingsRequest).actionGet();
+        if (clusterUpdateSettingsResponse.isAcknowledged()) {
+            logger.info("cluster update of " + key + " to " + value + " acknowledged");
+        }
     }
 
     @Override
@@ -147,7 +151,8 @@ public abstract class AbstractBasicClient implements BasicClient {
                 .waitForStatus(status);
         ClusterHealthResponse healthResponse =
                 client.execute(ClusterHealthAction.INSTANCE, clusterHealthRequest).actionGet();
-        if (healthResponse != null && healthResponse.isTimedOut()) {
+        logger.info("got cluster status " + healthResponse.getStatus().name());
+        if (healthResponse.isTimedOut()) {
             String message = "timeout, cluster state is " + healthResponse.getStatus().name() + " and not " + status.name();
             logger.error(message);
             throw new IllegalStateException(message);

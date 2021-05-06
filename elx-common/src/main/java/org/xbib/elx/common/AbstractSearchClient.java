@@ -181,20 +181,14 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
             searchMetric.getQueries().inc();
             searchMetric.markTotalQueries(1);
         }
-        if (initialSearchResponse.getFailedShards() > 0) {
-            if (searchMetric != null) {
+        if (searchMetric != null) {
+            if (initialSearchResponse.getFailedShards() > 0) {
                 searchMetric.getFailedQueries().inc();
-            }
-        } else if (initialSearchResponse.isTimedOut()) {
-            if (searchMetric != null) {
+            } else if (initialSearchResponse.isTimedOut()) {
                 searchMetric.getTimeoutQueries().inc();
-            }
-        } else if (initialSearchResponse.getHits().getTotalHits() == 0) {
-            if (searchMetric != null) {
+            } else if (initialSearchResponse.getHits().getTotalHits() == 0) {
                 searchMetric.getEmptyQueries().inc();
-            }
-        } else {
-            if (searchMetric != null) {
+            } else {
                 searchMetric.getSucceededQueries().inc();
             }
         }
