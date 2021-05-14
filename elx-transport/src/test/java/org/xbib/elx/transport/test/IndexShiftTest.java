@@ -46,7 +46,7 @@ class IndexShiftTest {
                 .setBulkClientProvider(TransportBulkClientProvider.class)
                 .put(helper.getClientSettings())
                 .build()) {
-             IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
+            IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
             indexDefinition.setFullIndexName("test_shift");
             bulkClient.newIndex(indexDefinition);
             for (int i = 0; i < 1; i++) {

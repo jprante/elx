@@ -31,14 +31,14 @@ public class NodeClientHelper {
         }
         String clusterName = settings.get("cluster.name", "elasticsearch");
         Node node = nodeMap.computeIfAbsent(clusterName, key -> innerCreateClient(settings));
-        return node != null ? node.client() : null;
+        return node.client();
     }
 
     public void closeClient(Settings settings) {
         String clusterName = settings.get("cluster.name", "elasticsearch");
-        Node node = nodeMap.remove(settings.get("cluster.name"));
+        Node node = nodeMap.remove(clusterName);
         if (node != null) {
-            logger.debug("closing node...");
+            logger.debug("closing...");
             node.close();
         }
     }
