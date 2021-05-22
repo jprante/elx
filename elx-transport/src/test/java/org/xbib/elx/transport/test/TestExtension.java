@@ -163,8 +163,8 @@ public class TestExtension implements ParameterResolver, BeforeEachCallback, Aft
                     .put(Parameters.PORT.getName(), port)
                     .put(Parameters.CLUSTER_TARGET_HEALTH.getName(), "YELLOW")
                     .put(Parameters.CLUSTER_TARGET_HEALTH_TIMEOUT.getName(), "1m")
-                    .put(Parameters.BULK_METRIC_ENABLED.getName(), Boolean.FALSE)
-                    .put(Parameters.SEARCH_METRIC_ENABLED.getName(), Boolean.FALSE)
+                    .put(Parameters.BULK_METRIC_ENABLED.getName(), Boolean.TRUE)
+                    .put(Parameters.SEARCH_METRIC_ENABLED.getName(), Boolean.TRUE)
                     .build();
         }
 

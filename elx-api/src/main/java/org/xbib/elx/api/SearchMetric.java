@@ -30,4 +30,6 @@ public interface SearchMetric extends Closeable {
     void start();
 
     void stop();
+
+    boolean isClosed();
 }

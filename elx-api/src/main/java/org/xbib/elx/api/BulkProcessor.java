@@ -30,4 +30,6 @@ public interface BulkProcessor extends Closeable, Flushable {
     void setMaxBulkVolume(long bulkSize);
 
     long getMaxBulkVolume();
+
+    boolean isClosed();
 }

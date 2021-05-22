@@ -34,34 +34,30 @@ import java.util.stream.StreamSupport;
 
 public abstract class AbstractSearchClient extends AbstractBasicClient implements SearchClient {
 
-    private final AtomicBoolean closed;
-
     private SearchMetric searchMetric;
 
     public AbstractSearchClient() {
         super();
-        this.closed = new AtomicBoolean(true);
     }
 
     @Override
-    public void init(Settings settings) {
-        if (closed.compareAndSet(true, false)) {
-            super.init(settings);
+    public boolean init(Settings settings, String info) {
+        if (super.init(settings, info)) {
             if (settings.getAsBoolean(Parameters.SEARCH_METRIC_ENABLED.getName(),
                     Parameters.SEARCH_METRIC_ENABLED.getBoolean())) {
                 this.searchMetric = new DefaultSearchMetric(this, settings);
                 searchMetric.init(settings);
             }
+            return true;
         }
+        return false;
     }
 
     @Override
     public void close() throws IOException {
-        if (closed.compareAndSet(false, true)) {
-            super.close();
-            if (searchMetric != null) {
-                searchMetric.close();
-            }
+        super.close();
+        if (!searchMetric.isClosed()) {
+            searchMetric.close();
         }
     }
 

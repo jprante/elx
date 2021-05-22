@@ -2,6 +2,5 @@ dependencies {
     api project(':elx-api')
     implementation "org.xbib:time:${rootProject.property('xbib-time.version')}"
     testImplementation "org.elasticsearch.plugin:transport-netty4-client:${rootProject.property('elasticsearch.version')}"
-    testImplementation "io.netty:netty-codec-http:${project.property('netty.version')}"
-    testImplementation "io.netty:netty-transport:${project.property('netty.version')}"
+    testImplementation "org.xbib:netty-http-client:${project.property('xbib-netty-http.version')}"
 }

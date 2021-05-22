@@ -23,9 +23,12 @@ public class HttpSearchClient extends AbstractSearchClient implements Elasticsea
     }
 
     @Override
-    public void init(Settings settings) {
-        super.init(settings);
-        helper.init(settings);
+    public boolean init(Settings settings, String info) {
+        if (super.init(settings, "Netty: " + io.netty.util.Version.identify())) {
+            helper.init(settings);
+            return true;
+        }
+        return false;
     }
 
     @Override

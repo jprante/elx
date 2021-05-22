@@ -23,9 +23,12 @@ public class HttpBulkClient extends AbstractBulkClient implements ElasticsearchC
     }
 
     @Override
-    public void init(Settings settings) {
-        super.init(settings);
-        helper.init(settings);
+    public boolean init(Settings settings, String info) {
+        if (super.init(settings, io.netty.util.Version.identify().toString())) {
+            helper.init(settings);
+            return true;
+        }
+        return false;
     }
 
     @Override

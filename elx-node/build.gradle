@@ -1,6 +1,4 @@
 dependencies {
     api project(':elx-common')
     api "org.elasticsearch.plugin:transport-netty4-client:${project.property('elasticsearch.version')}"
-    api "io.netty:netty-codec-http:${project.property('netty.version')}"
-    api "io.netty:netty-transport:${project.property('netty.version')}"
 }

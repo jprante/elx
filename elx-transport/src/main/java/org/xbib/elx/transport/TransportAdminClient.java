@@ -23,9 +23,12 @@ public class TransportAdminClient extends AbstractAdminClient {
     }
 
     @Override
-    public void init(Settings settings) {
-        super.init(settings);
-        helper.init((TransportClient) getClient(), settings);
+    public boolean init(Settings settings, String info) {
+        if (super.init(settings, "Netty: " + io.netty.util.Version.identify())) {
+            helper.init((TransportClient) getClient(), settings);
+            return true;
+        }
+        return false;
     }
 
     @Override
