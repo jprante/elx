@@ -56,7 +56,7 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
     @Override
     public void close() throws IOException {
         super.close();
-        if (!searchMetric.isClosed()) {
+        if (searchMetric != null && !searchMetric.isClosed()) {
             searchMetric.close();
         }
     }
