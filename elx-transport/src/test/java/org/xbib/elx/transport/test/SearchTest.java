@@ -6,10 +6,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.SearchHit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
+import org.xbib.elx.api.SearchDocument;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.DefaultIndexDefinition;
 import org.xbib.elx.transport.TransportBulkClient;
@@ -17,8 +17,10 @@ import org.xbib.elx.transport.TransportBulkClientProvider;
 import org.xbib.elx.transport.TransportSearchClient;
 import org.xbib.elx.transport.TransportSearchClientProvider;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @ExtendWith(TestExtension.class)
@@ -63,8 +65,7 @@ class SearchTest {
                 .setSearchClientProvider(TransportSearchClientProvider.class)
                 .put(helper.getClientSettings())
                 .build()) {
-            // test stream count
-            Stream<SearchHit> stream = searchClient.search(qb -> qb
+            Stream<SearchDocument> stream = searchClient.search(qb -> qb
                             .setIndices(indexDefinition.getFullIndexName())
                             .setQuery(QueryBuilders.matchAllQuery()),
                     TimeValue.timeValueMillis(100), 579);
@@ -75,7 +76,6 @@ class SearchTest {
                 assertEquals(0L, searchClient.getSearchMetric().getTimeoutQueries().getCount());
                 assertEquals(1L, searchClient.getSearchMetric().getEmptyQueries().getCount());
             }
-            // test stream docs
             stream = searchClient.search(qb -> qb
                             .setIndices(indexDefinition.getFullIndexName())
                             .setQuery(QueryBuilders.matchAllQuery()),
@@ -89,9 +89,9 @@ class SearchTest {
                 assertEquals(2L, searchClient.getSearchMetric().getEmptyQueries().getCount());
             }
             // test stream doc ids
-            Stream<String> ids = searchClient.getIds(qb -> qb
+            List<String> ids = searchClient.getIds(qb -> qb
                     .setIndices(indexDefinition.getFullIndexName())
-                    .setQuery(QueryBuilders.matchAllQuery()));
+                    .setQuery(QueryBuilders.matchAllQuery())).collect(Collectors.toList());
             final AtomicInteger idcount = new AtomicInteger();
             ids.forEach(id -> idcount.incrementAndGet());
             assertEquals(numactions, idcount.get());
@@ -102,6 +102,12 @@ class SearchTest {
                 assertEquals(0L, searchClient.getSearchMetric().getFailedQueries().getCount());
                 assertEquals(0L, searchClient.getSearchMetric().getTimeoutQueries().getCount());
             }
+            stream = searchClient.multiGet(mgrb -> {
+                for (String id : ids) {
+                    mgrb.add(indexDefinition.getFullIndexName(), indexDefinition.getType(), id);
+                }
+            });
+            assertEquals(numactions, stream.count());
         }
     }
 }

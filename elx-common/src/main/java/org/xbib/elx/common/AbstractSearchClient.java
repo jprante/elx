@@ -18,9 +18,10 @@ import org.elasticsearch.action.search.SearchScrollRequestBuilder;
 import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.search.SearchHit;
 import org.xbib.elx.api.SearchClient;
+import org.xbib.elx.api.SearchDocument;
 import org.xbib.elx.api.SearchMetric;
+import org.xbib.elx.api.SearchResult;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -72,7 +73,7 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
     }
 
     @Override
-    public Optional<GetResponse> get(Consumer<GetRequestBuilder> getRequestBuilderConsumer) {
+    public Optional<SearchDocument> get(Consumer<GetRequestBuilder> getRequestBuilderConsumer) {
         GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE);
         getRequestBuilderConsumer.accept(getRequestBuilder);
         ActionFuture<GetResponse> actionFuture = getRequestBuilder.execute();
@@ -94,24 +95,24 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
                 searchMetric.getEmptyQueries().inc();
             }
         }
-        return getResponse.isExists() ? Optional.of(getResponse) : Optional.empty();
+        return getResponse.isExists() ? Optional.of(new GetDocument(getResponse)) : Optional.empty();
     }
 
     @Override
-    public Optional<MultiGetResponse> multiGet(Consumer<MultiGetRequestBuilder> multiGetRequestBuilderConsumer) {
+    public Stream<SearchDocument> multiGet(Consumer<MultiGetRequestBuilder> multiGetRequestBuilderConsumer) {
         MultiGetRequestBuilder multiGetRequestBuilder = new MultiGetRequestBuilder(client, MultiGetAction.INSTANCE);
         multiGetRequestBuilderConsumer.accept(multiGetRequestBuilder);
         ActionFuture<MultiGetResponse> actionFuture = multiGetRequestBuilder.execute();
         if (searchMetric != null) {
             searchMetric.getCurrentQueries().inc();
         }
-        MultiGetResponse multiGetItemResponse = actionFuture.actionGet();
+        MultiGetResponse multiGetResponse = actionFuture.actionGet();
         if (searchMetric != null) {
             searchMetric.getCurrentQueries().dec();
             searchMetric.getQueries().inc();
             searchMetric.markTotalQueries(1);
         }
-        boolean isempty = multiGetItemResponse.getResponses().length == 0;
+        boolean isempty = multiGetResponse.getResponses().length == 0;
         if (isempty) {
             if (searchMetric != null) {
                 searchMetric.getEmptyQueries().inc();
@@ -121,12 +122,16 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
                 searchMetric.getSucceededQueries().inc();
             }
         }
-        return isempty ?  Optional.empty() : Optional.of(multiGetItemResponse);
+        return isempty ?  Stream.of() : Arrays.stream(multiGetResponse.getResponses())
+                .filter(r -> !r.isFailed())
+                .map(MultiGetDocument::new);
     }
 
     @Override
-    public Optional<SearchResponse> search(Consumer<SearchRequestBuilder> queryBuilder) {
+    public Optional<SearchResult> search(Consumer<SearchRequestBuilder> queryBuilder) {
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE);
+        searchRequestBuilder.setTrackTotalHits(true);
+        searchRequestBuilder.setTrackScores(true);
         queryBuilder.accept(searchRequestBuilder);
         ActionFuture<SearchResponse> actionFuture = searchRequestBuilder.execute();
         if (searchMetric != null) {
@@ -158,13 +163,17 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
                 searchMetric.getSucceededQueries().inc();
             }
         }
-        return isempty ? Optional.empty() : Optional.of(searchResponse);
+        return isempty ?
+                Optional.empty() :
+                Optional.of(new DefaultSearchResult(searchResponse.getHits()));
     }
 
     @Override
-    public Stream<SearchHit> search(Consumer<SearchRequestBuilder> queryBuilder,
-                                    TimeValue scrollTime, int scrollSize) {
+    public Stream<SearchDocument> search(Consumer<SearchRequestBuilder> queryBuilder,
+                                         TimeValue scrollTime, int scrollSize) {
         SearchRequestBuilder searchRequestBuilder = new SearchRequestBuilder(client, SearchAction.INSTANCE);
+        searchRequestBuilder.setTrackTotalHits(true);
+        searchRequestBuilder.setTrackScores(true);
         queryBuilder.accept(searchRequestBuilder);
         searchRequestBuilder.setScroll(scrollTime).setSize(scrollSize);
         ActionFuture<SearchResponse> actionFuture = searchRequestBuilder.execute();
@@ -239,12 +248,12 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
         return StreamSupport.stream(TakeWhileSpliterator.over(responseStream.spliterator(),
                 condition, lastAction), false)
                 .onClose(responseStream::close)
-                .flatMap(searchResponse -> Arrays.stream(searchResponse.getHits().getHits()));
+                .flatMap(searchResponse -> new DefaultSearchResult(searchResponse.getHits()).getDocuments().stream());
     }
 
     @Override
     public Stream<String> getIds(Consumer<SearchRequestBuilder> queryBuilder) {
-        return search(queryBuilder, TimeValue.timeValueMinutes(1), 1000).map(SearchHit::getId);
+        return search(queryBuilder, TimeValue.timeValueMinutes(1), 1000).map(SearchDocument::getId);
     }
 
     private static class TakeWhileSpliterator<T> implements Spliterator<T> {

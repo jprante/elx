@@ -30,6 +30,6 @@ public class DefaultSearchDocument implements SearchDocument {
 
     @Override
     public Map<String, Object> getFields() {
-        return searchHit.sourceAsMap();
+        return searchHit.getSourceAsMap();
     }
 }

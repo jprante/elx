@@ -17,7 +17,7 @@ public class DefaultSearchResult implements SearchResult {
     }
     @Override
     public long getTotal() {
-        return searchHits.getTotalHits();
+        return searchHits.getTotalHits().value;
     }
 
     @Override

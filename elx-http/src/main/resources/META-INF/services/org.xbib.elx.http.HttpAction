@@ -20,3 +20,4 @@ org.xbib.elx.http.action.search.HttpSearchScrollAction
 org.xbib.elx.http.action.main.HttpMainAction
 org.xbib.elx.http.action.get.HttpExistsAction
 org.xbib.elx.http.action.get.HttpGetAction
+org.xbib.elx.http.action.get.HttpMultiGetAction

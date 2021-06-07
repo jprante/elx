@@ -6,18 +6,20 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.SearchHit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
+import org.xbib.elx.api.SearchDocument;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.DefaultIndexDefinition;
 import org.xbib.elx.http.HttpBulkClient;
 import org.xbib.elx.http.HttpBulkClientProvider;
 import org.xbib.elx.http.HttpSearchClient;
 import org.xbib.elx.http.HttpSearchClientProvider;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @ExtendWith(TestExtension.class)
@@ -61,27 +63,48 @@ class SearchTest {
                 .setSearchClientProvider(HttpSearchClientProvider.class)
                 .put(helper.getClientSettings())
                 .build()) {
-            Stream<SearchHit> stream = searchClient.search(qb -> qb
+            Stream<SearchDocument> stream = searchClient.search(qb -> qb
                             .setIndices(indexDefinition.getFullIndexName())
                             .setQuery(QueryBuilders.matchAllQuery()),
                     TimeValue.timeValueMillis(100), 579);
             long count = stream.count();
             assertEquals(numactions, count);
-            Stream<String> ids = searchClient.getIds(qb -> qb
+            if (searchClient.isSearchMetricEnabled()) {
+                assertEquals(0L, searchClient.getSearchMetric().getFailedQueries().getCount());
+                assertEquals(0L, searchClient.getSearchMetric().getTimeoutQueries().getCount());
+                assertEquals(1L, searchClient.getSearchMetric().getEmptyQueries().getCount());
+            }
+            stream = searchClient.search(qb -> qb
+                            .setIndices(indexDefinition.getFullIndexName())
+                            .setQuery(QueryBuilders.matchAllQuery()),
+                    TimeValue.timeValueMillis(10), 79);
+            final AtomicInteger hitcount = new AtomicInteger();
+            stream.forEach(hit -> hitcount.incrementAndGet());
+            assertEquals(numactions, hitcount.get());
+            if (searchClient.isSearchMetricEnabled()) {
+                assertEquals(0L, searchClient.getSearchMetric().getFailedQueries().getCount());
+                assertEquals(0L, searchClient.getSearchMetric().getTimeoutQueries().getCount());
+                assertEquals(2L, searchClient.getSearchMetric().getEmptyQueries().getCount());
+            }
+            List<String> ids = searchClient.getIds(qb -> qb
                     .setIndices(indexDefinition.getFullIndexName())
-                    .setQuery(QueryBuilders.matchAllQuery()));
+                    .setQuery(QueryBuilders.matchAllQuery())).collect(Collectors.toList());
             final AtomicInteger idcount = new AtomicInteger();
-            ids.forEach(id -> {
-                idcount.incrementAndGet();
-            });
+            ids.forEach(id -> idcount.incrementAndGet());
             assertEquals(numactions, idcount.get());
             if (searchClient.isSearchMetricEnabled()) {
-                assertEquals(275, searchClient.getSearchMetric().getQueries().getCount());
-                assertEquals(273, searchClient.getSearchMetric().getSucceededQueries().getCount());
-                assertEquals(2, searchClient.getSearchMetric().getEmptyQueries().getCount());
-                assertEquals(0, searchClient.getSearchMetric().getFailedQueries().getCount());
-                assertEquals(0, searchClient.getSearchMetric().getTimeoutQueries().getCount());
+                assertEquals(1542L, searchClient.getSearchMetric().getQueries().getCount());
+                assertEquals(1539L, searchClient.getSearchMetric().getSucceededQueries().getCount());
+                assertEquals(3L, searchClient.getSearchMetric().getEmptyQueries().getCount());
+                assertEquals(0L, searchClient.getSearchMetric().getFailedQueries().getCount());
+                assertEquals(0L, searchClient.getSearchMetric().getTimeoutQueries().getCount());
             }
+            stream = searchClient.multiGet(mgrb -> {
+                for (String id : ids) {
+                    mgrb.add(indexDefinition.getFullIndexName(), indexDefinition.getType(), id);
+                }
+            });
+            assertEquals(numactions, stream.count());
         }
     }
 }

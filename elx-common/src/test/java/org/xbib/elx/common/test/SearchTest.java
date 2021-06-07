@@ -57,7 +57,7 @@ class SearchTest {
                     .setIndices("pages")
                     .setQuery(queryStringBuilder)
                     .addSort("rowcount", SortOrder.DESC)
-                    .setFrom(i * 10)
+                    .setFrom(0)
                     .setSize(10);
             SearchResponse searchResponse = searchRequestBuilder.execute().actionGet();
             assertTrue(searchResponse.getHits().getTotalHits().value > 0);
