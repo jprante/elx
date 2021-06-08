@@ -71,9 +71,6 @@ public class DefaultBulkListener implements BulkListener {
         }
         int n = 0;
         for (BulkItemResponse itemResponse : response.getItems()) {
-            if (bulkMetric != null) {
-                bulkMetric.getCurrentIngest().dec(itemResponse.getIndex(), itemResponse.getType(), itemResponse.getId());
-            }
             if (itemResponse.isFailed()) {
                 n++;
                 if (bulkMetric != null) {

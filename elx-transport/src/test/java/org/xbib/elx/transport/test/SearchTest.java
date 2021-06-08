@@ -4,10 +4,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.SearchHit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
+import org.xbib.elx.api.SearchDocument;
 import org.xbib.elx.common.ClientBuilder;
 import org.xbib.elx.common.DefaultIndexDefinition;
 import org.xbib.elx.transport.TransportBulkClient;
@@ -67,7 +67,7 @@ class SearchTest {
                 .put(helper.getClientSettings())
                 .build()) {
             // test stream count
-            Stream<SearchHit> stream = searchClient.search(qb -> qb
+            Stream<SearchDocument> stream = searchClient.search(qb -> qb
                             .setIndices(indexDefinition.getFullIndexName())
                             .setQuery(QueryBuilders.matchAllQuery()),
                     TimeValue.timeValueMillis(100), 579);

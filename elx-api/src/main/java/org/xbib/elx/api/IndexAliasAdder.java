@@ -1,9 +1,9 @@
 package org.xbib.elx.api;
 
-import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
+import org.elasticsearch.index.query.QueryBuilder;
 
 @FunctionalInterface
 public interface IndexAliasAdder {
 
-    void addIndexAlias(IndicesAliasesRequest request, String index, String alias);
+    QueryBuilder addAliasOnField(String index, String alias);
 }

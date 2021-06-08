@@ -60,6 +60,8 @@ public class DefaultBulkProcessor implements BulkProcessor {
 
     public DefaultBulkProcessor(BulkClient bulkClient, Settings settings) {
         this.bulkClient = bulkClient;
+        this.closed = new AtomicBoolean(false);
+        this.enabled = new AtomicBoolean(false);
         int maxActionsPerRequest = settings.getAsInt(Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getName(),
                 Parameters.BULK_MAX_ACTIONS_PER_REQUEST.getInteger());
         String flushIntervalStr = settings.get(Parameters.BULK_FLUSH_INTERVAL.getName(),
@@ -82,17 +84,13 @@ public class DefaultBulkProcessor implements BulkProcessor {
             this.bulkVolume = maxVolumePerRequest.getBytes();
         }
         this.bulkRequest = new BulkRequest();
-        this.closed = new AtomicBoolean(false);
-        this.enabled = new AtomicBoolean(false);
         this.executionIdGen = new AtomicLong();
         this.permits = settings.getAsInt(Parameters.BULK_PERMITS.getName(), Parameters.BULK_PERMITS.getInteger());
         if (permits < 1) {
             throw new IllegalArgumentException("must not be less 1 permits for bulk indexing");
         }
         this.semaphore = new ResizeableSemaphore(permits);
-        if (logger.isInfoEnabled()) {
-            logger.info("bulk processor now active");
-        }
+        logger.info("bulk processor now active");
         setEnabled(true);
     }
 
@@ -119,6 +117,11 @@ public class DefaultBulkProcessor implements BulkProcessor {
     @Override
     public long getMaxBulkVolume() {
         return bulkVolume;
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closed.get();
     }
 
     @Override

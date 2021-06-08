@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit;
 
 public interface BasicClient extends Closeable {
 
-    void init(Settings settings);
+    boolean init(Settings settings, String info);
 
     void putClusterSetting(String key, Object value, long timeout, TimeUnit timeUnit);
 

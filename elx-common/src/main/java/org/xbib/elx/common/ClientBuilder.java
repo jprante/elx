@@ -145,13 +145,12 @@ public class ClientBuilder {
     @SuppressWarnings("unchecked")
     public <C extends BasicClient> C build() throws IOException {
         Settings settings = settingsBuilder.build();
-        logger.log(Level.INFO, "settings = " + settings.toDelimitedString(','));
         if (adminClientProvider != null) {
             for (AdminClientProvider provider : ServiceLoader.load(AdminClientProvider.class, classLoader)) {
                 if (provider.getClass().isAssignableFrom(adminClientProvider)) {
                     C c = (C) provider.getClient();
                     c.setClient(client);
-                    c.init(settings);
+                    c.init(settings, null);
                     return c;
                 }
             }
@@ -161,7 +160,7 @@ public class ClientBuilder {
                 if (provider.getClass().isAssignableFrom(bulkClientProvider)) {
                     C c = (C) provider.getClient();
                     c.setClient(client);
-                    c.init(settings);
+                    c.init(settings, null);
                     return c;
                 }
             }
@@ -171,7 +170,7 @@ public class ClientBuilder {
                 if (provider.getClass().isAssignableFrom(searchClientProvider)) {
                     C c = (C) provider.getClient();
                     c.setClient(client);
-                    c.init(settings);
+                    c.init(settings, null);
                     return c;
                 }
             }

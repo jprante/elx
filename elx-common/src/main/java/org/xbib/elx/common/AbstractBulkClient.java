@@ -23,9 +23,7 @@ import org.xbib.elx.api.BulkProcessor;
 import org.xbib.elx.api.IndexDefinition;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class AbstractBulkClient extends AbstractBasicClient implements BulkClient {
 
@@ -33,19 +31,17 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     private BulkProcessor bulkProcessor;
 
-    private final AtomicBoolean closed;
-
     public AbstractBulkClient() {
         super();
-        closed = new AtomicBoolean(true);
     }
 
     @Override
-    public void init(Settings settings) {
-        if (closed.compareAndSet(true, false)) {
-            super.init(settings);
+    public boolean init(Settings settings, String info) {
+        if (super.init(settings, info)) {
             bulkProcessor = new DefaultBulkProcessor(this, settings);
+            return true;
         }
+        return false;
     }
 
     @Override
@@ -62,15 +58,13 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
 
     @Override
     public void close() throws IOException {
-        if (closed.compareAndSet(false, true)) {
+        if (!bulkProcessor.isClosed()) {
+            logger.info("closing bulk processor");
             ensureClientIsPresent();
-            if (bulkProcessor != null) {
-                logger.info("closing bulk processor");
-                bulkProcessor.close();
-            }
-            closeClient(settings);
-            super.close();
+            bulkProcessor.close();
         }
+        closeClient(settings);
+        super.close();
     }
 
     @Override

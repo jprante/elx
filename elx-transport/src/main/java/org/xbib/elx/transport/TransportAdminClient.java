@@ -3,6 +3,7 @@ package org.xbib.elx.transport;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
+import org.jboss.netty.util.Version;
 import org.xbib.elx.common.AbstractAdminClient;
 
 /**
@@ -23,9 +24,12 @@ public class TransportAdminClient extends AbstractAdminClient {
     }
 
     @Override
-    public void init(Settings settings) {
-        super.init(settings);
-        helper.init((TransportClient) getClient(), settings);
+    public boolean init(Settings settings, String info) {
+         if (super.init(settings, "Netty: " + Version.ID)) {
+             helper.init((TransportClient) getClient(), settings);
+             return true;
+         }
+         return false;
     }
 
     @Override

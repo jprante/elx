@@ -4,6 +4,7 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchTimeoutException;
+import org.elasticsearch.Version;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
@@ -50,11 +51,10 @@ public abstract class AbstractBasicClient implements BasicClient {
 
     private final ScheduledExecutorService executorService;
 
-    private final AtomicBoolean closed;
+    protected final AtomicBoolean closed;
 
     public AbstractBasicClient() {
-        this.executorService = Executors.newScheduledThreadPool(2,
-                new DaemonThreadFactory("elx"));
+        this.executorService = Executors.newScheduledThreadPool(2, new DaemonThreadFactory("elx"));
         closed = new AtomicBoolean(false);
     }
 
@@ -74,19 +74,31 @@ public abstract class AbstractBasicClient implements BasicClient {
     }
 
     @Override
-    public void init(Settings settings) {
-        this.settings = settings;
+    public boolean init(Settings settings, String infoString) {
         if (closed.compareAndSet(false, true)) {
+            this.settings = settings;
+            logger.log(Level.INFO, String.format("Elx: %s on %s %s %s Java: %s %s %s %s ES: %s %s",
+                    System.getProperty("user.name"),
+                    System.getProperty("os.name"),
+                    System.getProperty("os.arch"),
+                    System.getProperty("os.version"),
+                    System.getProperty("java.version"),
+                    System.getProperty("java.vm.version"),
+                    System.getProperty("java.vm.vendor"),
+                    System.getProperty("java.vm.name"),
+                    Version.CURRENT,
+                    infoString));
             logger.log(Level.INFO, "initializing with settings = " + settings.toDelimitedString(','));
             setClient(createClient(settings));
+            return true;
         }
+        return false;
     }
 
     @Override
     public void close() throws IOException {
-        ensureClientIsPresent();
         if (closed.compareAndSet(false, true)) {
-            if (executorService != null) {
+            if (!executorService.isShutdown()) {
                 executorService.shutdownNow();
             }
             closeClient(settings);

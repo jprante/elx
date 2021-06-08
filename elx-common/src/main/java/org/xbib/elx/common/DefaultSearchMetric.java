@@ -12,6 +12,7 @@ import org.xbib.metrics.common.CountMetric;
 import org.xbib.metrics.common.Meter;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DefaultSearchMetric implements SearchMetric {
 
@@ -37,8 +38,11 @@ public class DefaultSearchMetric implements SearchMetric {
 
     private Long stopped;
 
+    private final AtomicBoolean closed;
+
     public DefaultSearchMetric(SearchClient searchClient,
                                Settings settings) {
+        this.closed = new AtomicBoolean(true);
         totalQuery = new Meter(searchClient.getScheduler());
         currentQuery = new CountMetric();
         queries = new CountMetric();
@@ -55,7 +59,9 @@ public class DefaultSearchMetric implements SearchMetric {
 
     @Override
     public void init(Settings settings) {
-        start();
+        if (closed.compareAndSet(true, false)) {
+            start();
+        }
     }
 
     @Override
@@ -118,9 +124,16 @@ public class DefaultSearchMetric implements SearchMetric {
     }
 
     @Override
+    public boolean isClosed() {
+        return closed.get();
+    }
+
+    @Override
     public void close() {
-        stop();
-        totalQuery.shutdown();
+        if (closed.compareAndSet(false, true)) {
+            stop();
+            totalQuery.shutdown();
+        }
     }
 
     private void log() {

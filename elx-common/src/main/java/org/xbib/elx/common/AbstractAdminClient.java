@@ -279,7 +279,8 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                 if (oldAliasMap == null || !oldAliasMap.containsKey(additionalAlias)) {
                     // index alias adder only active on extra aliases, and if alias is new
                     if (adder != null) {
-                        adder.addIndexAlias(indicesAliasesRequest, fullIndexName, additionalAlias);
+                        indicesAliasesRequest.addAliasAction(new IndicesAliasesRequest.AliasActions(AliasAction.Type.ADD,
+                                fullIndexName, additionalAlias).filter(adder.addAliasOnField(fullIndexName, additionalAlias)));
                     } else {
                         indicesAliasesRequest.addAliasAction(new IndicesAliasesRequest.AliasActions(AliasAction.Type.ADD,
                                 fullIndexName, additionalAlias));

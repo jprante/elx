@@ -2,6 +2,7 @@ package org.xbib.elx.common;
 
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.aggregations.Aggregations;
 import org.xbib.elx.api.SearchDocument;
 import org.xbib.elx.api.SearchResult;
 
@@ -12,12 +13,16 @@ public class DefaultSearchResult implements SearchResult {
 
     private final SearchHits searchHits;
 
-    public DefaultSearchResult(SearchHits searchHits) {
+    private final Aggregations aggregations;
+
+    private final long took;
+
+    public DefaultSearchResult(SearchHits searchHits,
+                               Aggregations aggregations,
+                               long took) {
         this.searchHits = searchHits;
-    }
-    @Override
-    public long getTotal() {
-        return searchHits.getTotalHits();
+        this.aggregations = aggregations;
+        this.took = took;
     }
 
     @Override
@@ -27,5 +32,20 @@ public class DefaultSearchResult implements SearchResult {
             list.add(new DefaultSearchDocument(searchHit));
         }
         return list;
+    }
+
+    @Override
+    public Aggregations getAggregations() {
+        return aggregations;
+    }
+
+    @Override
+    public long getTotal() {
+        return searchHits.getTotalHits();
+    }
+
+    @Override
+    public long getTook() {
+        return took;
     }
 }

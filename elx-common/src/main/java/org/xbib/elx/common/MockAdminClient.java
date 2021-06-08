@@ -14,7 +14,8 @@ public class MockAdminClient extends AbstractAdminClient {
     }
 
     @Override
-    public void init(Settings settings) {
+    public boolean init(Settings settings, String info) {
+        return true;
     }
 
     @Override

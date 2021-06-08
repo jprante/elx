@@ -2,8 +2,6 @@ package org.xbib.elx.transport.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
-import org.elasticsearch.cluster.metadata.AliasAction;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -82,9 +80,7 @@ class IndexShiftTest {
             bulkClient.waitForResponses(30L, TimeUnit.SECONDS);
             indexDefinition.setShift(true);
             indexShiftResult = adminClient.shiftIndex(indexDefinition, Arrays.asList("d", "e", "f"),
-                    (request, index, alias) -> request.addAliasAction(new IndicesAliasesRequest.AliasActions(AliasAction.Type.ADD,
-                            index, alias).filter(QueryBuilders.termQuery("my_key", alias)))
-            );
+                    (index, alias) -> QueryBuilders.termQuery("my_key", alias));
             assertTrue(indexShiftResult.getNewAliases().contains("d"));
             assertTrue(indexShiftResult.getNewAliases().contains("e"));
             assertTrue(indexShiftResult.getNewAliases().contains("f"));
