@@ -165,7 +165,9 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
         }
         return isempty ?
                 Optional.empty() :
-                Optional.of(new DefaultSearchResult(searchResponse.getHits(), searchResponse.getTook().getMillis()));
+                Optional.of(new DefaultSearchResult(searchResponse.getHits(),
+                        searchResponse.getAggregations(),
+                        searchResponse.getTook().getMillis()));
     }
 
     @Override
@@ -249,7 +251,9 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
                 condition, lastAction), false)
                 .onClose(responseStream::close)
                 .flatMap(searchResponse ->
-                        new DefaultSearchResult(searchResponse.getHits(), searchResponse.getTook().getMillis()).getDocuments().stream());
+                        new DefaultSearchResult(searchResponse.getHits(),
+                                searchResponse.getAggregations(),
+                                searchResponse.getTook().getMillis()).getDocuments().stream());
     }
 
     @Override
