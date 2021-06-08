@@ -12,12 +12,21 @@ public class DefaultSearchResult implements SearchResult {
 
     private final SearchHits searchHits;
 
-    public DefaultSearchResult(SearchHits searchHits) {
+    private final long took;
+
+    public DefaultSearchResult(SearchHits searchHits, long took) {
         this.searchHits = searchHits;
+        this.took = took;
     }
+
     @Override
     public long getTotal() {
         return searchHits.getTotalHits().value;
+    }
+
+    @Override
+    public long getTook() {
+        return took;
     }
 
     @Override

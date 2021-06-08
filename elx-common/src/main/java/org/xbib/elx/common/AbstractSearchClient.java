@@ -165,7 +165,7 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
         }
         return isempty ?
                 Optional.empty() :
-                Optional.of(new DefaultSearchResult(searchResponse.getHits()));
+                Optional.of(new DefaultSearchResult(searchResponse.getHits(), searchResponse.getTook().getMillis()));
     }
 
     @Override
@@ -248,7 +248,8 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
         return StreamSupport.stream(TakeWhileSpliterator.over(responseStream.spliterator(),
                 condition, lastAction), false)
                 .onClose(responseStream::close)
-                .flatMap(searchResponse -> new DefaultSearchResult(searchResponse.getHits()).getDocuments().stream());
+                .flatMap(searchResponse ->
+                        new DefaultSearchResult(searchResponse.getHits(), searchResponse.getTook().getMillis()).getDocuments().stream());
     }
 
     @Override

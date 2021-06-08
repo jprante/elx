@@ -6,5 +6,7 @@ public interface SearchResult {
 
     long getTotal();
 
+    long getTook();
+
     List<SearchDocument> getDocuments();
 }
