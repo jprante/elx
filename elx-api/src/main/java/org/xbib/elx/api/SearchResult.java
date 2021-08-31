@@ -13,4 +13,6 @@ public interface SearchResult {
     List<SearchDocument> getDocuments();
 
     Aggregations getAggregations();
+
+    boolean isTimedOut();
 }

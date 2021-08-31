@@ -17,12 +17,16 @@ public class DefaultSearchResult implements SearchResult {
 
     private final long took;
 
+    private final boolean timedout;
+
     public DefaultSearchResult(SearchHits searchHits,
                                Aggregations aggregations,
-                               long took) {
+                               long took,
+                               boolean timedout) {
         this.searchHits = searchHits;
         this.aggregations = aggregations;
         this.took = took;
+        this.timedout = timedout;
     }
 
     @Override
@@ -48,4 +52,8 @@ public class DefaultSearchResult implements SearchResult {
         return took;
     }
 
+    @Override
+    public boolean isTimedOut() {
+        return timedout;
+    }
 }

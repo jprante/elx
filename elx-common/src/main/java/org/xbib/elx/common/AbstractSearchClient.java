@@ -167,7 +167,8 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
                 Optional.empty() :
                 Optional.of(new DefaultSearchResult(searchResponse.getHits(),
                         searchResponse.getAggregations(),
-                        searchResponse.getTook().getMillis()));
+                        searchResponse.getTook().getMillis(),
+                        searchResponse.isTimedOut()));
     }
 
     @Override
@@ -253,7 +254,8 @@ public abstract class AbstractSearchClient extends AbstractBasicClient implement
                 .flatMap(searchResponse ->
                         new DefaultSearchResult(searchResponse.getHits(),
                                 searchResponse.getAggregations(),
-                                searchResponse.getTook().getMillis()).getDocuments().stream());
+                                searchResponse.getTook().getMillis(),
+                                searchResponse.isTimedOut()).getDocuments().stream());
     }
 
     @Override
