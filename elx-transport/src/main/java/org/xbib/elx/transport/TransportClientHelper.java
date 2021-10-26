@@ -36,6 +36,11 @@ import java.util.Map;
  */
 public class TransportClientHelper {
 
+    static {
+        // https://discuss.elastic.co/t/elasticsearch-5-4-1-availableprocessors-is-already-set/88036
+        System.setProperty("es.set.netty.runtime.available.processors", "false");
+    }
+
     private static final Logger logger = LogManager.getLogger(TransportClientHelper.class.getName());
 
     private static final Map<String, ElasticsearchClient> transportClientMap = new HashMap<>();
