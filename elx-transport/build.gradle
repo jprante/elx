@@ -1,4 +1,4 @@
 dependencies {
     api project(':elx-common')
-    api "org.elasticsearch.plugin:transport-netty4-client:${rootProject.property('elasticsearch.version')}"
+    api libs.es.plugin.transport.netty4
 }

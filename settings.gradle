@@ -1,3 +1,29 @@
+dependencyResolutionManagement {
+    versionCatalogs {
+        libs {
+            version('gradle', '7.4.2')
+            version('junit', '5.8.2')
+            version('elasticsearch', '7.10.2')
+            version('log4j', '2.17.1') // ES 7.10.2 uses log4j2 2.11.1
+            library('junit-jupiter-api', 'org.junit.jupiter', 'junit-jupiter-api').versionRef('junit')
+            library('junit-jupiter-params', 'org.junit.jupiter', 'junit-jupiter-params').versionRef('junit')
+            library('junit-jupiter-engine', 'org.junit.jupiter', 'junit-jupiter-engine').versionRef('junit')
+            library('hamcrest', 'org.hamcrest:hamcrest-library:2.2')
+            library('junit4', 'junit:junit:4.13.2')
+            library('log4j-api', 'org.apache.logging.log4j', 'log4j-api').versionRef('log4j')
+            library('log4j-core', 'org.apache.logging.log4j', 'log4j-core').versionRef('log4j')
+            library('log4j-slf4j', 'org.apache.logging.log4j', 'log4j-slf4j-impl').versionRef('log4j')
+            library('log4j-jul', 'org.apache.logging.log4j', 'log4j-jul').versionRef('log4j')
+            library('elasticsearch', 'org.elasticsearch', 'elasticsearch').versionRef('elasticsearch')
+            library('es-plugin-transport-netty4', 'org.elasticsearch.plugin', 'transport-netty4-client').versionRef('elasticsearch')
+            library('jackson', 'com.fasterxml.jackson.core', 'jackson-core').version('2.12.7') // ES 7.10.2 uses Jackson 2.10.4
+            library('netty-http', 'org.xbib', 'netty-http-client').version('4.1.77.0') // ES 7.10.2 uses Netty 4.1.49
+            library('metrics', 'org.xbib', 'metrics-common').version('2.2.0')
+            library('time', 'org.xbib', 'time').version('2.1.0')
+        }
+    }
+}
+
 include 'elx-api'
 include 'elx-common'
 include 'elx-node'
