@@ -50,15 +50,15 @@ public class HttpClientHelper {
 
     private final AtomicBoolean closed;
 
-    public HttpClientHelper() {
-        this(Collections.emptyList(), Thread.currentThread().getContextClassLoader());
+    public HttpClientHelper(ClassLoader classLoader) {
+        this(Collections.emptyList(), classLoader);
     }
 
     public HttpClientHelper(List<NamedXContentRegistry.Entry> namedXContentEntries,
                             ClassLoader classLoader) {
         this.registry = new NamedXContentRegistry(Stream.of(getNamedXContents().stream(),
                 namedXContentEntries.stream()).flatMap(Function.identity()).collect(Collectors.toList()));
-        this.classLoader = classLoader != null ? classLoader : Thread.currentThread().getContextClassLoader();
+        this.classLoader = classLoader;
         this.actionMap = new HashMap<>();
         this.closed = new AtomicBoolean();
     }

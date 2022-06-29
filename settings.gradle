@@ -4,6 +4,7 @@ dependencyResolutionManagement {
             version('gradle', '7.4.2')
             version('junit', '5.8.2')
             version('elasticsearch', '7.10.2')
+            version('lucene', '8.7.0')
             version('log4j', '2.17.1') // ES 7.10.2 uses log4j2 2.11.1
             library('junit-jupiter-api', 'org.junit.jupiter', 'junit-jupiter-api').versionRef('junit')
             library('junit-jupiter-params', 'org.junit.jupiter', 'junit-jupiter-params').versionRef('junit')
@@ -15,6 +16,16 @@ dependencyResolutionManagement {
             library('log4j-slf4j', 'org.apache.logging.log4j', 'log4j-slf4j-impl').versionRef('log4j')
             library('log4j-jul', 'org.apache.logging.log4j', 'log4j-jul').versionRef('log4j')
             library('elasticsearch', 'org.elasticsearch', 'elasticsearch').versionRef('elasticsearch')
+            library('lucene', 'org.apache.lucene', 'lucene-core').versionRef('lucene')
+            library('lucene-analyzers-common', 'org.apache.lucene', 'lucene-analyzers-common').versionRef('lucene')
+            library('lucene-highlighter', 'org.apache.lucene', 'lucene-highlighter').versionRef('lucene')
+            library('lucene-join', 'org.apache.lucene', 'lucene-join').versionRef('lucene')
+            library('lucene-queryparser', 'org.apache.lucene', 'lucene-queryparser').versionRef('lucene')
+            library('lucene-grouping', 'org.apache.lucene', 'lucene-grouping').versionRef('lucene')
+            library('lucene-misc', 'org.apache.lucene', 'lucene-misc').versionRef('lucene')
+            library('hppc', 'com.carrotsearch', 'hppc').version('0.8.1')
+            library('joda', 'joda-time', 'joda-time').version('2.10.4')
+            library('tdigest', 'com.tdunning', 't-digest').version('3.2')
             library('es-plugin-transport-netty4', 'org.elasticsearch.plugin', 'transport-netty4-client').versionRef('elasticsearch')
             library('jackson', 'com.fasterxml.jackson.core', 'jackson-core').version('2.12.7') // ES 7.10.2 uses Jackson 2.10.4
             library('netty-http', 'org.xbib', 'netty-http-client').version('4.1.77.0') // ES 7.10.2 uses Netty 4.1.49

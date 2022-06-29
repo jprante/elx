@@ -4,4 +4,16 @@ dependencies {
     // override old artifacts in ES x-content. We must use jackson smile/cbor/yaml and log4j2 api here.
     api libs.jackson
     api libs.log4j.api
+    // add dependencies which are not managed by elasticsearch as a runtime dependency.
+    // So, groovy grapes can load and run smoothly the elx client.
+    implementation libs.lucene
+    implementation libs.lucene.analyzers.common
+    implementation libs.lucene.highlighter
+    implementation libs.lucene.join
+    implementation libs.lucene.queryparser
+    implementation libs.lucene.grouping
+    implementation libs.lucene.misc
+    implementation libs.hppc
+    implementation libs.joda
+    implementation libs.tdigest
 }

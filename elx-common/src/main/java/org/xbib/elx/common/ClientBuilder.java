@@ -24,9 +24,9 @@ public class ClientBuilder {
 
     private final ElasticsearchClient client;
 
-    private final ClassLoader classLoader;
-
     private final Settings.Builder settingsBuilder;
+
+    private ClassLoader classLoader;
 
     private Class<? extends AdminClientProvider> adminClientProvider;
 
@@ -39,12 +39,7 @@ public class ClientBuilder {
     }
 
     public ClientBuilder(ElasticsearchClient client) {
-        this(client, ClassLoader.getSystemClassLoader());
-    }
-
-    public ClientBuilder(ElasticsearchClient client, ClassLoader classLoader) {
         this.client = client;
-        this.classLoader = classLoader;
         this.settingsBuilder = Settings.builder();
         settingsBuilder.put("node.name", "elx-client-" + Version.CURRENT);
         for (Parameters p : Parameters.values()) {
@@ -66,6 +61,11 @@ public class ClientBuilder {
 
     public static ClientBuilder builder(ElasticsearchClient client) {
         return new ClientBuilder(client);
+    }
+
+    public ClientBuilder setClassLoader(ClassLoader classLoader) {
+        this.classLoader = classLoader;
+        return this;
     }
 
     public ClientBuilder setAdminClientProvider(Class<? extends AdminClientProvider> adminClientProvider) {
@@ -148,7 +148,7 @@ public class ClientBuilder {
         if (adminClientProvider != null) {
             for (AdminClientProvider provider : ServiceLoader.load(AdminClientProvider.class, classLoader)) {
                 if (provider.getClass().isAssignableFrom(adminClientProvider)) {
-                    C c = (C) provider.getClient();
+                    C c = (C) provider.getClient(classLoader);
                     c.setClient(client);
                     c.init(settings, null);
                     return c;
@@ -158,7 +158,7 @@ public class ClientBuilder {
         if (bulkClientProvider != null) {
             for (BulkClientProvider provider : ServiceLoader.load(BulkClientProvider.class, classLoader)) {
                 if (provider.getClass().isAssignableFrom(bulkClientProvider)) {
-                    C c = (C) provider.getClient();
+                    C c = (C) provider.getClient(classLoader);
                     c.setClient(client);
                     c.init(settings, null);
                     return c;
@@ -168,7 +168,7 @@ public class ClientBuilder {
         if (searchClientProvider != null) {
             for (SearchClientProvider provider : ServiceLoader.load(SearchClientProvider.class, classLoader)) {
                 if (provider.getClass().isAssignableFrom(searchClientProvider)) {
-                    C c = (C) provider.getClient();
+                    C c = (C) provider.getClient(classLoader);
                     c.setClient(client);
                     c.init(settings, null);
                     return c;

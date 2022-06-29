@@ -73,7 +73,7 @@ public class DefaultIndexDefinition implements IndexDefinition {
         setEnabled(true);
     }
 
-    public DefaultIndexDefinition(AdminClient adminClient, String index, String type, Settings settings)
+    public DefaultIndexDefinition(AdminClient adminClient, String index, String type, Settings settings, ClassLoader classLoader)
             throws IOException {
         String indexName = settings.get("name", index);
         String indexType = settings.get("type", type);
@@ -92,8 +92,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
         setStopBulkRefreshSeconds(settings.getAsInt(Parameters.BULK_STOP_REFRESH_SECONDS.getName(),
                 Parameters.BULK_STOP_REFRESH_SECONDS.getInteger()));
         if (settings.get("settings") != null && settings.get("mapping") != null) {
-            setSettings(findSettingsFrom(settings.get("settings")));
-            setMappings(findMappingsFrom(settings.get("mapping")));
+            setSettings(findSettingsFrom(settings.get("settings"), classLoader));
+            setMappings(findMappingsFrom(settings.get("mapping"), classLoader));
         }
         boolean shift = settings.getAsBoolean("shift", false);
         setShift(shift);
@@ -307,13 +307,14 @@ public class DefaultIndexDefinition implements IndexDefinition {
     public int getMinToKeep() {
         return minToKeep;
     }
-    private static String findSettingsFrom(String string) throws IOException {
+
+    private static String findSettingsFrom(String string, ClassLoader classLoader) throws IOException {
         if (string == null) {
             return null;
         }
         try {
             XContentBuilder builder = JsonXContent.contentBuilder();
-            try (InputStream inputStream = findInputStream(string)) {
+            try (InputStream inputStream = findInputStream(string, classLoader)) {
                 if (inputStream != null) {
                     Settings settings = Settings.builder().loadFromStream(string, inputStream, true).build();
                     builder.startObject();
@@ -329,13 +330,13 @@ public class DefaultIndexDefinition implements IndexDefinition {
         }
     }
 
-    private static String findMappingsFrom(String string) throws IOException {
+    private static String findMappingsFrom(String string, ClassLoader classLoader) throws IOException {
         if (string == null) {
             return null;
         }
         try {
             XContentBuilder builder = JsonXContent.contentBuilder();
-            try (InputStream inputStream = findInputStream(string)) {
+            try (InputStream inputStream = findInputStream(string, classLoader)) {
                 if (inputStream != null) {
                     if (string.endsWith(".json")) {
                         Map<String, ?> mappings = JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY,
@@ -357,12 +358,12 @@ public class DefaultIndexDefinition implements IndexDefinition {
         }
     }
 
-    private static InputStream findInputStream(String string) {
+    private static InputStream findInputStream(String string, ClassLoader classLoader) {
         if (string == null) {
             return null;
         }
         try {
-            URL url = ClassLoader.getSystemClassLoader().getResource(string);
+            URL url = classLoader.getResource(string);
             if (url == null) {
                 url = new URL(string);
             }

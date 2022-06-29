@@ -12,7 +12,7 @@ public class TransportBulkClient extends AbstractBulkClient {
 
     private final TransportClientHelper helper;
 
-    public TransportBulkClient() {
+    public TransportBulkClient(ClassLoader classLoader) {
         super();
         this.helper = new TransportClientHelper();
     }

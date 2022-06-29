@@ -8,7 +8,7 @@ public class NodeSearchClient extends AbstractSearchClient {
 
     private final NodeClientHelper helper;
 
-    public NodeSearchClient() {
+    public NodeSearchClient(ClassLoader classLoader) {
         super();
         this.helper = new NodeClientHelper();
     }

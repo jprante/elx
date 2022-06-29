@@ -44,7 +44,7 @@ class SmokeTest {
                      .put(helper.getClientSettings())
                      .build()) {
             IndexDefinition indexDefinition =
-                    new DefaultIndexDefinition(adminClient, "test_smoke", "doc", Settings.EMPTY);
+                    new DefaultIndexDefinition(adminClient, "test_smoke", "doc", Settings.EMPTY, getClass().getClassLoader());
             assertEquals("test_smoke", indexDefinition.getIndex());
             assertTrue(indexDefinition.getFullIndexName().startsWith("test_smoke"));
             assertEquals(1, indexDefinition.getReplicaCount());

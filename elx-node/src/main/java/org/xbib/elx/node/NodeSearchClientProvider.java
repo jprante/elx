@@ -5,7 +5,7 @@ import org.xbib.elx.api.SearchClientProvider;
 public class NodeSearchClientProvider implements SearchClientProvider<NodeSearchClient> {
 
     @Override
-    public NodeSearchClient getClient() {
-        return new NodeSearchClient();
+    public NodeSearchClient getClient(ClassLoader classLoader) {
+        return new NodeSearchClient(classLoader);
     }
 }

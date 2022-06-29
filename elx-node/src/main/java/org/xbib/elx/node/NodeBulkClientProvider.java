@@ -5,7 +5,7 @@ import org.xbib.elx.api.BulkClientProvider;
 public class NodeBulkClientProvider implements BulkClientProvider<NodeBulkClient> {
 
     @Override
-    public NodeBulkClient getClient() {
-        return new NodeBulkClient();
+    public NodeBulkClient getClient(ClassLoader classLoader) {
+        return new NodeBulkClient(classLoader);
     }
 }

@@ -12,7 +12,7 @@ public class TransportSearchClient extends AbstractSearchClient {
 
     private final TransportClientHelper helper;
 
-    public TransportSearchClient() {
+    public TransportSearchClient(ClassLoader classLoader) {
         super();
         this.helper = new TransportClientHelper();
     }

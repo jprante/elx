@@ -8,7 +8,7 @@ public class NodeAdminClient extends AbstractAdminClient {
 
     private final NodeClientHelper helper;
 
-    public NodeAdminClient() {
+    public NodeAdminClient(ClassLoader classLoader) {
         super();
         this.helper = new NodeClientHelper();
     }

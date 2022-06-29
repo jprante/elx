@@ -17,9 +17,9 @@ public class HttpAdminClient extends AbstractAdminClient implements Elasticsearc
 
     private final HttpClientHelper helper;
 
-    public HttpAdminClient() {
+    public HttpAdminClient(ClassLoader classLoader) {
         super();
-        this.helper = new HttpClientHelper();
+        this.helper = new HttpClientHelper(classLoader);
     }
 
     @Override

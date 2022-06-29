@@ -5,7 +5,7 @@ import org.xbib.elx.api.AdminClientProvider;
 public class TransportAdminClientProvider implements AdminClientProvider<TransportAdminClient> {
 
     @Override
-    public TransportAdminClient getClient() {
-        return new TransportAdminClient();
+    public TransportAdminClient getClient(ClassLoader classLoader) {
+        return new TransportAdminClient(classLoader);
     }
 }

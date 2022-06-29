@@ -5,7 +5,7 @@ import org.xbib.elx.api.BulkClientProvider;
 public class TransportBulkClientProvider implements BulkClientProvider<TransportBulkClient> {
 
     @Override
-    public TransportBulkClient getClient() {
-        return new TransportBulkClient();
+    public TransportBulkClient getClient(ClassLoader classLoader) {
+        return new TransportBulkClient(classLoader);
     }
 }
