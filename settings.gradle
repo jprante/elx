@@ -1,7 +1,7 @@
 dependencyResolutionManagement {
     versionCatalogs {
         libs {
-            version('gradle', '7.4.2')
+            version('gradle', '7.5')
             version('junit', '5.8.2')
             version('elasticsearch', '7.10.2')
             version('lucene', '8.7.0')
