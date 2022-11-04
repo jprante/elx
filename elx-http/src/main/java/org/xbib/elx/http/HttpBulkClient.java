@@ -10,6 +10,8 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.xbib.elx.common.AbstractBulkClient;
 
+import java.io.IOException;
+
 /**
  * Elasticsearch HTTP bulk client.
  */
@@ -23,7 +25,7 @@ public class HttpBulkClient extends AbstractBulkClient implements ElasticsearchC
     }
 
     @Override
-    public boolean init(Settings settings, String info) {
+    public boolean init(Settings settings, String info) throws IOException {
         if (super.init(settings, io.netty.util.Version.identify().toString())) {
             helper.init(settings);
             return true;

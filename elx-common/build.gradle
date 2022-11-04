@@ -1,6 +1,6 @@
 dependencies {
     api project(':elx-api')
     implementation libs.time
-    testImplementation libs.netty.http
+    testImplementation libs.net.http.netty.client
     testImplementation libs.es.plugin.transport.netty4
 }

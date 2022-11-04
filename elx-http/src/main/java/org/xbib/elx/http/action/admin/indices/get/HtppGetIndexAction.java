@@ -6,8 +6,9 @@ import org.elasticsearch.action.admin.indices.get.GetIndexResponse;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.api.Request;
-import org.xbib.netty.http.common.HttpResponse;
+import org.xbib.net.http.client.HttpResponse;
+import org.xbib.net.http.client.netty.HttpRequestBuilder;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -20,7 +21,7 @@ public class HtppGetIndexAction extends HttpAction<GetIndexRequest, GetIndexResp
     }
 
     @Override
-    protected Request.Builder createHttpRequest(String url, GetIndexRequest getIndexRequest) throws IOException {
+    protected HttpRequestBuilder createHttpRequest(String url, GetIndexRequest getIndexRequest) throws IOException {
         List<String> list =  getIndexRequest.indices().length == 0 ?
                 List.of("*") : Arrays.asList(getIndexRequest.indices());
         String command = "/" + String.join(",", list);

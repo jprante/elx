@@ -1,9 +1,5 @@
 package org.xbib.elx.http;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.handler.codec.http.HttpHeaderNames;
-import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -23,9 +19,12 @@ import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestStatus;
 import org.xbib.net.URL;
-import org.xbib.netty.http.client.api.ClientTransport;
-import org.xbib.netty.http.client.api.Request;
-import org.xbib.netty.http.common.HttpResponse;
+import org.xbib.net.http.HttpHeaderNames;
+import org.xbib.net.http.HttpMethod;
+import org.xbib.net.http.client.netty.HttpRequest;
+import org.xbib.net.http.client.netty.HttpRequestBuilder;
+import org.xbib.net.http.client.HttpResponse;
+import org.xbib.net.http.client.netty.Interaction;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -57,17 +56,17 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
                 listener.onFailure(validationException);
                 return;
             }
-            Request.Builder httpRequestBuilder =
+            HttpRequestBuilder httpRequestBuilder =
                     createHttpRequest(httpActionContext.getUrl(), httpActionContext.getRequest());
-            Request httpRequest = httpRequestBuilder.build();
+            HttpRequest httpRequest = httpRequestBuilder.build();
             httpRequest.setResponseListener(fullHttpResponse -> {
                 if (logger.isTraceEnabled()) {
-                    logger.log(Level.TRACE, "got response: " + fullHttpResponse.getStatus().getCode() +
+                    logger.log(Level.TRACE, "got response: " + fullHttpResponse.getStatus().codeAsText() +
                             " headers = " + fullHttpResponse.getHeaders() +
-                            " content = " + fullHttpResponse.getBody().toString(StandardCharsets.UTF_8));
+                            " content = " + fullHttpResponse.getBodyAsChars(StandardCharsets.UTF_8));
                 }
                 httpActionContext.setHttpResponse(fullHttpResponse);
-                if (fullHttpResponse.getStatus().getCode() == HttpResponseStatus.OK.code()) {
+                if (fullHttpResponse.getStatus().code() == 200) {
                     listener.onResponse(parseToResponse(httpActionContext));
                 } else {
                     ElasticsearchStatusException statusException = parseToError(httpActionContext);
@@ -81,7 +80,7 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
             if (logger.isTraceEnabled()) {
                 logger.log(Level.TRACE, "executing HTTP request " + httpRequest);
             }
-            ClientTransport transport = httpActionContext.getExtendedHttpClient().internalClient().execute(httpRequest);
+            Interaction transport = httpActionContext.getExtendedHttpClient().internalClient().execute(httpRequest);
             httpActionContext.setHttpClientTransport(transport);
             if (transport.isFailed()) {
                 listener.onFailure(new Exception(transport.getFailure()));
@@ -92,68 +91,64 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
         }
     }
 
-    protected Request.Builder newGetRequest(String url, String path) {
+    protected HttpRequestBuilder newGetRequest(String url, String path) {
         return newRequest(HttpMethod.GET, url, path);
     }
 
-    protected Request.Builder newGetRequest(String url, String path, BytesReference content) {
+    protected HttpRequestBuilder newGetRequest(String url, String path, BytesReference content) {
         return newRequest(HttpMethod.GET, url, path, content);
     }
 
-    protected Request.Builder newHeadRequest(String url, String path) {
+    protected HttpRequestBuilder newHeadRequest(String url, String path) {
         return newRequest(HttpMethod.HEAD, url, path);
     }
 
-    protected Request.Builder newPostRequest(String url, String path) {
+    protected HttpRequestBuilder newPostRequest(String url, String path) {
         return newRequest(HttpMethod.POST, url, path);
     }
 
-    protected Request.Builder newPostRequest(String url, String path, BytesReference content) {
+    protected HttpRequestBuilder newPostRequest(String url, String path, BytesReference content) {
         return newRequest(HttpMethod.POST, url, path, content);
     }
 
-    protected Request.Builder newPostRequest(String url, String path, String content) {
+    protected HttpRequestBuilder newPostRequest(String url, String path, String content) {
         return newRequest(HttpMethod.POST, url, path, content);
     }
 
-    protected Request.Builder newPutRequest(String url, String path) {
+    protected HttpRequestBuilder newPutRequest(String url, String path) {
         return newRequest(HttpMethod.PUT, url, path);
     }
 
-    protected Request.Builder newPutRequest(String url, String path, String content) {
+    protected HttpRequestBuilder newPutRequest(String url, String path, String content) {
         return newRequest(HttpMethod.PUT, url, path, content);
     }
 
-    protected Request.Builder newPutRequest(String url, String path, BytesReference content) {
+    protected HttpRequestBuilder newPutRequest(String url, String path, BytesReference content) {
         return newRequest(HttpMethod.PUT, url, path, content);
     }
 
-    protected Request.Builder newDeleteRequest(String url, String path) {
+    protected HttpRequestBuilder newDeleteRequest(String url, String path) {
         return newRequest(HttpMethod.DELETE, url, path);
     }
 
-    protected Request.Builder newDeleteRequest(String url, String path, BytesReference content) {
+    protected HttpRequestBuilder newDeleteRequest(String url, String path, BytesReference content) {
         return newRequest(HttpMethod.DELETE, url, path, content);
     }
 
-    protected Request.Builder newRequest(HttpMethod method, String baseUrl, String path) {
-        return Request.builder(method).url(URL.from(baseUrl).resolve(path));
+    protected HttpRequestBuilder newRequest(HttpMethod method, String baseUrl, String path) {
+        return HttpRequest.builder(method).setURL(URL.from(baseUrl).resolve(path));
     }
 
-    protected Request.Builder newRequest(HttpMethod method, String baseUrl, String path, BytesReference content) {
-        return Request.builder(method).url(URL.from(baseUrl).resolve(path)).content(content.toBytesRef().bytes, APPLICATION_JSON);
+    protected HttpRequestBuilder newRequest(HttpMethod method, String baseUrl, String path, BytesReference content) {
+        return HttpRequest.builder(method).setURL(URL.from(baseUrl).resolve(path)).content(content.toBytesRef().bytes, APPLICATION_JSON);
     }
 
-    protected Request.Builder newRequest(HttpMethod method, String baseUrl, String path, String content) {
-        return Request.builder(method).url(URL.from(baseUrl).resolve(path)).content(content, APPLICATION_JSON);
-    }
-
-    protected Request.Builder newRequest(HttpMethod method, String baseUrl, String path, ByteBuf byteBuf) {
-        return Request.builder(method).url(URL.from(baseUrl).resolve(path)).content(byteBuf, APPLICATION_JSON);
+    protected HttpRequestBuilder newRequest(HttpMethod method, String baseUrl, String path, String content) {
+        return HttpRequest.builder(method).setURL(URL.from(baseUrl).resolve(path)).content(content, APPLICATION_JSON);
     }
 
     protected T parseToResponse(HttpActionContext<R, T> httpActionContext) {
-        String mediaType = httpActionContext.getHttpResponse().getHeaders().getHeader(HttpHeaderNames.CONTENT_TYPE);
+        String mediaType = httpActionContext.getHttpResponse().getHeaders().get(HttpHeaderNames.CONTENT_TYPE);
         XContentType xContentType = XContentType.fromMediaTypeOrFormat(mediaType);
         if (xContentType == null) {
             throw new IllegalStateException("unsupported content-type: " + mediaType);
@@ -161,13 +156,13 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
         try (XContentParser parser = xContentType.xContent()
                 .createParser(httpActionContext.getExtendedHttpClient().getRegistry(),
                 DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                httpActionContext.getHttpResponse().getBody().toString(StandardCharsets.UTF_8))) {
+                httpActionContext.getHttpResponse().getBodyAsChars(StandardCharsets.UTF_8).toString())) {
             return entityParser(httpActionContext.getHttpResponse()).apply(parser);
         } catch (Throwable e) {
             // catch all kinds of errors in the entity parsing process
             logger.error(e.getMessage(), e);
-            logger.error("status = " + httpActionContext.getHttpResponse().getStatus().getCode());
-            logger.error("body = " + httpActionContext.getHttpResponse().getBodyAsString(StandardCharsets.UTF_8));
+            logger.error("status = " + httpActionContext.getHttpResponse().getStatus().code());
+            logger.error("body = " + httpActionContext.getHttpResponse().getBodyAsChars(StandardCharsets.UTF_8));
             return null;
         }
     }
@@ -177,7 +172,7 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
         try (XContentParser parser = XContentFactory.xContent(XContentType.JSON)
                 .createParser(httpActionContext.getExtendedHttpClient().getRegistry(),
                         DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                        httpActionContext.getHttpResponse().getBody().toString(StandardCharsets.UTF_8))) {
+                        httpActionContext.getHttpResponse().getBodyAsChars(StandardCharsets.UTF_8).toString())) {
             return errorParser().apply(parser);
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
@@ -189,7 +184,7 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
         return BytesRestResponse::errorFromXContent;
     }
 
-    protected abstract Request.Builder createHttpRequest(String baseUrl, R request) throws IOException;
+    protected abstract HttpRequestBuilder createHttpRequest(String baseUrl, R request) throws IOException;
 
     protected abstract CheckedFunction<XContentParser, T, IOException> entityParser(HttpResponse httpResponse);
 }

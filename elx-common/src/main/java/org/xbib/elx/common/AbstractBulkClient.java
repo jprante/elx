@@ -40,7 +40,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
     }
 
     @Override
-    public boolean init(Settings settings, String info) {
+    public boolean init(Settings settings, String info) throws IOException {
         if (super.init(settings, info)) {
             bulkProcessor = new DefaultBulkProcessor(this, settings);
             return true;

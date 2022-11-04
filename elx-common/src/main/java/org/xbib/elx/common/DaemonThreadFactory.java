@@ -13,8 +13,7 @@ public class DaemonThreadFactory implements ThreadFactory {
 
     public DaemonThreadFactory(String namePrefix) {
         this.namePrefix = namePrefix;
-        SecurityManager s = System.getSecurityManager();
-        group = s != null ? s.getThreadGroup() : Thread.currentThread().getThreadGroup();
+        this.group = Thread.currentThread().getThreadGroup();
     }
 
     @Override

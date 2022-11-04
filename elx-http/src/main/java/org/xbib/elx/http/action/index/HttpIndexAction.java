@@ -8,8 +8,8 @@ import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.api.Request;
-import org.xbib.netty.http.common.HttpResponse;
+import org.xbib.net.http.client.HttpResponse;
+import org.xbib.net.http.client.netty.HttpRequestBuilder;
 
 import java.io.IOException;
 
@@ -21,7 +21,7 @@ public class HttpIndexAction extends HttpAction<IndexRequest, IndexResponse> {
     }
 
     @Override
-    protected Request.Builder createHttpRequest(String url, IndexRequest request) {
+    protected HttpRequestBuilder createHttpRequest(String url, IndexRequest request) {
         String optype = request.opType() == DocWriteRequest.OpType.CREATE ? "_create" : "_doc";
         return newPutRequest(url, "/" + request.index() + "/" + optype + "/" + request.id(),
                 request.source());

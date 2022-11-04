@@ -10,8 +10,8 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.api.Request;
-import org.xbib.netty.http.common.HttpResponse;
+import org.xbib.net.http.client.HttpResponse;
+import org.xbib.net.http.client.netty.HttpRequestBuilder;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -24,7 +24,7 @@ public class HttpUpdateSettingsAction extends HttpAction<UpdateSettingsRequest, 
     }
 
     @Override
-    protected Request.Builder createHttpRequest(String url, UpdateSettingsRequest request) {
+    protected HttpRequestBuilder createHttpRequest(String url, UpdateSettingsRequest request) {
         try {
             XContentBuilder builder = XContentFactory.jsonBuilder();
             builder.startObject();

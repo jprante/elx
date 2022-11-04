@@ -10,8 +10,9 @@ import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.api.Request;
-import org.xbib.netty.http.common.HttpResponse;
+import org.xbib.net.http.client.HttpResponse;
+import org.xbib.net.http.client.netty.HttpRequestBuilder;
+
 import java.io.IOException;
 
 public class HttpMultiGetAction extends HttpAction<MultiGetRequest, MultiGetResponse> {
@@ -22,7 +23,7 @@ public class HttpMultiGetAction extends HttpAction<MultiGetRequest, MultiGetResp
     }
 
     @Override
-    protected Request.Builder createHttpRequest(String url, MultiGetRequest request) throws IOException {
+    protected HttpRequestBuilder createHttpRequest(String url, MultiGetRequest request) throws IOException {
         BytesReference source = XContentHelper.toXContent(request, XContentType.JSON, false);
         return newGetRequest(url, "/_mget", source);
     }

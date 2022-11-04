@@ -6,8 +6,8 @@ import org.elasticsearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.api.Request;
-import org.xbib.netty.http.common.HttpResponse;
+import org.xbib.net.http.client.HttpResponse;
+import org.xbib.net.http.client.netty.HttpRequestBuilder;
 
 import java.io.IOException;
 
@@ -19,7 +19,7 @@ public class HttpGetSettingsAction extends HttpAction<GetSettingsRequest, GetSet
     }
 
     @Override
-    protected Request.Builder createHttpRequest(String url, GetSettingsRequest request) {
+    protected HttpRequestBuilder createHttpRequest(String url, GetSettingsRequest request) {
         // beware, request.indices() is always an empty array
         String index = request.indices() != null ? String.join(",", request.indices()) + "/" : "";
         return newGetRequest(url, index + "_settings");

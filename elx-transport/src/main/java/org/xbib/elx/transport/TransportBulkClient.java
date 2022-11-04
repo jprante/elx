@@ -5,6 +5,8 @@ import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
 import org.xbib.elx.common.AbstractBulkClient;
 
+import java.io.IOException;
+
 /**
  * Transport search client with additional methods.
  */
@@ -23,7 +25,7 @@ public class TransportBulkClient extends AbstractBulkClient {
     }
 
     @Override
-    public boolean init(Settings settings, String info) {
+    public boolean init(Settings settings, String info) throws IOException {
         if (super.init(settings, "Netty: " + io.netty.util.Version.identify())) {
             helper.init((TransportClient) getClient(), settings);
             return true;

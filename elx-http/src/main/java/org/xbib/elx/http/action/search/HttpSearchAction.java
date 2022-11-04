@@ -7,8 +7,8 @@ import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.search.Scroll;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.api.Request;
-import org.xbib.netty.http.common.HttpResponse;
+import org.xbib.net.http.client.HttpResponse;
+import org.xbib.net.http.client.netty.HttpRequestBuilder;
 
 import java.io.IOException;
 
@@ -20,7 +20,7 @@ public class HttpSearchAction extends HttpAction<SearchRequest, SearchResponse> 
     }
 
     @Override
-    protected Request.Builder createHttpRequest(String url, SearchRequest request) {
+    protected HttpRequestBuilder createHttpRequest(String url, SearchRequest request) {
         Scroll scroll = request.scroll();
         String params = scroll != null ? "?scroll=" + scroll.keepAlive() : "";
         String index = request.indices() != null ? String.join(",", request.indices()) + "/" : "";

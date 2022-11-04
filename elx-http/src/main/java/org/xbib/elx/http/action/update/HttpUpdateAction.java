@@ -11,8 +11,8 @@ import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.api.Request;
-import org.xbib.netty.http.common.HttpResponse;
+import org.xbib.net.http.client.HttpResponse;
+import org.xbib.net.http.client.netty.HttpRequestBuilder;
 
 import java.io.IOException;
 
@@ -24,7 +24,7 @@ public class HttpUpdateAction extends HttpAction<UpdateRequest, UpdateResponse> 
     }
 
     @Override
-    protected Request.Builder createHttpRequest(String url, UpdateRequest updateRequest) {
+    protected HttpRequestBuilder createHttpRequest(String url, UpdateRequest updateRequest) {
         try {
             // The Java API allows update requests with different content types
             // set for the partial document and the upsert document. This client

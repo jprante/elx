@@ -15,8 +15,10 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.xbib.elx.common.Parameters;
 import org.xbib.net.URL;
-import org.xbib.netty.http.client.Client;
-import org.xbib.netty.http.common.HttpAddress;
+import org.xbib.net.http.HttpAddress;
+import org.xbib.net.http.client.netty.NettyHttpClient;
+import org.xbib.net.http.client.netty.NettyHttpClientBuilder;
+import org.xbib.net.http.client.netty.NettyHttpClientConfig;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -37,7 +39,7 @@ public class HttpClientHelper {
 
     private static final Logger logger = LogManager.getLogger(HttpClientHelper.class);
 
-    private Client nettyHttpClient;
+    private NettyHttpClient nettyHttpClient;
 
     private final ClassLoader classLoader;
 
@@ -64,7 +66,7 @@ public class HttpClientHelper {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public void init(Settings settings) {
+    public void init(Settings settings) throws IOException {
         HttpAddress httpAddress;
         if (settings.hasValue("url")) {
             this.url = settings.get("url");
@@ -85,18 +87,15 @@ public class HttpClientHelper {
             httpAction.setSettings(settings);
             actionMap.put(httpAction.getActionInstance(), httpAction);
         }
-        Client.Builder clientBuilder = Client.builder();
-        if (settings.getAsBoolean("pool.enabled", true)) {
-            clientBuilder.addPoolNode(httpAddress)
-                    .setPoolNodeConnectionLimit(settings.getAsInt("pool.limit", Runtime.getRuntime().availableProcessors()));
-        }
+        NettyHttpClientConfig clientConfig = new NettyHttpClientConfig();
         if (settings.hasValue("debug")) {
-            clientBuilder.enableDebug();
+            clientConfig.enableDebug();
         }
-        this.nettyHttpClient = clientBuilder.build();
+        NettyHttpClientBuilder clientBuilder = NettyHttpClient.builder().setConfig(clientConfig);
+        this.nettyHttpClient =  clientBuilder.build();
         if (logger.isDebugEnabled()) {
-            logger.log(Level.DEBUG, "HTTP client initialized, pooled = {}, settings = {}, url = {}, {} actions",
-                    nettyHttpClient.isPooled(), settings, url, actionMap.size());
+            logger.log(Level.DEBUG, "HTTP client initialized, settings = {}, url = {}, {} actions",
+                    settings, url, actionMap.size());
         }
     }
 
@@ -108,14 +107,14 @@ public class HttpClientHelper {
         return registry;
     }
 
-    public Client internalClient() {
+    public NettyHttpClient internalClient() {
         return nettyHttpClient;
     }
 
     protected void closeClient(Settings settings) {
         if (closed.compareAndSet(false, true)) {
             try {
-                nettyHttpClient.shutdownGracefully();
+                nettyHttpClient.close();
             } catch (IOException e) {
                 logger.log(Level.WARN, e.getMessage(), e);
             }

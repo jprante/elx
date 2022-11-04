@@ -1,5 +1,5 @@
 dependencies{
     api project(':elx-common')
-    api libs.netty.http
+    api libs.net.http.netty.client
     api libs.es.plugin.transport.netty4
 }

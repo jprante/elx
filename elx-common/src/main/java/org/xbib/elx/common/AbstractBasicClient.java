@@ -68,7 +68,7 @@ public abstract class AbstractBasicClient implements BasicClient {
     }
 
     @Override
-    public boolean init(Settings settings, String infoString) {
+    public boolean init(Settings settings, String infoString) throws IOException {
         if (closed.compareAndSet(false, true)) {
             this.settings = settings;
             logger.log(Level.INFO, String.format("Elx: %s on %s %s %s Java: %s %s %s %s ES: %s %s",

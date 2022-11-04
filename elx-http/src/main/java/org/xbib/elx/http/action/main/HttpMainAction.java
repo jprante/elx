@@ -7,8 +7,8 @@ import org.elasticsearch.action.main.MainResponse;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.api.Request;
-import org.xbib.netty.http.common.HttpResponse;
+import org.xbib.net.http.client.HttpResponse;
+import org.xbib.net.http.client.netty.HttpRequestBuilder;
 
 import java.io.IOException;
 
@@ -20,7 +20,7 @@ public class HttpMainAction extends HttpAction<MainRequest, MainResponse> {
     }
 
     @Override
-    protected Request.Builder createHttpRequest(String url, MainRequest request) {
+    protected HttpRequestBuilder createHttpRequest(String url, MainRequest request) {
         return newGetRequest(url, "/");
     }
 

@@ -9,8 +9,8 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.rest.RestStatus;
 import org.xbib.elx.http.HttpAction;
 import org.xbib.elx.http.HttpActionContext;
-import org.xbib.netty.http.client.api.Request;
-import org.xbib.netty.http.common.HttpResponse;
+import org.xbib.net.http.client.HttpResponse;
+import org.xbib.net.http.client.netty.HttpRequestBuilder;
 
 import java.io.IOException;
 
@@ -22,7 +22,7 @@ public class HttpIndicesExistsAction extends HttpAction<IndicesExistsRequest, In
     }
 
     @Override
-    protected Request.Builder createHttpRequest(String url, IndicesExistsRequest request) {
+    protected HttpRequestBuilder createHttpRequest(String url, IndicesExistsRequest request) {
         String index = String.join(",", request.indices());
         return newHeadRequest(url, index);
     }
@@ -39,7 +39,7 @@ public class HttpIndicesExistsAction extends HttpAction<IndicesExistsRequest, In
 
     @Override
     protected CheckedFunction<XContentParser, IndicesExistsResponse, IOException> entityParser(HttpResponse httpResponse) {
-        return httpResponse.getStatus().getCode() == 200 ? this::found : this::notfound;
+        return httpResponse.getStatus().code() == 200 ? this::found : this::notfound;
     }
 
     private IndicesExistsResponse found(XContentParser parser) {

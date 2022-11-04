@@ -10,6 +10,8 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.xbib.elx.common.AbstractAdminClient;
 
+import java.io.IOException;
+
 /**
  * Elasticsearch HTTP admin client.
  */
@@ -23,7 +25,7 @@ public class HttpAdminClient extends AbstractAdminClient implements Elasticsearc
     }
 
     @Override
-    public boolean init(Settings settings, String info) {
+    public boolean init(Settings settings, String info) throws IOException {
         if (super.init(settings, "Netty: " + io.netty.util.Version.identify())) {
             helper.init(settings);
             return true;

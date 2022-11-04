@@ -6,16 +6,13 @@ import org.elasticsearch.action.admin.cluster.node.info.NodesInfoResponse;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.api.Request;
-import org.xbib.netty.http.common.HttpResponse;
+import org.xbib.net.http.client.HttpResponse;
+import org.xbib.net.http.client.netty.HttpRequestBuilder;
 
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
-/**
- *
- */
 public class HttpNodesInfoAction extends HttpAction<NodesInfoRequest, NodesInfoResponse> {
 
     @Override
@@ -26,12 +23,12 @@ public class HttpNodesInfoAction extends HttpAction<NodesInfoRequest, NodesInfoR
     /**
      * Endpoint "/_nodes/{nodeId}/{metrics}"
      *
-     * @param url url
+     * @param url     url
      * @param request request
      * @return HTTP request
      */
     @Override
-    protected Request.Builder createHttpRequest(String url, NodesInfoRequest request) {
+    protected HttpRequestBuilder createHttpRequest(String url, NodesInfoRequest request) {
         StringBuilder path = new StringBuilder("/_nodes");
         if (request.nodesIds() != null) {
             String nodeIds = String.join(",", request.nodesIds());

@@ -10,8 +10,9 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.api.Request;
-import org.xbib.netty.http.common.HttpResponse;
+import org.xbib.net.http.client.HttpResponse;
+import org.xbib.net.http.client.netty.HttpRequestBuilder;
+
 import java.io.IOException;
 
 public class HttpClearScrollAction extends HttpAction<ClearScrollRequest, ClearScrollResponse> {
@@ -22,7 +23,7 @@ public class HttpClearScrollAction extends HttpAction<ClearScrollRequest, ClearS
     }
 
     @Override
-    protected Request.Builder createHttpRequest(String baseUrl, ClearScrollRequest request) throws IOException {
+    protected HttpRequestBuilder createHttpRequest(String baseUrl, ClearScrollRequest request) throws IOException {
         XContentBuilder builder = JsonXContent.contentBuilder();
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
         return newDeleteRequest(baseUrl, "_search/scroll", BytesReference.bytes(builder));

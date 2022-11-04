@@ -2,8 +2,8 @@ package org.xbib.elx.http;
 
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
-import org.xbib.netty.http.client.api.ClientTransport;
-import org.xbib.netty.http.common.HttpResponse;
+import org.xbib.net.http.client.HttpResponse;
+import org.xbib.net.http.client.netty.Interaction;
 
 /**
  * HTTP action context.
@@ -19,7 +19,7 @@ public class HttpActionContext<R extends ActionRequest, T extends ActionResponse
 
     private final String url;
 
-    private ClientTransport httpClientTransport;
+    private Interaction httpClientTransport;
 
     private HttpResponse httpResponse;
 
@@ -41,11 +41,11 @@ public class HttpActionContext<R extends ActionRequest, T extends ActionResponse
         return url;
     }
 
-    public void setHttpClientTransport(ClientTransport httpClientTransport) {
+    public void setHttpClientTransport(Interaction httpClientTransport) {
         this.httpClientTransport = httpClientTransport;
     }
 
-    public ClientTransport getHttpClientTransport() {
+    public Interaction getHttpClientTransport() {
         return httpClientTransport;
     }
 

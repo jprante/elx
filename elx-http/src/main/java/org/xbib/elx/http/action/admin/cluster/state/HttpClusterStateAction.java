@@ -22,8 +22,8 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.NamedObjectNotFoundException;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.xbib.elx.http.HttpAction;
-import org.xbib.netty.http.client.api.Request;
-import org.xbib.netty.http.common.HttpResponse;
+import org.xbib.net.http.client.HttpResponse;
+import org.xbib.net.http.client.netty.HttpRequestBuilder;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -48,7 +48,7 @@ public class HttpClusterStateAction extends HttpAction<ClusterStateRequest, Clus
     }
 
     @Override
-    protected Request.Builder createHttpRequest(String url, ClusterStateRequest request) {
+    protected HttpRequestBuilder createHttpRequest(String url, ClusterStateRequest request) {
         List<String> list = new ArrayList<>();
         if (request.metadata()) {
             list.add("metadata");
