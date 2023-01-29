@@ -28,6 +28,11 @@ public class GetDocument implements SearchDocument {
     }
 
     @Override
+    public String getContent() {
+        return getResponse.getSourceAsBytesRef().utf8ToString();
+    }
+
+    @Override
     public Map<String, Object> getFields() {
         return getResponse.getSourceAsMap();
     }

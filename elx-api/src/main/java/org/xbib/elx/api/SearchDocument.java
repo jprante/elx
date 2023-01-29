@@ -10,5 +10,7 @@ public interface SearchDocument {
 
     float getScore();
 
+    String getContent();
+
     Map<String, Object> getFields();
 }

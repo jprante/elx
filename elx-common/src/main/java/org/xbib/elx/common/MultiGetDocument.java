@@ -28,6 +28,11 @@ public class MultiGetDocument implements SearchDocument {
     }
 
     @Override
+    public String getContent() {
+        return getResponse.getResponse().getSourceAsBytesRef().utf8ToString();
+    }
+
+    @Override
     public Map<String, Object> getFields() {
         return getResponse.getResponse().getSourceAsMap();
     }

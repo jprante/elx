@@ -29,6 +29,11 @@ public class DefaultSearchDocument implements SearchDocument {
     }
 
     @Override
+    public String getContent() {
+        return searchHit.getSourceRef().utf8ToString();
+    }
+
+    @Override
     public Map<String, Object> getFields() {
         return searchHit.getSourceAsMap();
     }
