@@ -82,4 +82,8 @@ public interface IndexDefinition {
     void setMinToKeep(int minToKeep);
 
     int getMinToKeep();
+
+    void setCloseShifted(boolean closeShifted);
+
+    boolean isCloseShifted();
 }

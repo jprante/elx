@@ -30,7 +30,7 @@ dependencyResolutionManagement {
             // ES 7.10.2 uses Jackson 2.10.4
             library('jackson', 'com.fasterxml.jackson.core', 'jackson-core').version('2.12.7')
             // ES 7.10.2 uses Netty 4.1.49
-            library('net-http-netty-client', 'org.xbib', 'net-http-client-netty').version('3.0.0')
+            library('net-http-netty-client', 'org.xbib', 'net-http-client-netty').version('3.0.4')
             library('metrics', 'org.xbib', 'metrics-common').version('3.0.0')
             library('time', 'org.xbib', 'time').version('2.1.0')
         }

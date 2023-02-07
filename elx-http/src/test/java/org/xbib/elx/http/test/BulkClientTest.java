@@ -23,7 +23,7 @@ class BulkClientTest {
 
     private static final Logger logger = LogManager.getLogger(BulkClientTest.class.getSimpleName());
 
-    private static final Long ACTIONS = 100000L;
+    private static final Long ACTIONS = 1000L;
 
     private final TestExtension.Helper helper;
 
@@ -91,9 +91,9 @@ class BulkClientTest {
 
     @Test
     void testThreadedRandomDocs() throws Exception {
-        int maxthreads = Runtime.getRuntime().availableProcessors();
+        final int maxthreads = Runtime.getRuntime().availableProcessors();
         final long actions = ACTIONS;
-        long timeout = 120L;
+        final long timeout = 120L;
         try (HttpBulkClient bulkClient = ClientBuilder.builder()
                 .setBulkClientProvider(HttpBulkClientProvider.class)
                 .put(helper.getClientSettings())

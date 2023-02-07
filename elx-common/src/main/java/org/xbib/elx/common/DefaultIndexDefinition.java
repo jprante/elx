@@ -60,6 +60,12 @@ public class DefaultIndexDefinition implements IndexDefinition {
 
     private int minToKeep;
 
+    private boolean closeShifted;
+
+    public DefaultIndexDefinition(String index) {
+        this(index, "_doc");
+    }
+
     public DefaultIndexDefinition(String index, String type) {
         setIndex(index);
         setType(type);
@@ -70,6 +76,7 @@ public class DefaultIndexDefinition implements IndexDefinition {
         setShift(false);
         setPrune(false);
         setForceMerge(false);
+        setCloseShifted(false);
         setEnabled(true);
     }
 
@@ -116,6 +123,10 @@ public class DefaultIndexDefinition implements IndexDefinition {
                 setDelta(settings.getAsInt("retention.delta", 2));
             }
         }
+    }
+
+    public static IndexDefinition of(String index) {
+        return new DefaultIndexDefinition(index);
     }
 
     @Override
@@ -306,6 +317,16 @@ public class DefaultIndexDefinition implements IndexDefinition {
     @Override
     public int getMinToKeep() {
         return minToKeep;
+    }
+
+    @Override
+    public void setCloseShifted(boolean closeShifted) {
+        this.closeShifted = closeShifted;
+    }
+
+    @Override
+    public boolean isCloseShifted() {
+        return closeShifted;
     }
 
     private static String findSettingsFrom(String string, ClassLoader classLoader) throws IOException {

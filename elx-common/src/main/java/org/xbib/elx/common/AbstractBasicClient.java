@@ -24,12 +24,15 @@ import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
+import org.elasticsearch.cluster.metadata.IndexAbstraction;
+import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.xbib.elx.api.BasicClient;
 import org.xbib.elx.api.IndexDefinition;
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -210,6 +213,45 @@ public abstract class AbstractBasicClient implements BasicClient {
         return indicesExistsResponse.isExists();
     }
 
+    @Override
+    public String getIndexState(IndexDefinition indexDefinition) {
+        ClusterStateRequest clusterStateRequest = new ClusterStateRequest();
+        clusterStateRequest.blocks(false);
+        clusterStateRequest.metadata(true);
+        clusterStateRequest.nodes(false);
+        clusterStateRequest.routingTable(false);
+        clusterStateRequest.customs(false);
+        ClusterStateResponse clusterStateResponse =
+                client.execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
+        IndexAbstraction indexAbstraction = clusterStateResponse.getState().getMetadata()
+                .getIndicesLookup()
+                .get(indexDefinition.getFullIndexName());
+        if (indexAbstraction == null) {
+            return null;
+        }
+        List<IndexMetadata> indexMetadata = indexAbstraction.getIndices();
+        if (indexMetadata == null || indexMetadata.isEmpty()) {
+            return null;
+        }
+        return indexMetadata.stream()
+                .map(im -> im.getState().toString())
+                .findFirst().get();
+    }
+
+    @Override
+    public boolean isIndexClosed(IndexDefinition indexDefinition) {
+        String state = getIndexState(indexDefinition);
+        logger.log(Level.DEBUG, "index " + indexDefinition.getFullIndexName() + " is " + state);
+        return "CLOSE".equals(state);
+    }
+
+    @Override
+    public boolean isIndexOpen(IndexDefinition indexDefinition) {
+        String state = getIndexState(indexDefinition);
+        logger.log(Level.DEBUG, "index " + indexDefinition.getFullIndexName() + " is " + state);
+        return "OPEN".equals(state);
+    }
+
     protected abstract ElasticsearchClient createClient(Settings settings);
 
     protected abstract void closeClient(Settings settings);
@@ -247,23 +289,14 @@ public abstract class AbstractBasicClient implements BasicClient {
     }
 
     protected static TimeValue toTimeValue(long timeValue, TimeUnit timeUnit) {
-        switch (timeUnit) {
-            case DAYS:
-                return TimeValue.timeValueHours(24 * timeValue);
-            case HOURS:
-                return TimeValue.timeValueHours(timeValue);
-            case MINUTES:
-                return TimeValue.timeValueMinutes(timeValue);
-            case SECONDS:
-                return TimeValue.timeValueSeconds(timeValue);
-            case MILLISECONDS:
-                return TimeValue.timeValueMillis(timeValue);
-            case MICROSECONDS:
-                return TimeValue.timeValueNanos(1000 * timeValue);
-            case NANOSECONDS:
-                return TimeValue.timeValueNanos(timeValue);
-            default:
-                throw new IllegalArgumentException("unknown time unit: " + timeUnit);
-        }
+        return switch (timeUnit) {
+            case DAYS -> TimeValue.timeValueHours(24 * timeValue);
+            case HOURS -> TimeValue.timeValueHours(timeValue);
+            case MINUTES -> TimeValue.timeValueMinutes(timeValue);
+            case SECONDS -> TimeValue.timeValueSeconds(timeValue);
+            case MILLISECONDS -> TimeValue.timeValueMillis(timeValue);
+            case MICROSECONDS -> TimeValue.timeValueNanos(1000 * timeValue);
+            case NANOSECONDS -> TimeValue.timeValueNanos(timeValue);
+        };
     }
 }

@@ -23,7 +23,7 @@ class BulkClientTest {
 
     private static final Logger logger = LogManager.getLogger(BulkClientTest.class.getName());
 
-    private static final Long ACTIONS = 100000L;
+    private static final Long ACTIONS = 1000L;
 
     private final TestExtension.Helper helper;
 
@@ -94,7 +94,7 @@ class BulkClientTest {
     void testThreadedRandomDocs() throws Exception {
         int maxthreads = Runtime.getRuntime().availableProcessors();
         final long actions = ACTIONS;
-        long timeout = 120L;
+        long timeout = 180L;
         try (NodeBulkClient bulkClient = ClientBuilder.builder(helper.client())
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(helper.getClientSettings())

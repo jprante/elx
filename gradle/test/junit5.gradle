@@ -19,7 +19,7 @@ test {
     systemProperty 'java.util.logging.manager', 'org.apache.logging.log4j.jul.LogManager'
     systemProperty 'jna.debug_load', 'true'
     systemProperty 'path.home', "${project.buildDir}/"
-    failFast = true
+    failFast = false
     testLogging {
         events 'STARTED', 'PASSED', 'FAILED', 'SKIPPED'
     }

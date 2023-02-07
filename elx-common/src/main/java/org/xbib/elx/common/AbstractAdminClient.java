@@ -12,6 +12,9 @@ import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesAction;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesResponse;
+import org.elasticsearch.action.admin.indices.close.CloseIndexAction;
+import org.elasticsearch.action.admin.indices.close.CloseIndexRequest;
+import org.elasticsearch.action.admin.indices.close.CloseIndexResponse;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexAction;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeAction;
@@ -24,6 +27,9 @@ import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsAction;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequestBuilder;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
+import org.elasticsearch.action.admin.indices.open.OpenIndexAction;
+import org.elasticsearch.action.admin.indices.open.OpenIndexRequest;
+import org.elasticsearch.action.admin.indices.open.OpenIndexResponse;
 import org.elasticsearch.action.admin.indices.settings.get.GetSettingsAction;
 import org.elasticsearch.action.admin.indices.settings.get.GetSettingsRequest;
 import org.elasticsearch.action.admin.indices.settings.get.GetSettingsResponse;
@@ -97,15 +103,75 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         if (isIndexDefinitionDisabled(indexDefinition)) {
             return this;
         }
-        String index = indexDefinition.getFullIndexName();
-        if (index == null) {
+        return deleteIndex(indexDefinition.getFullIndexName());
+    }
+
+    @Override
+    public AdminClient deleteIndex(String indexName) {
+        if (indexName == null) {
             logger.warn("no index name given to delete index");
             return this;
         }
         ensureClientIsPresent();
-        DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest().indices(index);
-        client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
+        DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest().indices(indexName);
+        AcknowledgedResponse acknowledgedResponse = client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
+        if (acknowledgedResponse.isAcknowledged()) {
+            logger.info("index " + indexName + " deleted");
+        }
         waitForHealthyCluster();
+        return this;
+    }
+
+    @Override
+    public AdminClient closeIndex(IndexDefinition indexDefinition) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
+            return this;
+        }
+        return closeIndex(indexDefinition.getFullIndexName());
+    }
+
+    @Override
+    public AdminClient closeIndex(String indexName) {
+        if (indexName == null) {
+            logger.warn("no index name given to close index");
+            return this;
+        }
+        ensureClientIsPresent();
+        CloseIndexRequest closeIndexRequest = new CloseIndexRequest().indices(indexName);
+        CloseIndexResponse closeIndexResponse = client.execute(CloseIndexAction.INSTANCE, closeIndexRequest).actionGet();
+        if (closeIndexResponse.isAcknowledged()) {
+            List<CloseIndexResponse.IndexResult> list = closeIndexResponse.getIndices();
+            list.forEach(result -> {
+                if (result.hasFailures()) {
+                    logger.warn("error when closing " + result.getIndex(), result.getException());
+                } else {
+                    logger.info("index " + result.getIndex() + " closed");
+                }
+            });
+        }
+        return this;
+    }
+
+    @Override
+    public AdminClient openIndex(IndexDefinition indexDefinition) {
+        if (isIndexDefinitionDisabled(indexDefinition)) {
+            return this;
+        }
+        return openIndex(indexDefinition.getFullIndexName());
+    }
+
+    @Override
+    public AdminClient openIndex(String indexName) {
+        if (indexName == null) {
+            logger.warn("no index name given to close index");
+            return this;
+        }
+        ensureClientIsPresent();
+        OpenIndexRequest openIndexRequest = new OpenIndexRequest().indices(indexName);
+        OpenIndexResponse openIndexResponse = client.execute(OpenIndexAction.INSTANCE, openIndexRequest).actionGet();
+        if (openIndexResponse.isAcknowledged()) {
+            logger.info("index " + indexName + " opened");
+        }
         return this;
     }
 
@@ -159,22 +225,27 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         return replica;
     }
 
-    @Override
-    public String resolveMostRecentIndex(String alias) {
-        if (alias == null) {
+    public Collection<String> resolveIndex(String prefix) {
+        if (prefix == null) {
             return null;
         }
         ensureClientIsPresent();
-        GetAliasesRequest getAliasesRequest = new GetAliasesRequest().aliases(alias);
+        GetAliasesRequest getAliasesRequest = new GetAliasesRequest().aliases(prefix);
         GetAliasesResponse getAliasesResponse = client.execute(GetAliasesAction.INSTANCE, getAliasesRequest).actionGet();
         Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
         Set<String> indices = new TreeSet<>(Collections.reverseOrder());
         for (ObjectCursor<String> indexName : getAliasesResponse.getAliases().keys()) {
             Matcher m = pattern.matcher(indexName.value);
-            if (m.matches() && alias.equals(m.group(1))) {
+            if (m.matches() && prefix.equals(m.group(1))) {
                 indices.add(indexName.value);
             }
         }
+        return indices;
+    }
+
+    @Override
+    public String resolveMostRecentIndex(String alias) {
+        Collection<String> indices = resolveIndex(alias);
         return indices.isEmpty() ? alias : indices.iterator().next();
     }
 
@@ -219,7 +290,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public IndexShiftResult shiftIndex(IndexDefinition indexDefinition,
-                                       List<String> additionalAliases,
+                                       Collection<String> additionalAliases,
                                        IndexAliasAdder indexAliasAdder) {
         if (additionalAliases == null) {
             return new EmptyIndexShiftResult();
@@ -228,6 +299,11 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             return new EmptyIndexShiftResult();
         }
         if (indexDefinition.isShiftEnabled()) {
+            if (indexDefinition.isCloseShifted()) {
+                resolveIndex(indexDefinition.getIndex()).stream()
+                        .filter(s -> !s.equals(indexDefinition.getFullIndexName()))
+                        .forEach(this::closeIndex);
+            }
             return shiftIndex(indexDefinition.getIndex(), indexDefinition.getFullIndexName(),
                     additionalAliases.stream()
                             .filter(a -> a != null && !a.isEmpty())
@@ -315,13 +391,15 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
     @Override
     public IndexPruneResult pruneIndex(IndexDefinition indexDefinition) {
-        return indexDefinition != null&& indexDefinition.isEnabled() && indexDefinition.isPruneEnabled() &&
+        return indexDefinition != null &&
+                indexDefinition.isEnabled() &&
+                indexDefinition.isPruneEnabled() &&
                 indexDefinition.getDateTimePattern() != null ?
                 pruneIndex(indexDefinition.getIndex(),
                 indexDefinition.getFullIndexName(),
                 indexDefinition.getDateTimePattern(),
                 indexDefinition.getDelta(),
-                indexDefinition.getMinToKeep()) : new EmptyPruneResult();
+                indexDefinition.getMinToKeep()) : new NonePruneResult();
     }
 
     private IndexPruneResult pruneIndex(String index,
@@ -332,12 +410,12 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         logger.info("before pruning: index = {} full index = {} delta = {} mintokeep = {} pattern = {}",
                 index, protectedIndexName, delta, mintokeep, pattern);
         if (delta == 0 && mintokeep == 0) {
-            logger.info("no candidates found, delta is 0 and mintokeep is 0");
-            return new EmptyPruneResult();
+            logger.warn("no candidates found, delta is 0 and mintokeep is 0");
+            return new NonePruneResult();
         }
         if (index.equals(protectedIndexName)) {
-            logger.info("no candidates found, only protected index name is given");
-            return new EmptyPruneResult();
+            logger.warn("no candidates found, only protected index name is given");
+            return new NonePruneResult();
         }
         ensureClientIsPresent();
         GetIndexRequestBuilder getIndexRequestBuilder = new GetIndexRequestBuilder(client, GetIndexAction.INSTANCE);
@@ -351,8 +429,8 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             }
         }
         if (candidateIndices.isEmpty()) {
-            logger.info("no candidates found");
-            return new EmptyPruneResult();
+            logger.info("no candidates found to prune");
+            return new NonePruneResult();
         }
         if (mintokeep > 0 && candidateIndices.size() <= mintokeep) {
             return new NothingToDoPruneResult(candidateIndices, Collections.emptyList());
@@ -529,8 +607,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                     return;
                 }
             }
-            if (mode instanceof Boolean) {
-                Boolean b = (Boolean) mode;
+            if (mode instanceof Boolean b) {
                 if (!b) {
                     return;
                 }
@@ -682,7 +759,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         }
     }
 
-    private static class EmptyPruneResult implements IndexPruneResult {
+    private static class NonePruneResult implements IndexPruneResult {
 
         @Override
         public State getState() {
@@ -706,7 +783,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
 
         @Override
         public String toString() {
-            return "EMPTY PRUNE";
+            return "NONE";
         }
     }
 }

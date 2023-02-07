@@ -47,5 +47,11 @@ public interface BasicClient extends Closeable {
 
     boolean isIndexExists(IndexDefinition indexDefinition);
 
+    String getIndexState(IndexDefinition indexDefinition);
+
+    boolean isIndexOpen(IndexDefinition indexDefinition);
+
+    boolean isIndexClosed(IndexDefinition indexDefinition);
+
     ScheduledExecutorService getScheduler();
 }

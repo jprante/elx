@@ -14,6 +14,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.xbib.elx.common.Parameters;
+import org.xbib.net.SocketConfig;
 import org.xbib.net.URL;
 import org.xbib.net.http.HttpAddress;
 import org.xbib.net.http.client.netty.NettyHttpClient;
@@ -91,7 +92,12 @@ public class HttpClientHelper {
         if (settings.hasValue("debug")) {
             clientConfig.enableDebug();
         }
-        NettyHttpClientBuilder clientBuilder = NettyHttpClient.builder().setConfig(clientConfig);
+        SocketConfig socketConfig = new SocketConfig();
+        socketConfig.setConnectTimeoutMillis(settings.getAsInt("http.connect_timeout", 5000));
+        socketConfig.setReadTimeoutMillis(settings.getAsInt("http.read_timeout", 30000));
+        clientConfig.setSocketConfig(socketConfig);
+        NettyHttpClientBuilder clientBuilder = NettyHttpClient.builder()
+                .setConfig(clientConfig);
         this.nettyHttpClient =  clientBuilder.build();
         if (logger.isDebugEnabled()) {
             logger.log(Level.DEBUG, "HTTP client initialized, settings = {}, url = {}, {} actions",

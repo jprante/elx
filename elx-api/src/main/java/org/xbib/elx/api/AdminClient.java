@@ -1,6 +1,6 @@
 package org.xbib.elx.api;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -18,6 +18,26 @@ public interface AdminClient extends BasicClient {
      * @return this
      */
     AdminClient deleteIndex(IndexDefinition indexDefinition);
+
+    AdminClient deleteIndex(String indexName);
+
+    /**
+     * Close an index.
+     * @param indexDefinition the index definition
+     * @return this
+     */
+    AdminClient closeIndex(IndexDefinition indexDefinition);
+
+    AdminClient closeIndex(String indexName);
+
+    /**
+     * Open an index.
+     * @param indexDefinition the index definition
+     * @return this
+     */
+    AdminClient openIndex(IndexDefinition indexDefinition);
+
+    AdminClient openIndex(String indexName);
 
     /**
      * Update replica level to the one in the index definition.
@@ -40,13 +60,15 @@ public interface AdminClient extends BasicClient {
      */
     boolean forceMerge(IndexDefinition indexDefinition);
 
+    Collection<String> resolveIndex(String index);
+
     /**
      * Resolve alias.
      *
      * @param alias the alias
      * @return the index names in ordered sequence behind the alias or an empty list if there is no such alias
      */
-    List<String> resolveAlias(String alias);
+    Collection<String> resolveAlias(String alias);
 
     /**
      * Resolve alias to all connected indices, sort index names with most recent timestamp on top, return this index
@@ -72,7 +94,7 @@ public interface AdminClient extends BasicClient {
      * @return this
      */
     IndexShiftResult shiftIndex(IndexDefinition indexDefinition,
-                                List<String> additionalAliases,
+                                Collection<String> additionalAliases,
                                 IndexAliasAdder indexAliasAdder);
 
     /**

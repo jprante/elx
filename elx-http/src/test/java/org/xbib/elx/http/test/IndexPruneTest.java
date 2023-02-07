@@ -2,6 +2,7 @@ package org.xbib.elx.http.test;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.xbib.elx.api.IndexDefinition;
@@ -21,6 +22,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(TestExtension.class)
@@ -44,21 +46,21 @@ class IndexPruneTest {
                 .setBulkClientProvider(HttpBulkClientProvider.class)
                 .put(helper.getClientSettings())
                 .build()) {
-            IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
-            indexDefinition.setIndex("test");
-            indexDefinition.setFullIndexName("test1");
+            IndexDefinition indexDefinition = new DefaultIndexDefinition("test_prune", "doc");
+            indexDefinition.setIndex("test_prune");
+            indexDefinition.setFullIndexName("test_prune1");
             bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
             adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
-            indexDefinition.setFullIndexName("test2");
+            indexDefinition.setFullIndexName("test_prune2");
             bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
             adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
-            indexDefinition.setFullIndexName("test3");
+            indexDefinition.setFullIndexName("test_prune3");
             bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
             adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
-            indexDefinition.setFullIndexName("test4");
+            indexDefinition.setFullIndexName("test_prune4");
             bulkClient.newIndex(indexDefinition);
             indexDefinition.setShift(true);
             adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
@@ -68,12 +70,12 @@ class IndexPruneTest {
             indexDefinition.setPrune(true);
             IndexPruneResult indexPruneResult = adminClient.pruneIndex(indexDefinition);
             logger.info("prune result = " + indexPruneResult);
-            assertTrue(indexPruneResult.getDeletedIndices().contains("test1"));
-            assertTrue(indexPruneResult.getDeletedIndices().contains("test2"));
-            assertFalse(indexPruneResult.getDeletedIndices().contains("test3"));
-            assertFalse(indexPruneResult.getDeletedIndices().contains("test4"));
+            assertTrue(indexPruneResult.getDeletedIndices().contains("test_prune1"));
+            assertTrue(indexPruneResult.getDeletedIndices().contains("test_prune2"));
+            assertFalse(indexPruneResult.getDeletedIndices().contains("test_prune3"));
+            assertFalse(indexPruneResult.getDeletedIndices().contains("test_prune4"));
             List<Boolean> list = new ArrayList<>();
-            for (String index : Arrays.asList("test1", "test2", "test3", "test4")) {
+            for (String index : Arrays.asList("test_prune1", "test_prune2", "test_prune3", "test_prune4")) {
                 IndexDefinition indexDefinition1 = new DefaultIndexDefinition(index, null);
                 indexDefinition1.setFullIndexName(index);
                 list.add(adminClient.isIndexExists(indexDefinition1));
@@ -83,6 +85,54 @@ class IndexPruneTest {
             assertFalse(list.get(1));
             assertTrue(list.get(2));
             assertTrue(list.get(3));
+            if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
+            }
+            assertNull(bulkClient.getBulkProcessor().getLastBulkError());
+        }
+    }
+
+    @Test
+    @Disabled("internal error")
+    void testPruneWithClose() throws IOException {
+        try (HttpAdminClient adminClient = ClientBuilder.builder()
+                .setAdminClientProvider(HttpAdminClientProvider.class)
+                .put(helper.getClientSettings())
+                .build();
+             HttpBulkClient bulkClient = ClientBuilder.builder()
+                     .setBulkClientProvider(HttpBulkClientProvider.class)
+                     .put(helper.getClientSettings())
+                     .build()) {
+            IndexDefinition indexDefinition = new DefaultIndexDefinition("test_prune", "doc");
+            indexDefinition.setIndex("test_prune");
+            indexDefinition.setFullIndexName("test_prune1");
+            bulkClient.newIndex(indexDefinition);
+            indexDefinition.setShift(true);
+            indexDefinition.setCloseShifted(true);
+            adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
+            indexDefinition.setFullIndexName("test_prune2");
+            bulkClient.newIndex(indexDefinition);
+            adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
+            indexDefinition.setFullIndexName("test_prune3");
+            bulkClient.newIndex(indexDefinition);
+            adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
+            indexDefinition.setFullIndexName("test_prune4");
+            bulkClient.newIndex(indexDefinition);
+            adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
+            indexDefinition.setDelta(2);
+            indexDefinition.setMinToKeep(2);
+            indexDefinition.setPrune(true);
+            indexDefinition.setEnabled(true);
+            IndexPruneResult indexPruneResult = adminClient.pruneIndex(indexDefinition);
+            logger.info("prune result = " + indexPruneResult);
+            assertSame(indexPruneResult.getState(), IndexPruneResult.State.NONE);
+            for (String index : Arrays.asList("test_prune1", "test_prune2", "test_prune3")) {
+                IndexDefinition indexDefinition1 = new DefaultIndexDefinition(index, null);
+                indexDefinition1.setFullIndexName(index);
+                assertTrue(adminClient.isIndexExists(indexDefinition1));
+                assertTrue(adminClient.isIndexClosed(indexDefinition1));
+            }
+            assertTrue(adminClient.isIndexOpen(indexDefinition));
             if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }

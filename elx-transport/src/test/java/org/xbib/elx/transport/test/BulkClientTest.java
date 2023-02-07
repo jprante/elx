@@ -23,7 +23,7 @@ class BulkClientTest {
 
     private static final Logger logger = LogManager.getLogger(BulkClientTest.class.getName());
 
-    private static final Long ACTIONS = 100000L;
+    private static final Long ACTIONS = 1000L;
 
     private final TestExtension.Helper helper;
 

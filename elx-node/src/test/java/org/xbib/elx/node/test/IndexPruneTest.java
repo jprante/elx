@@ -21,6 +21,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(TestExtension.class)
@@ -44,7 +45,7 @@ class IndexPruneTest {
                 .setBulkClientProvider(NodeBulkClientProvider.class)
                 .put(helper.getClientSettings())
                 .build()) {
-            IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
+            IndexDefinition indexDefinition = new DefaultIndexDefinition("test_prune", "doc");
             indexDefinition.setIndex("test_prune");
             indexDefinition.setFullIndexName("test_prune1");
             bulkClient.newIndex(indexDefinition);
@@ -83,6 +84,53 @@ class IndexPruneTest {
             assertFalse(list.get(1));
             assertTrue(list.get(2));
             assertTrue(list.get(3));
+            if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
+                logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
+            }
+            assertNull(bulkClient.getBulkProcessor().getLastBulkError());
+        }
+    }
+
+    @Test
+    void testPruneWithClose() throws IOException {
+        try (NodeAdminClient adminClient = ClientBuilder.builder()
+                .setAdminClientProvider(NodeAdminClientProvider.class)
+                .put(helper.getClientSettings())
+                .build();
+             NodeBulkClient bulkClient = ClientBuilder.builder()
+                     .setBulkClientProvider(NodeBulkClientProvider.class)
+                     .put(helper.getClientSettings())
+                     .build()) {
+            IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "doc");
+            indexDefinition.setIndex("test_prune");
+            indexDefinition.setFullIndexName("test_prune1");
+            bulkClient.newIndex(indexDefinition);
+            indexDefinition.setShift(true);
+            indexDefinition.setCloseShifted(true);
+            adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
+            indexDefinition.setFullIndexName("test_prune2");
+            bulkClient.newIndex(indexDefinition);
+            adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
+            indexDefinition.setFullIndexName("test_prune3");
+            bulkClient.newIndex(indexDefinition);
+            adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
+            indexDefinition.setFullIndexName("test_prune4");
+            bulkClient.newIndex(indexDefinition);
+            adminClient.shiftIndex(indexDefinition, Collections.emptyList(), null);
+            indexDefinition.setDelta(2);
+            indexDefinition.setMinToKeep(2);
+            indexDefinition.setPrune(true);
+            indexDefinition.setEnabled(true);
+            IndexPruneResult indexPruneResult = adminClient.pruneIndex(indexDefinition);
+            logger.info("prune result = " + indexPruneResult);
+            assertSame(indexPruneResult.getState(), IndexPruneResult.State.NONE);
+            for (String index : Arrays.asList("test_prune1", "test_prune2", "test_prune3")) {
+                IndexDefinition indexDefinition1 = new DefaultIndexDefinition(index, null);
+                indexDefinition1.setFullIndexName(index);
+                assertTrue(adminClient.isIndexExists(indexDefinition1));
+                assertTrue(adminClient.isIndexClosed(indexDefinition1));
+            }
+            assertTrue(adminClient.isIndexOpen(indexDefinition));
             if (bulkClient.getBulkProcessor().getLastBulkError() != null) {
                 logger.error("error", bulkClient.getBulkProcessor().getLastBulkError());
             }
