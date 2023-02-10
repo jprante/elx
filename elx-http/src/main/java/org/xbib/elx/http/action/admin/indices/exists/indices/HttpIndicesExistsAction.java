@@ -33,7 +33,7 @@ public class HttpIndicesExistsAction extends HttpAction<IndicesExistsRequest, In
      * @return the ELasticsearch sttatus exception
      */
     @Override
-    protected ElasticsearchStatusException parseToError(HttpActionContext<IndicesExistsRequest, IndicesExistsResponse> httpActionContext) {
+    protected ElasticsearchStatusException parseToError(HttpActionContext<IndicesExistsRequest, IndicesExistsResponse> httpActionContext, String content) {
         return new ElasticsearchStatusException("not found", RestStatus.NOT_FOUND);
     }
 

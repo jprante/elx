@@ -7,8 +7,9 @@ org.xbib.elx.http.action.admin.indices.alias.HttpIndicesAliasesAction
 org.xbib.elx.http.action.admin.indices.alias.get.HttpGetAliasAction
 org.xbib.elx.http.action.admin.indices.create.HttpCreateIndexAction
 org.xbib.elx.http.action.admin.indices.delete.HttpDeleteIndexAction
+org.xbib.elx.http.action.admin.indices.close.HttpCloseIndexAction
 org.xbib.elx.http.action.admin.indices.exists.indices.HttpIndicesExistsAction
-org.xbib.elx.http.action.admin.indices.get.HtppGetIndexAction
+org.xbib.elx.http.action.admin.indices.get.HttpGetIndexAction
 org.xbib.elx.http.action.admin.indices.refresh.HttpRefreshIndexAction
 org.xbib.elx.http.action.admin.indices.settings.get.HttpGetSettingsAction
 org.xbib.elx.http.action.admin.indices.settings.put.HttpUpdateSettingsAction

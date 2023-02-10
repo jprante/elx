@@ -2,7 +2,6 @@ package org.xbib.elx.http.action.admin.cluster.state;
 
 import com.carrotsearch.hppc.LongArrayList;
 import org.apache.logging.log4j.Level;
-import org.elasticsearch.Version;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
@@ -26,6 +25,7 @@ import org.xbib.net.http.client.HttpResponse;
 import org.xbib.net.http.client.netty.HttpRequestBuilder;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -98,7 +98,7 @@ public class HttpClusterStateAction extends HttpAction<ClusterStateRequest, Clus
             if (METADATA.equals(currentFieldName)) {
                 parser.nextToken();
                 // MetaData.fromXContent(parser) is broken (Expected [meta-data] as a field name but got cluster_uuid)
-                // so we have to replace it
+                // so we have to replace it by our code.
                 builder.metadata(metadataFromXContent(parser));
             }
         }
@@ -123,8 +123,8 @@ public class HttpClusterStateAction extends HttpAction<ClusterStateRequest, Clus
                     builder.persistentSettings(Settings.fromXContent(parser));
                 } else if ("indices".equals(currentFieldName)) {
                     while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
+                        // see IndexMetadata.Builder.fromXContent(parser)
                         builder.put(indexMetaDataFromXContent(parser), false);
-                        // builder.put(IndexMetadata.Builder.fromXContent(parser), false);
                     }
                 } else if ("hashes_of_consistent_settings".equals(currentFieldName)) {
                     builder.hashesOfConsistentSettings(parser.mapStrings());
@@ -145,9 +145,9 @@ public class HttpClusterStateAction extends HttpAction<ClusterStateRequest, Clus
                 }
             } else if (token.isValue()) {
                 if ("version".equals(currentFieldName)) {
-                    // private field
+                    // skip
                 } else if ("cluster_uuid".equals(currentFieldName) || "uuid".equals(currentFieldName)) {
-                    // private field
+                    // skip
                 } else if ("cluster_uuid_committed".equals(currentFieldName)) {
                     // skip
                 } else {
@@ -190,9 +190,6 @@ public class HttpClusterStateAction extends HttpAction<ClusterStateRequest, Clus
         if (token != XContentParser.Token.START_OBJECT) {
             throw new IllegalArgumentException("expected object but got a " + token);
         }
-        boolean mappingVersion = false;
-        boolean settingsVersion = false;
-        boolean aliasesVersion = false;
         while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
             if (token == XContentParser.Token.FIELD_NAME) {
                 currentFieldName = parser.currentName();
@@ -244,11 +241,6 @@ public class HttpClusterStateAction extends HttpAction<ClusterStateRequest, Clus
                         }
                     }
                 } else if ("warmers".equals(currentFieldName)) {
-                    // TODO: do this in 6.0:
-                    // throw new IllegalArgumentException("Warmers are not supported anymore - are you upgrading from 1.x?");
-                    // ignore: warmers have been removed in 5.0 and are
-                    // simply ignored when upgrading from 2.x
-                    assert Version.CURRENT.major <= 5;
                     parser.skipChildren();
                 } else {
                     throw new IllegalArgumentException("Unexpected field for an object " + currentFieldName);
@@ -288,13 +280,13 @@ public class HttpClusterStateAction extends HttpAction<ClusterStateRequest, Clus
                 } else if (KEY_VERSION.equals(currentFieldName)) {
                     builder.version(parser.longValue());
                 } else if (KEY_MAPPING_VERSION.equals(currentFieldName)) {
-                    mappingVersion = true;
+                    // mappingVersion = true;
                     builder.mappingVersion(parser.longValue());
                 } else if (KEY_SETTINGS_VERSION.equals(currentFieldName)) {
-                    settingsVersion = true;
+                    // settingsVersion = true;
                     builder.settingsVersion(parser.longValue());
                 } else if (KEY_ALIASES_VERSION.equals(currentFieldName)) {
-                    aliasesVersion = true;
+                    // aliasesVersion = true;
                     builder.aliasesVersion(parser.longValue());
                 } else if (KEY_ROUTING_NUM_SHARDS.equals(currentFieldName)) {
                     builder.setRoutingNumShards(parser.intValue());

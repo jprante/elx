@@ -93,7 +93,6 @@ class IndexPruneTest {
     }
 
     @Test
-    @Disabled("internal error")
     void testPruneWithClose() throws IOException {
         try (HttpAdminClient adminClient = ClientBuilder.builder()
                 .setAdminClientProvider(HttpAdminClientProvider.class)

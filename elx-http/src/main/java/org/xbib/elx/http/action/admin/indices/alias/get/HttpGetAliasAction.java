@@ -1,5 +1,6 @@
 package org.xbib.elx.http.action.admin.indices.alias.get;
 
+import org.apache.logging.log4j.Level;
 import org.elasticsearch.action.ActionType;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesAction;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
@@ -13,6 +14,7 @@ import org.xbib.net.http.client.HttpResponse;
 import org.xbib.net.http.client.netty.HttpRequestBuilder;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,11 +24,9 @@ public class HttpGetAliasAction extends HttpAction<GetAliasesRequest, GetAliases
 
     @Override
     protected HttpRequestBuilder createHttpRequest(String url, GetAliasesRequest request) {
-        // beware of this inconsistency, request.indices() always return empty array
-        String index = request.indices() != null ? String.join(",", request.indices()) + "/" : "";
-        String aliases = request.aliases() != null ? String.join(",", request.aliases()) + "/" : "";
-        // do not add "/" in front of index
-        return newGetRequest(url, index + "_alias/" + aliases);
+        String index = request.indices() != null ? String.join(",", request.indices()) : "";
+        String aliases = request.aliases() != null ? String.join(",", request.aliases()) : "";
+        return newGetRequest(url, index + "/_alias" + (aliases.isEmpty() ? "" : "/" + aliases));
     }
 
     @Override

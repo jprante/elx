@@ -13,7 +13,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-public class HtppGetIndexAction extends HttpAction<GetIndexRequest, GetIndexResponse> {
+public class HttpGetIndexAction extends HttpAction<GetIndexRequest, GetIndexResponse> {
 
     @Override
     public GetIndexAction getActionInstance() {
@@ -25,7 +25,6 @@ public class HtppGetIndexAction extends HttpAction<GetIndexRequest, GetIndexResp
         List<String> list =  getIndexRequest.indices().length == 0 ?
                 List.of("*") : Arrays.asList(getIndexRequest.indices());
         String command = "/" + String.join(",", list);
-        logger.info("command = " + command);
         return newGetRequest(url, command);
     }
 

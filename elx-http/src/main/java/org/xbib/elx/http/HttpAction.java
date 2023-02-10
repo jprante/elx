@@ -60,18 +60,19 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
                     createHttpRequest(httpActionContext.getUrl(), httpActionContext.getRequest());
             HttpRequest httpRequest = httpRequestBuilder.build();
             httpRequest.setResponseListener(fullHttpResponse -> {
+                httpActionContext.setHttpResponse(fullHttpResponse);
+                String content = httpActionContext.getHttpResponse().getBodyAsChars(StandardCharsets.UTF_8).toString();
                 if (logger.isTraceEnabled()) {
                     logger.log(Level.TRACE, "got response: " + fullHttpResponse.getStatus().codeAsText() +
                             " headers = " + fullHttpResponse.getHeaders() +
-                            " content = " + fullHttpResponse.getBodyAsChars(StandardCharsets.UTF_8));
+                            " content = " + content);
                 }
-                httpActionContext.setHttpResponse(fullHttpResponse);
                 if (fullHttpResponse.getStatus().code() == 200) {
-                    listener.onResponse(parseToResponse(httpActionContext));
+                    listener.onResponse(parseToResponse(httpActionContext, content));
                 } else {
-                    ElasticsearchStatusException statusException = parseToError(httpActionContext);
+                    ElasticsearchStatusException statusException = parseToError(httpActionContext, content);
                     if (statusException.status().equals(RestStatus.NOT_FOUND)) {
-                        listener.onResponse(parseToResponse(httpActionContext));
+                        listener.onResponse(parseToResponse(httpActionContext, content));
                     } else {
                         listener.onFailure(statusException);
                     }
@@ -147,7 +148,7 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
         return HttpRequest.builder(method).setURL(URL.from(baseUrl).resolve(path)).content(content, APPLICATION_JSON);
     }
 
-    protected T parseToResponse(HttpActionContext<R, T> httpActionContext) {
+    protected T parseToResponse(HttpActionContext<R, T> httpActionContext, String content) {
         String mediaType = httpActionContext.getHttpResponse().getHeaders().get(HttpHeaderNames.CONTENT_TYPE);
         XContentType xContentType = XContentType.fromMediaTypeOrFormat(mediaType);
         if (xContentType == null) {
@@ -156,23 +157,24 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
         try (XContentParser parser = xContentType.xContent()
                 .createParser(httpActionContext.getExtendedHttpClient().getRegistry(),
                 DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                httpActionContext.getHttpResponse().getBodyAsChars(StandardCharsets.UTF_8).toString())) {
+                content)) {
             return entityParser(httpActionContext.getHttpResponse()).apply(parser);
         } catch (Throwable e) {
             // catch all kinds of errors in the entity parsing process
             logger.error(e.getMessage(), e);
             logger.error("status = " + httpActionContext.getHttpResponse().getStatus().code());
-            logger.error("body = " + httpActionContext.getHttpResponse().getBodyAsChars(StandardCharsets.UTF_8));
+            logger.error("body = " + content);
             return null;
         }
     }
 
-    protected ElasticsearchStatusException parseToError(HttpActionContext<R, T> httpActionContext) {
+    protected ElasticsearchStatusException parseToError(HttpActionContext<R, T> httpActionContext,
+                                                        String content) {
         // we assume a non-empty, valid JSON response body. If there is none, this method must be overriden.
         try (XContentParser parser = XContentFactory.xContent(XContentType.JSON)
                 .createParser(httpActionContext.getExtendedHttpClient().getRegistry(),
                         DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                        httpActionContext.getHttpResponse().getBodyAsChars(StandardCharsets.UTF_8).toString())) {
+                        content)) {
             return errorParser().apply(parser);
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
