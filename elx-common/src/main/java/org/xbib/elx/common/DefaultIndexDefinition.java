@@ -80,7 +80,11 @@ public class DefaultIndexDefinition implements IndexDefinition {
         setEnabled(true);
     }
 
-    public DefaultIndexDefinition(AdminClient adminClient, String index, String type, Settings settings, ClassLoader classLoader)
+    public DefaultIndexDefinition(AdminClient adminClient,
+                                  String index,
+                                  String type,
+                                  Settings settings,
+                                  ClassLoader classLoader)
             throws IOException {
         String indexName = settings.get("name", index);
         String indexType = settings.get("type", type);
@@ -122,6 +126,8 @@ public class DefaultIndexDefinition implements IndexDefinition {
                 setMinToKeep(settings.getAsInt("retention.mintokeep", 2));
                 setDelta(settings.getAsInt("retention.delta", 2));
             }
+            boolean closeShifted = settings.getAsBoolean("closeShifted", false);
+            setCloseShifted(closeShifted);
         }
     }
 
