@@ -96,7 +96,7 @@ public class DefaultIndexDefinition implements IndexDefinition {
         setForceMerge(forcemerge);
         setShardCount(settings.getAsInt("shards", 1));
         setReplicaCount(settings.getAsInt("replicas", 1));
-        String fullIndexName = adminClient.resolveAlias(indexName).stream().findFirst().orElse(indexName);
+        String fullIndexName = adminClient.resolveAliasFromClusterState(indexName).stream().findFirst().orElse(indexName);
         setFullIndexName(fullIndexName);
         setStartBulkRefreshSeconds(settings.getAsInt(Parameters.BULK_START_REFRESH_SECONDS.getName(),
                 Parameters.BULK_START_REFRESH_SECONDS.getInteger()));
@@ -118,7 +118,7 @@ public class DefaultIndexDefinition implements IndexDefinition {
             Pattern dateTimePattern = Pattern.compile(dateTimePatternStr);
             setDateTimePattern(dateTimePattern);
             String fullName = indexName + dateTimeFormatter.format(LocalDateTime.now());
-            fullIndexName = adminClient.resolveAlias(fullName).stream().findFirst().orElse(fullName);
+            fullIndexName = adminClient.resolveAliasFromClusterState(fullName).stream().findFirst().orElse(fullName);
             setFullIndexName(fullIndexName);
             boolean prune = settings.getAsBoolean("prune", false);
             setPrune(prune);
@@ -398,5 +398,10 @@ public class DefaultIndexDefinition implements IndexDefinition {
         } catch (IOException e) {
             return null;
         }
+    }
+
+    @Override
+    public String toString() {
+        return index + "[" + fullIndexName + "]";
     }
 }

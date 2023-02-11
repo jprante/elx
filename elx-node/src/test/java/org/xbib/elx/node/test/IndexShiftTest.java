@@ -66,7 +66,7 @@ class IndexShiftTest {
             assertTrue(aliases.containsKey("b"));
             assertTrue(aliases.containsKey("c"));
             assertTrue(aliases.containsKey(indexDefinition.getIndex()));
-            Optional<String> resolved = adminClient.resolveAlias(indexDefinition.getIndex()).stream().findFirst();
+            Optional<String> resolved = adminClient.resolveAliasFromClusterState(indexDefinition.getIndex()).stream().findFirst();
             aliases = resolved.isPresent() ?
                     adminClient.getAliases(resolved.get()) : Collections.emptyMap();
             assertTrue(aliases.containsKey("a"));
@@ -96,7 +96,7 @@ class IndexShiftTest {
             assertTrue(aliases.containsKey("d"));
             assertTrue(aliases.containsKey("e"));
             assertTrue(aliases.containsKey("f"));
-            resolved = adminClient.resolveAlias("test").stream().findFirst();
+            resolved = adminClient.resolveAliasFromClusterState("test").stream().findFirst();
             aliases = resolved.isPresent() ? adminClient.getAliases(resolved.get()) : Collections.emptyMap();
             assertTrue(aliases.containsKey("a"));
             assertTrue(aliases.containsKey("b"));

@@ -8,6 +8,12 @@ import java.util.Map;
  */
 public interface AdminClient extends BasicClient {
 
+    /**
+     * Get the mapping of an index.
+     *
+     * @param indexDefinition the index definition
+     * @return the mapping
+     */
     Map<String, Object> getMapping(IndexDefinition indexDefinition);
 
     void checkMapping(IndexDefinition indexDefinition);
@@ -15,36 +21,45 @@ public interface AdminClient extends BasicClient {
     /**
      * Delete an index.
      * @param indexDefinition the index definition
-     * @return this
      */
-    AdminClient deleteIndex(IndexDefinition indexDefinition);
+    void deleteIndex(IndexDefinition indexDefinition);
 
-    AdminClient deleteIndex(String indexName);
+    /**
+     * Delete an index.
+     * @param indexName the index name
+     */
+    void deleteIndex(String indexName);
 
     /**
      * Close an index.
      * @param indexDefinition the index definition
-     * @return this
      */
-    AdminClient closeIndex(IndexDefinition indexDefinition);
+    void closeIndex(IndexDefinition indexDefinition);
 
-    AdminClient closeIndex(String indexName);
+    /**
+     * Close an index.
+     * @param indexName the index name
+     */
+    void closeIndex(String indexName);
 
     /**
      * Open an index.
      * @param indexDefinition the index definition
-     * @return this
      */
-    AdminClient openIndex(IndexDefinition indexDefinition);
+    void openIndex(IndexDefinition indexDefinition);
 
-    AdminClient openIndex(String indexName);
+    /**
+     * Open an index.
+     * @param indexName the index name
+     */
+    void openIndex(String indexName);
+
 
     /**
      * Update replica level to the one in the index definition.
      * @param indexDefinition the index definition
-     * @return this
      */
-    AdminClient updateReplicaLevel(IndexDefinition indexDefinition);
+    void updateReplicaLevel(IndexDefinition indexDefinition);
 
     /**
      * Get replica level.
@@ -56,19 +71,32 @@ public interface AdminClient extends BasicClient {
     /**
      * Force segment merge of an index.
      * @param indexDefinition the index definition
-     * @return this
+     * @param maxNumSegments maximum number of segments
      */
-    boolean forceMerge(IndexDefinition indexDefinition);
-
-    Collection<String> resolveIndex(String index);
+    void forceMerge(IndexDefinition indexDefinition, int maxNumSegments);
 
     /**
-     * Resolve alias.
+     * Force segment merge of an index.
+     * @param indexName the index name
+     * @param maxNumSegments maximum number of segments
+     */
+    void forceMerge(String indexName, int maxNumSegments);
+
+    /**
+     * Resolve an alias.
+     *
+     * @param alias the alias name.
+     * @return the index names in ordered sequence or an empty list if there is no such index
+     */
+    Collection<String> getAlias(String alias);
+
+    /**
+     * Resolve alias to a list of indices from cluster state.
      *
      * @param alias the alias
      * @return the index names in ordered sequence behind the alias or an empty list if there is no such alias
      */
-    Collection<String> resolveAlias(String alias);
+    Collection<String> resolveAliasFromClusterState(String alias);
 
     /**
      * Resolve alias to all connected indices, sort index names with most recent timestamp on top, return this index

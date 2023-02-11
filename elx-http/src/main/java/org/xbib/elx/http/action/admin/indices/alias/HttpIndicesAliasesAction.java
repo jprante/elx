@@ -1,6 +1,5 @@
 package org.xbib.elx.http.action.admin.indices.alias;
 
-import org.apache.logging.log4j.Level;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesAction;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.support.master.AcknowledgedResponse;
@@ -28,8 +27,7 @@ public class HttpIndicesAliasesAction extends HttpAction<IndicesAliasesRequest, 
         try {
             XContentBuilder builder = JsonXContent.contentBuilder();
             request.toXContent(builder, ToXContent.EMPTY_PARAMS);
-            String body =  Strings.toString(builder);
-            logger.log(Level.DEBUG, "body = " + body);
+            String body = Strings.toString(builder);
             return newPostRequest(url, "/_aliases", body);
         } catch (IOException e) {
             logger.error(e.getMessage(), e);

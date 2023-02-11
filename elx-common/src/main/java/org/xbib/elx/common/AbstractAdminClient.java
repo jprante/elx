@@ -2,6 +2,7 @@ package org.xbib.elx.common;
 
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
@@ -99,18 +100,18 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     }
 
     @Override
-    public AdminClient deleteIndex(IndexDefinition indexDefinition) {
+    public void deleteIndex(IndexDefinition indexDefinition) {
         if (isIndexDefinitionDisabled(indexDefinition)) {
-            return this;
+            return;
         }
-        return deleteIndex(indexDefinition.getFullIndexName());
+        deleteIndex(indexDefinition.getFullIndexName());
     }
 
     @Override
-    public AdminClient deleteIndex(String indexName) {
+    public void deleteIndex(String indexName) {
         if (indexName == null) {
             logger.warn("no index name given to delete index");
-            return this;
+            return;
         }
         ensureClientIsPresent();
         DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest().indices(indexName);
@@ -119,22 +120,21 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             logger.info("index " + indexName + " deleted");
         }
         waitForHealthyCluster();
-        return this;
     }
 
     @Override
-    public AdminClient closeIndex(IndexDefinition indexDefinition) {
+    public void closeIndex(IndexDefinition indexDefinition) {
         if (isIndexDefinitionDisabled(indexDefinition)) {
-            return this;
+            return;
         }
-        return closeIndex(indexDefinition.getFullIndexName());
+        closeIndex(indexDefinition.getFullIndexName());
     }
 
     @Override
-    public AdminClient closeIndex(String indexName) {
+    public void closeIndex(String indexName) {
         if (indexName == null) {
             logger.warn("no index name given to close index");
-            return this;
+            return;
         }
         ensureClientIsPresent();
         CloseIndexRequest closeIndexRequest = new CloseIndexRequest().indices(indexName);
@@ -149,22 +149,21 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                 }
             });
         }
-        return this;
     }
 
     @Override
-    public AdminClient openIndex(IndexDefinition indexDefinition) {
+    public void openIndex(IndexDefinition indexDefinition) {
         if (isIndexDefinitionDisabled(indexDefinition)) {
-            return this;
+            return;
         }
-        return openIndex(indexDefinition.getFullIndexName());
+        openIndex(indexDefinition.getFullIndexName());
     }
 
     @Override
-    public AdminClient openIndex(String indexName) {
+    public void openIndex(String indexName) {
         if (indexName == null) {
             logger.warn("no index name given to close index");
-            return this;
+            return;
         }
         ensureClientIsPresent();
         OpenIndexRequest openIndexRequest = new OpenIndexRequest().indices(indexName);
@@ -172,18 +171,17 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         if (openIndexResponse.isAcknowledged()) {
             logger.info("index " + indexName + " opened");
         }
-        return this;
     }
 
     @Override
-    public AdminClient updateReplicaLevel(IndexDefinition indexDefinition) {
+    public void updateReplicaLevel(IndexDefinition indexDefinition) {
         if (isIndexDefinitionDisabled(indexDefinition)) {
-            return this;
+            return;
         }
         if (indexDefinition.getReplicaCount() < 0) {
             logger.warn("invalid replica level defined for index "
                     + indexDefinition.getIndex() + ": " + indexDefinition.getReplicaCount());
-            return this;
+            return;
         }
         logger.info("update replica level for " + indexDefinition + " to " + indexDefinition.getReplicaCount());
         int currentReplicaLevel = getReplicaLevel(indexDefinition);
@@ -203,7 +201,6 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             putClusterSetting("indices.recovery.max_bytes_per_sec", "40mb", 30L, TimeUnit.SECONDS);
             logger.info("recovery boost deactivated");
         }
-        return this;
     }
 
     @Override
@@ -214,7 +211,8 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         ensureClientIsPresent();
         String index = indexDefinition.getFullIndexName();
         GetSettingsRequest request = new GetSettingsRequest().indices(index);
-        GetSettingsResponse response = client.execute(GetSettingsAction.INSTANCE, request).actionGet();
+        GetSettingsResponse response = client.execute(GetSettingsAction.INSTANCE, request)
+                .actionGet();
         int replica = -1;
         for (ObjectObjectCursor<String, Settings> cursor : response.getIndexToSettings()) {
             Settings settings = cursor.value;
@@ -225,27 +223,9 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         return replica;
     }
 
-    public Collection<String> resolveIndex(String prefix) {
-        if (prefix == null) {
-            return null;
-        }
-        ensureClientIsPresent();
-        GetAliasesRequest getAliasesRequest = new GetAliasesRequest().aliases(prefix);
-        GetAliasesResponse getAliasesResponse = client.execute(GetAliasesAction.INSTANCE, getAliasesRequest).actionGet();
-        Pattern pattern = Pattern.compile("^(.*?)(\\d+)$");
-        Set<String> indices = new TreeSet<>(Collections.reverseOrder());
-        for (ObjectCursor<String> indexName : getAliasesResponse.getAliases().keys()) {
-            Matcher m = pattern.matcher(indexName.value);
-            if (m.matches() && prefix.equals(m.group(1))) {
-                indices.add(indexName.value);
-            }
-        }
-        return indices;
-    }
-
     @Override
     public String resolveMostRecentIndex(String alias) {
-        Collection<String> indices = resolveIndex(alias);
+        Collection<String> indices = getAlias(alias);
         return indices.isEmpty() ? alias : indices.iterator().next();
     }
 
@@ -259,8 +239,26 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         return getFilters(client.execute(GetAliasesAction.INSTANCE, getAliasesRequest).actionGet());
     }
 
+
     @Override
-    public List<String> resolveAlias(String alias) {
+    public Collection<String> getAlias(String alias) {
+        if (alias == null) {
+            return null;
+        }
+        ensureClientIsPresent();
+        GetAliasesRequest getAliasesRequest = new GetAliasesRequest()
+                .aliases(alias);
+        GetAliasesResponse getAliasesResponse = client.execute(GetAliasesAction.INSTANCE, getAliasesRequest)
+                .actionGet();
+        Set<String> set = new TreeSet<>();
+        for (ObjectCursor<String> string : getAliasesResponse.getAliases().keys()) {
+            set.add(string.value);
+        }
+        return set;
+    }
+
+    @Override
+    public List<String> resolveAliasFromClusterState(String alias) {
         if (alias == null) {
             return Collections.emptyList();
         }
@@ -300,7 +298,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         }
         if (indexDefinition.isShiftEnabled()) {
             if (indexDefinition.isCloseShifted()) {
-                resolveIndex(indexDefinition.getIndex()).stream()
+                getAlias(indexDefinition.getIndex()).stream()
                         .filter(s -> !s.equals(indexDefinition.getFullIndexName()))
                         .forEach(this::closeIndex);
             }
@@ -324,7 +322,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             return new EmptyIndexShiftResult(); // nothing to shift to
         }
         // two situations: 1. a new alias 2. there is already an old index with the alias
-        Optional<String> oldIndex = resolveAlias(index).stream().sorted().findFirst();
+        Optional<String> oldIndex = resolveAliasFromClusterState(index).stream().sorted().findFirst();
         Map<String, String> oldAliasMap = oldIndex.map(this::getAliases).orElse(null);
         logger.info("old index = {} old alias map = {}", oldIndex.orElse(""), oldAliasMap);
         final List<String> newAliases = new ArrayList<>();
@@ -492,24 +490,31 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     }
 
     @Override
-    public boolean forceMerge(IndexDefinition indexDefinition) {
+    public void forceMerge(IndexDefinition indexDefinition, int maxNumSegments) {
         if (isIndexDefinitionDisabled(indexDefinition)) {
-            return false;
+            return;
         }
         if (!indexDefinition.isForceMergeEnabled()) {
-            return false;
+            logger.info("force merge is disabled (this is the default in an index definition)");
+            return;
         }
+        forceMerge(indexDefinition.getFullIndexName(), maxNumSegments);
+    }
+
+    @Override
+    public void forceMerge(String indexName, int maxNumSegments) {
         ensureClientIsPresent();
-        logger.info("force merge of " + indexDefinition);
+        logger.info("starting force merge of " + indexName + " to " + maxNumSegments + " segments");
         ForceMergeRequest forceMergeRequest = new ForceMergeRequest();
-        forceMergeRequest.indices(indexDefinition.getFullIndexName());
+        forceMergeRequest.indices(indexName);
+        forceMergeRequest.maxNumSegments(maxNumSegments);
         ForceMergeResponse forceMergeResponse = client.execute(ForceMergeAction.INSTANCE, forceMergeRequest)
                     .actionGet();
+        logger.log(Level.INFO, "after force merge, status = " + forceMergeResponse.getStatus());
         if (forceMergeResponse.getFailedShards() > 0) {
             throw new IllegalStateException("failed shards after force merge: " + forceMergeResponse.getFailedShards());
         }
         waitForHealthyCluster();
-        return true;
     }
 
     @Override
