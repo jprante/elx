@@ -553,7 +553,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     @Override
     public void forceMerge(String indexName, int maxNumSegments) {
         ensureClientIsPresent();
-        logger.info("starting force merge of " + indexName + " to " + maxNumSegments + " segments");
+        logger.log(Level.INFO, "starting force merge of " + indexName + " to " + maxNumSegments + " segments");
         ForceMergeRequest forceMergeRequest = new ForceMergeRequest();
         forceMergeRequest.indices(indexName);
         forceMergeRequest.maxNumSegments(maxNumSegments);
