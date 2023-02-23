@@ -2,9 +2,11 @@ package org.xbib.elx.common;
 
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import java.text.MessageFormat;
+import java.time.Instant;
+import java.util.SortedMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
@@ -82,7 +84,54 @@ import static org.xbib.elx.api.IndexDefinition.TYPE_NAME;
 
 public abstract class AbstractAdminClient extends AbstractBasicClient implements AdminClient {
 
-    private static final Logger logger = LogManager.getLogger(AbstractAdminClient.class.getName());
+    private static final Logger logger = Logger.getLogger(AbstractAdminClient.class.getName());
+
+    @Override
+    public Collection<String> allIndices() {
+        ensureClientIsPresent();
+        ClusterStateRequest clusterStateRequest = new ClusterStateRequest();
+        clusterStateRequest.blocks(false);
+        clusterStateRequest.metadata(true);
+        clusterStateRequest.nodes(false);
+        clusterStateRequest.routingTable(false);
+        clusterStateRequest.customs(false);
+        ClusterStateResponse clusterStateResponse =
+                client.execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
+        SortedMap<String, IndexAbstraction> indexAbstractions = clusterStateResponse.getState().getMetadata()
+                .getIndicesLookup();
+        if (indexAbstractions == null) {
+            return Collections.emptyList();
+        }
+        return indexAbstractions.keySet();
+    }
+
+    @Override
+    public Collection<String> allClosedIndices() {
+        return allClosedIndicesOlderThan(Instant.now());
+    }
+
+    @Override
+    public Collection<String> allClosedIndicesOlderThan(Instant instant) {
+        ensureClientIsPresent();
+        ClusterStateRequest clusterStateRequest = new ClusterStateRequest();
+        clusterStateRequest.blocks(false);
+        clusterStateRequest.metadata(true);
+        clusterStateRequest.nodes(false);
+        clusterStateRequest.routingTable(false);
+        clusterStateRequest.customs(false);
+        ClusterStateResponse clusterStateResponse =
+                client.execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
+        return clusterStateResponse.getState().getMetadata()
+                .getIndicesLookup().values().stream()
+                .flatMap(ia -> ia.getIndices().stream().filter(i -> i.getState().equals(IndexMetadata.State.CLOSE) && i.getCreationDate() < instant.toEpochMilli()))
+                .map(im -> im.getIndex().getName())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void purgeAllClosedIndicesOlderThan(Instant instant) {
+        allClosedIndicesOlderThan(instant).forEach(this::deleteIndex);
+    }
 
     @Override
     public Map<String, Object> getMapping(IndexDefinition indexDefinition) {
@@ -110,7 +159,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     @Override
     public void deleteIndex(String indexName) {
         if (indexName == null) {
-            logger.warn("no index name given to delete index");
+            logger.log(Level.WARNING, "no index name given to delete index");
             return;
         }
         ensureClientIsPresent();
@@ -133,7 +182,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     @Override
     public void closeIndex(String indexName) {
         if (indexName == null) {
-            logger.warn("no index name given to close index");
+            logger.log(Level.WARNING, "no index name given to close index");
             return;
         }
         ensureClientIsPresent();
@@ -143,9 +192,9 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             List<CloseIndexResponse.IndexResult> list = closeIndexResponse.getIndices();
             list.forEach(result -> {
                 if (result.hasFailures()) {
-                    logger.warn("error when closing " + result.getIndex(), result.getException());
+                    logger.log(Level.WARNING, "error when closing " + result.getIndex(), result.getException());
                 } else {
-                    logger.info("index " + result.getIndex() + " closed");
+                    logger.log(Level.INFO, "index " + result.getIndex() + " closed");
                 }
             });
         }
@@ -162,14 +211,14 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
     @Override
     public void openIndex(String indexName) {
         if (indexName == null) {
-            logger.warn("no index name given to close index");
+            logger.log(Level.WARNING, "no index name given to close index");
             return;
         }
         ensureClientIsPresent();
         OpenIndexRequest openIndexRequest = new OpenIndexRequest().indices(indexName);
         OpenIndexResponse openIndexResponse = client.execute(OpenIndexAction.INSTANCE, openIndexRequest).actionGet();
         if (openIndexResponse.isAcknowledged()) {
-            logger.info("index " + indexName + " opened");
+            logger.log(Level.INFO, "index " + indexName + " opened");
         }
     }
 
@@ -179,7 +228,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             return;
         }
         if (indexDefinition.getReplicaCount() < 0) {
-            logger.warn("invalid replica level defined for index "
+            logger.log(Level.WARNING, "invalid replica level defined for index "
                     + indexDefinition.getIndex() + ": " + indexDefinition.getReplicaCount());
             return;
         }
@@ -324,7 +373,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         // two situations: 1. a new alias 2. there is already an old index with the alias
         Optional<String> oldIndex = resolveAliasFromClusterState(index).stream().sorted().findFirst();
         Map<String, String> oldAliasMap = oldIndex.map(this::getAliases).orElse(null);
-        logger.info("old index = {} old alias map = {}", oldIndex.orElse(""), oldAliasMap);
+        logger.log(Level.INFO, "old index = " + oldIndex.orElse("") + " old alias map = " + oldAliasMap);
         final List<String> newAliases = new ArrayList<>();
         final List<String> moveAliases = new ArrayList<>();
         IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
@@ -405,20 +454,20 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                                         Pattern pattern,
                                         int delta,
                                         int mintokeep) {
-        logger.info("before pruning: index = {} full index = {} delta = {} mintokeep = {} pattern = {}",
-                index, protectedIndexName, delta, mintokeep, pattern);
+        logger.log(Level.INFO, MessageFormat.format("before pruning: index = {0} full index = {1} delta = {2} mintokeep = {3} pattern = {4}",
+                index, protectedIndexName, delta, mintokeep, pattern));
         if (delta == 0 && mintokeep == 0) {
-            logger.warn("no candidates found, delta is 0 and mintokeep is 0");
+            logger.log(Level.INFO, "no candidates found, delta is 0 and mintokeep is 0");
             return new NonePruneResult();
         }
         if (index.equals(protectedIndexName)) {
-            logger.warn("no candidates found, only protected index name is given");
+            logger.log(Level.INFO, "no candidates found, only protected index name is given");
             return new NonePruneResult();
         }
         ensureClientIsPresent();
         GetIndexRequestBuilder getIndexRequestBuilder = new GetIndexRequestBuilder(client, GetIndexAction.INSTANCE);
         GetIndexResponse getIndexResponse = getIndexRequestBuilder.execute().actionGet();
-        logger.info("before pruning: found total of {} indices", getIndexResponse.getIndices().length);
+        logger.log(Level.INFO, "before pruning: found total of " + getIndexResponse.getIndices().length + " indices");
         List<String> candidateIndices = new ArrayList<>();
         for (String s : getIndexResponse.getIndices()) {
             Matcher m = pattern.matcher(s);
@@ -434,7 +483,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             return new NothingToDoPruneResult(candidateIndices, Collections.emptyList());
         }
         Collections.sort(candidateIndices);
-        logger.info("found {} candidates", candidateIndices);
+        logger.log(Level.INFO, "found candidates: " + candidateIndices);
         List<String> indicesToDelete = new ArrayList<>();
         Matcher m1 = pattern.matcher(protectedIndexName);
         if (m1.matches()) {
@@ -453,7 +502,7 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
         if (indicesToDelete.isEmpty()) {
             return new NothingToDoPruneResult(candidateIndices, indicesToDelete);
         }
-        logger.warn("deleting {}", indicesToDelete);
+        logger.log(Level.INFO, "deleting " + indicesToDelete);
         String[] s = new String[indicesToDelete.size()];
         DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest()
                 .indices(indicesToDelete.toArray(s));
@@ -578,19 +627,19 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
                 AtomicInteger empty = new AtomicInteger();
                 Map<String, Long> map = sortByValue(fields);
                 map.forEach((key, value) -> {
-                    logger.info("{} {} {}",
+                    logger.log(Level.INFO, MessageFormat.format("{0} {1} {2}",
                             key,
                             value,
-                            (double) value * 100 / total);
+                            (double) value * 100 / total));
                     if (value == 0) {
                         empty.incrementAndGet();
                     }
                 });
-                logger.info("index={} numfields={} fieldsnotused={}",
-                        index, map.size(), empty.get());
+                logger.log(Level.INFO, MessageFormat.format("index = {0} numfields = {1} fieldsnotused = {2}",
+                        index, map.size(), empty.get()));
             }
         } catch (Exception e) {
-            logger.error(e.getMessage(), e);
+            logger.log(Level.SEVERE, e.getMessage(), e);
         }
     }
 

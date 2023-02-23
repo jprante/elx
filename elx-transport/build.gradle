@@ -1,4 +1,8 @@
 dependencies {
     api project(':elx-common')
     api libs.es.plugin.transport.netty4
+    implementation libs.netty.codec.http
+    implementation libs.netty.handler
+    implementation libs.netty.buffer
+    implementation libs.netty.transport
 }

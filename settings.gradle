@@ -6,6 +6,7 @@ dependencyResolutionManagement {
             version('elasticsearch', '7.10.2')
             version('lucene', '8.7.0')
             version('log4j', '2.17.1') // ES 7.10.2 uses log4j2 2.11.1
+            version('netty', '4.1.87.Final')
             library('junit-jupiter-api', 'org.junit.jupiter', 'junit-jupiter-api').versionRef('junit')
             library('junit-jupiter-params', 'org.junit.jupiter', 'junit-jupiter-params').versionRef('junit')
             library('junit-jupiter-engine', 'org.junit.jupiter', 'junit-jupiter-engine').versionRef('junit')
@@ -33,6 +34,10 @@ dependencyResolutionManagement {
             library('net-http-netty-client', 'org.xbib', 'net-http-client-netty').version('3.0.4')
             library('metrics', 'org.xbib', 'metrics-common').version('3.0.0')
             library('time', 'org.xbib', 'time').version('2.1.0')
+            library('netty-codec-http', 'io.netty', 'netty-codec-http').versionRef('netty')
+            library('netty-handler', 'io.netty', 'netty-handler').versionRef('netty')
+            library('netty-buffer', 'io.netty', 'netty-buffer').versionRef('netty')
+            library('netty-transport', 'io.netty', 'netty-transport').versionRef('netty')
         }
     }
 }

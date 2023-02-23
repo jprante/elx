@@ -1,5 +1,6 @@
 package org.xbib.elx.api;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
 
@@ -9,6 +10,31 @@ import java.util.Map;
 public interface AdminClient extends BasicClient {
 
     /**
+     * List all indices.
+     * @return the names of the indices.
+     */
+    Collection<String> allIndices();
+
+    /**
+     * List all closed indices.
+     * @return the names of the closed indices.
+     */
+    Collection<String> allClosedIndices();
+
+    /**
+     * List all closed indices which were created before a given instant.
+     * @param instant the instant
+     * @return the names of the closed indices
+     */
+    Collection<String> allClosedIndicesOlderThan(Instant instant);
+
+    /**
+     * Delete all closed indices which were created before a given instant.
+     * @param instant the instant
+     */
+    void purgeAllClosedIndicesOlderThan(Instant instant);
+
+    /**
      * Get the mapping of an index.
      *
      * @param indexDefinition the index definition
@@ -16,6 +42,10 @@ public interface AdminClient extends BasicClient {
      */
     Map<String, Object> getMapping(IndexDefinition indexDefinition);
 
+    /**
+     * Check the mapping.
+     * @param indexDefinition the index definition
+     */
     void checkMapping(IndexDefinition indexDefinition);
 
     /**

@@ -1,8 +1,7 @@
 package org.xbib.elx.common;
 
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.elasticsearch.action.admin.indices.create.CreateIndexAction;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
@@ -31,7 +30,7 @@ import static org.xbib.elx.api.IndexDefinition.TYPE_NAME;
 
 public abstract class AbstractBulkClient extends AbstractBasicClient implements BulkClient {
 
-    private static final Logger logger = LogManager.getLogger(AbstractBulkClient.class.getName());
+    private static final Logger logger = Logger.getLogger(AbstractBulkClient.class.getName());
 
     private BulkProcessor bulkProcessor;
 
@@ -94,7 +93,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
                         .endObject();
                 indexDefinition.setSettings(Strings.toString(builder));
             } catch (IOException e) {
-                logger.log(Level.WARN, e.getMessage(), e);
+                logger.log(Level.WARNING, e.getMessage(), e);
             }
         }
         Settings settings = Settings.builder()
@@ -112,13 +111,13 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
                 createIndexRequestBuilder.addMapping(TYPE_NAME, builder);
             }
         } catch (IOException e) {
-            logger.log(Level.WARN, e.getMessage(), e);
+            logger.log(Level.WARNING, e.getMessage(), e);
         }
         CreateIndexResponse createIndexResponse = createIndexRequestBuilder.execute().actionGet();
         if (createIndexResponse.isAcknowledged()) {
-            logger.info("index {} created", index);
+            logger.log(Level.INFO, "index created: " + index);
         } else {
-            logger.warn("index creation of {} not acknowledged", index);
+            logger.log(Level.WARNING, "index creation of {} not acknowledged", index);
             return;
         }
         // we really need state GREEN. If yellow, we may trigger shard write errors and queue will exceed quickly.
@@ -134,13 +133,13 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
         String indexName = indexDefinition.getFullIndexName();
         int interval = indexDefinition.getStartBulkRefreshSeconds();
         if (interval != 0) {
-            logger.info("starting bulk on " + indexName + " with new refresh interval " + interval);
+            logger.log(Level.INFO, "starting bulk on " + indexName + " with new refresh interval " + interval);
             updateIndexSetting(indexName,
                     "refresh_interval", interval >=0 ? interval + "s" : interval, 30L, TimeUnit.SECONDS);
             updateIndexSetting(indexName,
                     "index.translog.durability", "async", 30L, TimeUnit.SECONDS);
         } else {
-            logger.warn("ignoring starting bulk on " + indexName + " with refresh interval " + interval);
+            logger.log(Level.WARNING, "ignoring starting bulk on " + indexName + " with refresh interval " + interval);
         }
     }
 
@@ -167,7 +166,7 @@ public abstract class AbstractBulkClient extends AbstractBasicClient implements 
                     updateIndexSetting(indexName,
                             "index.translog.durability", "request", 30L, TimeUnit.SECONDS);
                 } else {
-                    logger.warn("ignoring stopping bulk on " + indexName + " with refresh interval " + interval);
+                    logger.log(Level.WARNING, "ignoring stopping bulk on " + indexName + " with refresh interval " + interval);
                 }
             }
         }

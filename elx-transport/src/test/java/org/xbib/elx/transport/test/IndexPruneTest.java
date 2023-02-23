@@ -1,5 +1,6 @@
 package org.xbib.elx.transport.test;
 
+import java.time.Instant;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -33,6 +35,32 @@ class IndexPruneTest {
 
     IndexPruneTest(TestExtension.Helper helper) {
         this.helper = helper;
+    }
+
+    @Test
+    void testOpenClose() throws IOException {
+        try (TransportAdminClient adminClient = ClientBuilder.builder()
+                .setAdminClientProvider(TransportAdminClientProvider.class)
+                .put(helper.getClientSettings())
+                .build();
+             TransportBulkClient bulkClient = ClientBuilder.builder()
+                .setBulkClientProvider(TransportBulkClientProvider.class)
+                .put(helper.getClientSettings())
+                .build()) {
+            Instant instant = Instant.now();
+            IndexDefinition indexDefinition = new DefaultIndexDefinition("test", "_doc");
+            indexDefinition.setIndex("test_openclose");
+            indexDefinition.setFullIndexName("test_openclose");
+            bulkClient.newIndex(indexDefinition);
+            assertEquals(List.of("test_openclose").toString(), adminClient.allIndices().toString());
+            adminClient.closeIndex(indexDefinition);
+            assertEquals(List.of("test_openclose").toString(), adminClient.allClosedIndices().toString());
+            assertEquals(List.of().toString(), adminClient.allClosedIndicesOlderThan(instant).toString());
+            adminClient.openIndex(indexDefinition);
+            assertEquals(List.of("test_openclose").toString(), adminClient.allIndices().toString());
+            assertEquals(List.of().toString(), adminClient.allClosedIndices().toString());
+            assertEquals(List.of().toString(), adminClient.allClosedIndicesOlderThan(instant).toString());
+        }
     }
 
     @Test

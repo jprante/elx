@@ -17,6 +17,7 @@ test {
             '--add-opens=java.base/java.nio=ALL-UNNAMED'
     ]
     systemProperty 'java.util.logging.manager', 'org.apache.logging.log4j.jul.LogManager'
+    systemProperty 'io.netty.tryReflectionSetAccessible', 'true'
     systemProperty 'jna.debug_load', 'true'
     systemProperty 'path.home', "${project.buildDir}/"
     failFast = false

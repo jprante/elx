@@ -1,8 +1,7 @@
 package org.xbib.elx.common;
 
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction;
@@ -40,7 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class AbstractBasicClient implements BasicClient {
 
-    private static final Logger logger = LogManager.getLogger(AbstractBasicClient.class.getName());
+    private static final Logger logger = Logger.getLogger(AbstractBasicClient.class.getName());
 
     protected ElasticsearchClient client;
 
@@ -111,13 +110,13 @@ public abstract class AbstractBasicClient implements BasicClient {
                     getClient().execute(ClusterStateAction.INSTANCE, clusterStateRequest).actionGet();
             return clusterStateResponse.getClusterName().value();
         } catch (ElasticsearchTimeoutException e) {
-            logger.warn(e.getMessage(), e);
+            logger.log(Level.WARNING, e.getMessage(), e);
             return "TIMEOUT";
         } catch (NoNodeAvailableException e) {
-            logger.warn(e.getMessage(), e);
+            logger.log(Level.WARNING, e.getMessage(), e);
             return "DISCONNECTED";
         } catch (Exception e) {
-            logger.warn(e.getMessage(), e);
+            logger.log(Level.WARNING, e.getMessage(), e);
             return "[" + e.getMessage() + "]";
         }
     }
@@ -163,7 +162,7 @@ public abstract class AbstractBasicClient implements BasicClient {
         logger.info("got cluster status " + healthResponse.getStatus().name());
         if (healthResponse.isTimedOut()) {
             String message = "timeout, cluster state is " + healthResponse.getStatus().name() + " and not " + status.name();
-            logger.error(message);
+            logger.log(Level.SEVERE, message);
             throw new IllegalStateException(message);
         }
     }
@@ -178,13 +177,13 @@ public abstract class AbstractBasicClient implements BasicClient {
             ClusterHealthStatus status = healthResponse.getStatus();
             return status.name();
         } catch (ElasticsearchTimeoutException e) {
-            logger.warn(e.getMessage(), e);
+            logger.log(Level.WARNING, e.getMessage(), e);
             return "TIMEOUT";
         } catch (NoNodeAvailableException e) {
-            logger.warn(e.getMessage(), e);
+            logger.log(Level.WARNING, e.getMessage(), e);
             return "DISCONNECTED";
         } catch (Exception e) {
-            logger.warn(e.getMessage(), e);
+            logger.log(Level.WARNING, e.getMessage(), e);
             return "[" + e.getMessage() + "]";
         }
     }
@@ -241,14 +240,14 @@ public abstract class AbstractBasicClient implements BasicClient {
     @Override
     public boolean isIndexClosed(IndexDefinition indexDefinition) {
         String state = getIndexState(indexDefinition);
-        logger.log(Level.DEBUG, "index " + indexDefinition.getFullIndexName() + " is " + state);
+        logger.log(Level.FINE, "index " + indexDefinition.getFullIndexName() + " is " + state);
         return "CLOSE".equals(state);
     }
 
     @Override
     public boolean isIndexOpen(IndexDefinition indexDefinition) {
         String state = getIndexState(indexDefinition);
-        logger.log(Level.DEBUG, "index " + indexDefinition.getFullIndexName() + " is " + state);
+        logger.log(Level.FINE, "index " + indexDefinition.getFullIndexName() + " is " + state);
         return "OPEN".equals(state);
     }
 
@@ -282,7 +281,7 @@ public abstract class AbstractBasicClient implements BasicClient {
 
     protected boolean isIndexDefinitionDisabled(IndexDefinition indexDefinition) {
         if (!indexDefinition.isEnabled()) {
-            logger.warn("index " + indexDefinition.getFullIndexName() + " is disabled");
+            logger.log(Level.WARNING, "index " + indexDefinition.getFullIndexName() + " is disabled");
             return true;
         }
         return false;
