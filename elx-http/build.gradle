@@ -6,4 +6,7 @@ dependencies{
     implementation libs.netty.handler
     implementation libs.netty.buffer
     implementation libs.netty.transport
+    testImplementation libs.log4j.core
+    testImplementation libs.log4j.jul
+    testImplementation libs.log4j.slf4j
 }

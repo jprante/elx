@@ -1,12 +1,17 @@
 dependencyResolutionManagement {
     versionCatalogs {
         libs {
-            version('gradle', '7.5.1')
-            version('junit', '5.9.1')
+            version('gradle', '8.1.1')
+            version('junit', '5.9.3')
             version('elasticsearch', '7.10.2')
+            // ES 7.10.2 uses lucene 8.7.0
             version('lucene', '8.7.0')
-            version('log4j', '2.17.1') // ES 7.10.2 uses log4j2 2.11.1
-            version('netty', '4.1.87.Final')
+            // ES 7.10.2 uses log4j2 2.11.1
+            version('log4j', '2.20.0')
+            // ES 7.10.2 uses netty 4.1.49
+            version('netty', '4.1.93.Final')
+            // ES 7.10.2 uses Jackson 2.10.4
+            version('jackson', '2.14.2')
             library('junit-jupiter-api', 'org.junit.jupiter', 'junit-jupiter-api').versionRef('junit')
             library('junit-jupiter-params', 'org.junit.jupiter', 'junit-jupiter-params').versionRef('junit')
             library('junit-jupiter-engine', 'org.junit.jupiter', 'junit-jupiter-engine').versionRef('junit')
@@ -28,16 +33,14 @@ dependencyResolutionManagement {
             library('joda', 'joda-time', 'joda-time').version('2.10.4')
             library('tdigest', 'com.tdunning', 't-digest').version('3.2')
             library('es-plugin-transport-netty4', 'org.elasticsearch.plugin', 'transport-netty4-client').versionRef('elasticsearch')
-            // ES 7.10.2 uses Jackson 2.10.4
-            library('jackson', 'com.fasterxml.jackson.core', 'jackson-core').version('2.12.7')
-            // ES 7.10.2 uses Netty 4.1.49
-            library('net-http-netty-client', 'org.xbib', 'net-http-client-netty').version('3.0.5')
-            library('metrics', 'org.xbib', 'metrics-common').version('3.0.0')
-            library('time', 'org.xbib', 'time').version('2.1.0')
+            library('jackson', 'com.fasterxml.jackson.core', 'jackson-core').versionRef('jackson')
             library('netty-codec-http', 'io.netty', 'netty-codec-http').versionRef('netty')
             library('netty-handler', 'io.netty', 'netty-handler').versionRef('netty')
             library('netty-buffer', 'io.netty', 'netty-buffer').versionRef('netty')
             library('netty-transport', 'io.netty', 'netty-transport').versionRef('netty')
+            library('net-http-netty-client', 'org.xbib', 'net-http-client-netty').version('3.0.5')
+            library('metrics', 'org.xbib', 'metrics-common').version('3.0.0')
+            library('time', 'org.xbib', 'time').version('3.0.0')
         }
     }
 }
