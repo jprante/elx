@@ -49,6 +49,7 @@ import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.metadata.MappingMetadata;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
@@ -163,12 +164,16 @@ public abstract class AbstractAdminClient extends AbstractBasicClient implements
             return;
         }
         ensureClientIsPresent();
-        DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest().indices(indexName);
-        AcknowledgedResponse acknowledgedResponse = client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
-        if (acknowledgedResponse.isAcknowledged()) {
-            logger.info("index " + indexName + " deleted");
+        try {
+            DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest().indices(indexName);
+            AcknowledgedResponse acknowledgedResponse = client.execute(DeleteIndexAction.INSTANCE, deleteIndexRequest).actionGet();
+            if (acknowledgedResponse.isAcknowledged()) {
+                logger.info("index " + indexName + " deleted");
+            }
+            waitForHealthyCluster();
+        } catch (IndexNotFoundException e) {
+            logger.log(Level.WARNING, "index " + indexName + " not found, skipping deletion");
         }
-        waitForHealthyCluster();
     }
 
     @Override
