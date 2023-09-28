@@ -9,15 +9,15 @@ test {
     useJUnitPlatform()
     jvmArgs = [
             // gradle default of 512m is too less for ES bulk indexing
+            '-Xms1g',
             '-Xmx2g',
-            '-Xms2g',
             // for Lucene to access jdk.internal.ref and jdk.internal.misc in Java 11+
             '--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED',
             '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED',
             '--add-opens=java.base/java.nio=ALL-UNNAMED'
     ]
     systemProperty 'java.util.logging.manager', 'org.apache.logging.log4j.jul.LogManager'
-    systemProperty 'io.netty.tryReflectionSetAccessible', 'true'
+    systemProperty 'io.netty.tryReflectionSetAccessible', 'false'
     systemProperty 'jna.debug_load', 'true'
     systemProperty 'path.home', "${project.buildDir}/"
     failFast = false

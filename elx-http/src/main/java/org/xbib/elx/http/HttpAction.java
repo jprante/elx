@@ -141,7 +141,9 @@ public abstract class HttpAction<R extends ActionRequest, T extends ActionRespon
     }
 
     protected HttpRequestBuilder newRequest(HttpMethod method, String baseUrl, String path, BytesReference content) {
-        return HttpRequest.builder(method).setURL(URL.from(baseUrl).resolve(path)).content(content.toBytesRef().bytes, APPLICATION_JSON);
+        return HttpRequest.builder(method)
+                .setURL(URL.from(baseUrl).resolve(path))
+                .content(content.toBytesRef().bytes, APPLICATION_JSON);
     }
 
     protected HttpRequestBuilder newRequest(HttpMethod method, String baseUrl, String path, String content) {

@@ -1,7 +1,7 @@
 dependencies {
     api libs.metrics
     api libs.elasticsearch
-    // override old artifacts in ES x-content. We must use jackson smile/cbor/yaml and log4j2 api here.
+    // override older artifacts in ES x-content. We must use jackson smile/cbor/yaml and log4j2 api here.
     api libs.jackson
     api libs.log4j.api
     // add dependencies which are not managed by elasticsearch as a runtime dependency.
