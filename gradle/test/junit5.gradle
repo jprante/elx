@@ -3,12 +3,13 @@ dependencies {
     testImplementation libs.junit.jupiter.params
     testImplementation libs.hamcrest
     testRuntimeOnly libs.junit.jupiter.engine
+    testRuntimeOnly libs.junit.jupiter.platform.launcher
 }
 
 test {
     useJUnitPlatform()
     jvmArgs = [
-            // gradle default of 512m is too less for ES bulk indexing
+            // gradle default of 512m is too small for ES bulk indexing
             '-Xms1g',
             '-Xmx2g',
             // for Lucene to access jdk.internal.ref and jdk.internal.misc in Java 11+

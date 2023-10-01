@@ -1,7 +1,7 @@
 dependencyResolutionManagement {
     versionCatalogs {
         libs {
-            version('gradle', '8.1.1')
+            version('gradle', '8.4-rc-1')
             version('junit', '5.10.0')
             version('elasticsearch', '7.10.2')
             // ES 7.10.2 uses lucene 8.7.0
@@ -15,6 +15,7 @@ dependencyResolutionManagement {
             library('junit-jupiter-api', 'org.junit.jupiter', 'junit-jupiter-api').versionRef('junit')
             library('junit-jupiter-params', 'org.junit.jupiter', 'junit-jupiter-params').versionRef('junit')
             library('junit-jupiter-engine', 'org.junit.jupiter', 'junit-jupiter-engine').versionRef('junit')
+            library('junit-jupiter-platform-launcher', 'org.junit.platform', 'junit-platform-launcher').version('1.10.0')
             library('hamcrest', 'org.hamcrest', 'hamcrest-library').version('2.2')
             library('junit4', 'junit', 'junit').version('4.13.2')
             library('log4j-api', 'org.apache.logging.log4j', 'log4j-api').versionRef('log4j')
@@ -38,7 +39,7 @@ dependencyResolutionManagement {
             library('netty-handler', 'io.netty', 'netty-handler').versionRef('netty')
             library('netty-buffer', 'io.netty', 'netty-buffer').versionRef('netty')
             library('netty-transport', 'io.netty', 'netty-transport').versionRef('netty')
-            library('net-http-netty-client', 'org.xbib', 'net-http-client-netty').version('3.7.3')
+            library('net-http-netty-client', 'org.xbib', 'net-http-client-netty').version('4.0.1')
             library('metrics', 'org.xbib', 'metrics-common').version('3.0.0')
             library('time', 'org.xbib', 'time').version('3.0.0')
         }
