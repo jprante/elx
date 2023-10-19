@@ -1,6 +1,8 @@
 dependencies {
     api libs.metrics
-    api libs.elasticsearch
+    api(libs.elasticsearch) {
+        exclude group: 'org.elasticsearch', module: 'jna'
+    }
     // override older artifacts in ES x-content. We must use jackson smile/cbor/yaml and log4j2 api here.
     api libs.jackson
     api libs.log4j.api
@@ -16,4 +18,6 @@ dependencies {
     implementation libs.hppc
     implementation libs.joda
     implementation libs.tdigest
+    // use our JNA
+    implementation libs.jna
 }
