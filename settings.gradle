@@ -1,24 +1,17 @@
 dependencyResolutionManagement {
     versionCatalogs {
         libs {
-            version('gradle', '8.4')
-            version('junit', '5.10.0')
+            version('gradle', '8.5')
             version('elasticsearch', '7.10.2')
             // ES 7.10.2 uses lucene 8.7.0
             version('lucene', '8.7.0')
             // ES 7.10.2 uses log4j2 2.11.1
-            version('log4j', '2.20.0')
+            version('log4j', '2.22.0')
             // ES 7.10.2 uses netty 4.1.49
-            version('netty', '4.1.100.Final')
+            version('netty', '4.1.101.Final')
             // ES 7.10.2 uses Jackson 2.10.4
             version('jackson', '2.15.2')
-            version('net-http', '4.0.2') // must match netty version
-            library('junit-jupiter-api', 'org.junit.jupiter', 'junit-jupiter-api').versionRef('junit')
-            library('junit-jupiter-params', 'org.junit.jupiter', 'junit-jupiter-params').versionRef('junit')
-            library('junit-jupiter-engine', 'org.junit.jupiter', 'junit-jupiter-engine').versionRef('junit')
-            library('junit-jupiter-platform-launcher', 'org.junit.platform', 'junit-platform-launcher').version('1.10.0')
-            library('hamcrest', 'org.hamcrest', 'hamcrest-library').version('2.2')
-            library('junit4', 'junit', 'junit').version('4.13.2')
+            version('net-http', '4.0.6') // must match netty version
             library('log4j-api', 'org.apache.logging.log4j', 'log4j-api').versionRef('log4j')
             library('log4j-core', 'org.apache.logging.log4j', 'log4j-core').versionRef('log4j')
             library('log4j-slf4j', 'org.apache.logging.log4j', 'log4j-slf4j-impl').versionRef('log4j')
@@ -44,6 +37,15 @@ dependencyResolutionManagement {
             library('metrics', 'org.xbib', 'metrics-common').version('3.0.0')
             library('time', 'org.xbib', 'time').version('3.0.0')
             library('jna', 'net.java.dev.jna', 'jna').version('5.13.0')
+        }
+        testLibs {
+            version('junit', '5.10.0')
+            library('junit-jupiter-api', 'org.junit.jupiter', 'junit-jupiter-api').versionRef('junit')
+            library('junit-jupiter-params', 'org.junit.jupiter', 'junit-jupiter-params').versionRef('junit')
+            library('junit-jupiter-engine', 'org.junit.jupiter', 'junit-jupiter-engine').versionRef('junit')
+            library('junit-jupiter-platform-launcher', 'org.junit.platform', 'junit-platform-launcher').version('1.10.0')
+            library('hamcrest', 'org.hamcrest', 'hamcrest-library').version('2.2')
+            library('junit4', 'junit', 'junit').version('4.13.2')
         }
     }
 }
