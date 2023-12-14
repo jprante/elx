@@ -8,6 +8,9 @@ dependencies {
     api libs.log4j.api
     // add dependencies which are not managed by elasticsearch as a runtime dependency.
     // So, groovy grapes can load and run smoothly the elx client.
+    implementation libs.jackson.cbor
+    implementation libs.jackson.smile
+    implementation libs.jackson.yaml
     implementation libs.lucene
     implementation libs.lucene.analyzers.common
     implementation libs.lucene.highlighter
